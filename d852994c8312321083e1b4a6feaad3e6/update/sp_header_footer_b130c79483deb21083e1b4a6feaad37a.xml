@@ -4,21 +4,8 @@
         <client_script><![CDATA[api.controller = function($scope, $location, $window) {
     var c = this;
     
-    // Menu items
-    c.menuItems = [
-        {
-            label: 'Dashboard',
-            page: 'fha_homepage',
-            icon: 'fa-tachometer-alt',
-            active: false
-        },
-        {
-            label: 'Results',
-            page: 'fha_analysis_results',
-            icon: 'fa-chart-bar',
-            active: false
-        }
-    ];
+    // Get menu items from server data (loaded from sp_instance_menu)
+    c.menuItems = c.data.menuItems || [];
     
     // Set active menu item based on current page
     c.$onInit = function() {
@@ -28,9 +15,13 @@
         });
     };
     
-    // Navigate to page
-    c.navigateTo = function(page) {
-        $window.location.href = '/fha?id=' + page;
+    // Navigate to page or URL
+    c.navigateTo = function(item) {
+        if (item.type === 'url' && item.url) {
+            $window.location.href = item.url;
+        } else if (item.page) {
+            $window.location.href = '/fha?id=' + item.page;
+        }
     };
     
     // Check if menu item is active
@@ -81,6 +72,51 @@
     // Get portal info
     data.portalTitle = 'Foundation Health Analyzer';
     data.portalSubtitle = 'ServiceNow Analysis Tool';
+    
+    // Get menu items from FHA Menu (sp_instance_menu)
+    data.menuItems = [];
+    
+    // Find the FHA Menu instance
+    var menuGr = new GlideRecord('sp_instance_menu');
+    menuGr.addQuery('title', 'FHA Menu');
+    menuGr.query();
+    
+    if (menuGr.next()) {
+        // Get menu items for this menu
+        var itemGr = new GlideRecord('sp_instance_menu_item');
+        itemGr.addQuery('sp_instance_menu', menuGr.getUniqueValue());
+        itemGr.addQuery('active', true);
+        itemGr.orderBy('order');
+        itemGr.query();
+        
+        while (itemGr.next()) {
+            var menuItem = {
+                label: itemGr.getValue('label') || '',
+                type: itemGr.getValue('type') || 'page',
+                url: itemGr.getValue('url') || '',
+                page: '',
+                icon: itemGr.getValue('glyph') || 'fa-circle'
+            };
+            
+            // Get page ID if type is 'page'
+            if (menuItem.type === 'page' && !itemGr.sp_page.nil()) {
+                var pageGr = itemGr.sp_page.getRefRecord();
+                if (pageGr) {
+                    menuItem.page = pageGr.getValue('id') || '';
+                }
+            }
+            
+            data.menuItems.push(menuItem);
+        }
+    }
+    
+    // Fallback to default menu if no items found
+    if (data.menuItems.length === 0) {
+        data.menuItems = [
+            { label: 'Dashboard', page: 'fha_homepage', icon: 'fa-tachometer-alt', type: 'page' },
+            { label: 'Results', page: 'fha_analysis_results', icon: 'fa-chart-bar', type: 'page' }
+        ];
+    }
 })();]]></script>
         <servicenow>false</servicenow>
         <static>false</static>
@@ -99,7 +135,7 @@
         <template><![CDATA[<header class="fha-header">
     <div class="fha-header-container">
         <!-- Logo -->
-        <div class="fha-logo" ng-click="c.navigateTo('fha_homepage')">
+        <div class="fha-logo" ng-click="c.navigateTo({page: 'fha_homepage', type: 'page'})">
             <div class="fha-logo-icon">
                 <i class="fa fa-heartbeat"></i>
             </div>
@@ -114,13 +150,13 @@
             <i class="fa" ng-class="c.mobileMenuOpen ? 'fa-times' : 'fa-bars'"></i>
         </button>
         
-        <!-- Navigation -->
+        <!-- Navigation (loaded from FHA Menu) -->
         <nav class="fha-nav" ng-class="{'mobile-open': c.mobileMenuOpen}">
             <button class="fha-nav-item" 
                     ng-repeat="item in c.menuItems" 
-                    ng-click="c.navigateTo(item.page)"
+                    ng-click="c.navigateTo(item)"
                     ng-class="{'active': c.isActive(item)}">
-                <i class="fa" ng-class="item.icon"></i>
+                <i class="fa" ng-class="item.icon || 'fa-circle'"></i>
                 <span>{{item.label}}</span>
             </button>
         </nav>
