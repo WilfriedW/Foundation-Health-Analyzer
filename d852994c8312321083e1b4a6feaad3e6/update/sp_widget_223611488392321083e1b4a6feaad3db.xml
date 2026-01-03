@@ -1044,12 +1044,27 @@
     resultsGr.query();
     
     while (resultsGr.next()) {
-        // Get table display name from reference
+        // Get table display name from reference or detail_json
         var tableDisplayName = '';
+        
+        // Method 1: Try reference field
         if (resultsGr.table_name && !resultsGr.table_name.nil()) {
             var tableRefGr = resultsGr.table_name.getRefRecord();
             if (tableRefGr) {
                 tableDisplayName = tableRefGr.getValue('label') || tableRefGr.getValue('name') || '';
+            }
+        }
+        
+        // Method 2: Fallback to detail_json
+        if (!tableDisplayName) {
+            try {
+                var detailJson = resultsGr.getValue('detail_json');
+                if (detailJson) {
+                    var detail = JSON.parse(detailJson);
+                    tableDisplayName = detail.table_label || detail.table_name || '';
+                }
+            } catch(e) {
+                // Ignore parse errors
             }
         }
         
@@ -1108,12 +1123,27 @@
                 gr.query();
                 
                 while (gr.next()) {
-                    // Get table display name from reference
+                    // Get table display name from reference or detail_json
                     var tblName = '';
+                    
+                    // Method 1: Try reference field
                     if (gr.table_name && !gr.table_name.nil()) {
                         var tblRef = gr.table_name.getRefRecord();
                         if (tblRef) {
                             tblName = tblRef.getValue('label') || tblRef.getValue('name') || '';
+                        }
+                    }
+                    
+                    // Method 2: Fallback to detail_json
+                    if (!tblName) {
+                        try {
+                            var dJson = gr.getValue('detail_json');
+                            if (dJson) {
+                                var dObj = JSON.parse(dJson);
+                                tblName = dObj.table_label || dObj.table_name || '';
+                            }
+                        } catch(ex) {
+                            // Ignore parse errors
                         }
                     }
                     
@@ -1605,8 +1635,8 @@
             <tbody>
               <tr ng-repeat="analysis in c.recentAnalyses | limitTo:10">
                 <td>
-                  <strong>{{analysis.table_name || 'N/A'}}</strong>
-                  <div style="font-size: 11px; color: #999;">{{analysis.number}}</div>
+                  <strong>{{analysis.number}}</strong>
+                  <div style="font-size: 11px; color: #999;">{{analysis.table_name || 'N/A'}}</div>
                 </td>
                 <td>
                   <span class="fha-score-badge" 
@@ -1616,7 +1646,7 @@
                   </span>
                 </td>
                 <td>
-                  <button class="btn btn-xs btn-default" ng-click="c.loadResult(analysis.sys_id)" title="${Load this analysis}">
+                  <button class="btn btn-xs btn-default" ng-click="c.viewDetails(analysis.sys_id)" title="${View analysis details}">
                     <i class="fa fa-eye"></i>
                   </button>
                 </td>
