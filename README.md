@@ -156,7 +156,159 @@ Stores analysis results.
 
 ---
 
-## 🔍 Analysis Checks
+## ⚙️ Configuration Options
+
+Les options de configuration permettent d'activer des analyses supplémentaires. Ces champs doivent être ajoutés à la table `fha_configuration` :
+
+### Options disponibles
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `deep_scan` | Boolean | Analyse approfondie du contenu des scripts |
+| `include_children_tables` | Boolean | Inclure les tables enfants dans l'analyse |
+| `analyze_references` | Boolean | Analyser les champs de référence en détail |
+
+---
+
+### 🔵 Analyse de base (toujours exécutée)
+
+Ces vérifications s'exécutent **toujours**, même si aucune option n'est activée :
+
+#### FHCheckTable (base)
+- ✅ Vérifie si la table existe
+- ✅ Compte les enregistrements
+- ✅ Liste les champs personnalisés avec taux de remplissage
+- ✅ Liste les champs de référence
+- ✅ Liste les Business Rules (actives/inactives)
+- ✅ Liste les Client Scripts
+
+#### FHCheckAutomation (base)
+- ✅ Scheduled Jobs qui référencent la table
+- ✅ Flows (table + tables parentes)
+- ✅ Workflows (table + tables parentes)
+- ✅ Notifications (table + tables parentes)
+- ✅ UI Actions (table + tables parentes)
+- ✅ UI Policies (table + tables parentes)
+
+#### FHCheckIntegration (base)
+- ✅ Data Sources ciblant la table
+- ✅ Import Sets
+- ✅ Transform Maps
+- ✅ ACLs (table + tables parentes)
+- ✅ REST APIs référençant la table
+
+---
+
+### 🟢 Deep Scan (`deep_scan = true`)
+
+Active l'analyse du **contenu des scripts** pour détecter les problèmes de qualité :
+
+#### FHCheckTable - Analyse des scripts
+| Code | Sévérité | Description |
+|------|----------|-------------|
+| `CURRENT_UPDATE` | 🔴 High | Business Rule utilise `current.update()` (risque de récursion) |
+| `HARDCODED_SYSID` | 🟡 Medium | Script contient des sys_id hardcodés |
+| `EVAL_USAGE` | 🔴 High | Script utilise `eval()` (risque de sécurité) |
+| `CONSOLE_LOG` | 🟢 Low | Script utilise `console.log` au lieu de `gs.log` |
+| `SYNC_AJAX` | 🟡 Medium | Client Script utilise `getXMLWait()` (synchrone) |
+| `QUERY_NO_LIMIT` | 🟡 Medium | GlideRecord en boucle sans `setLimit()` |
+
+#### FHCheckAutomation - Analyse des automations
+| Code | Sévérité | Description |
+|------|----------|-------------|
+| `NO_DESCRIPTION` | 🟢 Low | Flow sans description |
+| `GS_SLEEP` | 🟡 Medium | Script utilise `gs.sleep()` |
+| `HARDCODED_SYSID` | 🟡 Medium | Script contient des sys_id hardcodés |
+| `EVAL_USAGE` | 🔴 High | Script utilise `eval()` |
+
+#### FHCheckIntegration - Analyse des transform maps
+| Code | Sévérité | Description |
+|------|----------|-------------|
+| `HARDCODED_SYSID` | 🟡 Medium | Transform map contient des sys_id hardcodés |
+| `UNCONDITIONAL_IGNORE` | 🟢 Low | `ignore()` sans condition |
+| `NO_ERROR_HANDLING` | 🟢 Low | GlideRecord sans try-catch |
+
+---
+
+### 🟣 Include Children Tables (`include_children_tables = true`)
+
+Active l'analyse des **tables enfants** (tables qui étendent la table analysée) :
+
+#### FHCheckTable - Tables enfants
+- Liste toutes les tables qui héritent de la table analysée
+- Compte les enregistrements de chaque table enfant
+- Identifie le scope de chaque table
+
+**Métriques ajoutées :**
+```json
+{
+  "children_tables": [
+    { "name": "incident", "label": "Incident", "record_count": 5000 },
+    { "name": "problem", "label": "Problem", "record_count": 200 }
+  ],
+  "children_table_count": 2
+}
+```
+
+#### FHCheckAutomation - Automations des enfants
+- Inclut les Flows/Workflows/Notifications des tables enfants
+- Fusion avec la hiérarchie parente
+
+#### FHCheckIntegration - Intégrations des enfants
+- Inclut les Data Sources/Transform Maps des tables enfants
+- Inclut les REST APIs des tables enfants
+
+---
+
+### 🟠 Analyze References (`analyze_references = true`)
+
+Active l'analyse **approfondie des champs de référence** :
+
+#### FHCheckTable - Qualité des références
+| Code | Sévérité | Description |
+|------|----------|-------------|
+| `ORPHAN_REFERENCES` | 🟡 Medium | Références vers des enregistrements supprimés |
+
+**Métriques ajoutées :**
+```json
+{
+  "reference_analysis": [
+    {
+      "field": "assigned_to",
+      "reference_table": "sys_user",
+      "null_count": 150,
+      "null_percentage": 15,
+      "orphan_count": 3,
+      "orphan_detected": true
+    }
+  ]
+}
+```
+
+#### FHCheckIntegration - Dépendances d'intégration
+- Cartographie les intégrations **entrantes** (Data Sources, Transform Maps)
+- Cartographie les intégrations **sortantes** (REST APIs, REST Messages)
+
+**Métriques ajoutées :**
+```json
+{
+  "integration_dependencies": {
+    "inbound": [
+      { "type": "Data Source", "name": "LDAP Import", "active": true },
+      { "type": "Transform Map", "name": "User Transform", "active": true }
+    ],
+    "outbound": [
+      { "type": "REST API", "name": "User API", "method": "GET", "active": true }
+    ]
+  },
+  "inbound_integration_count": 2,
+  "outbound_integration_count": 1
+}
+```
+
+---
+
+## 🔍 Analysis Checks (Détail)
 
 ### FHCheckTable
 
@@ -165,42 +317,67 @@ Analyzes table-specific elements:
 - **Custom Fields**: Lists all custom fields with fill rates
 - **Business Rules**: Active/inactive BR count, identifies issues
 - **Client Scripts**: Active/inactive CS count
-- **UI Actions**: Lists UI actions on the table
-- **ACLs**: Security configuration
+- **Reference Fields**: Lists reference fields and validates targets
 
 **Issues Detected:**
-- `EMPTY_FIELD` - Custom field with 0% fill rate
-- `LOW_FILL_RATE` - Custom field with <10% fill rate
-- `INACTIVE_BR` - Inactive business rules
-- `NO_CONDITION_BR` - Business rules without conditions
-- `COMPLEX_SCRIPT` - Scripts exceeding complexity threshold
+| Code | Sévérité | Description |
+|------|----------|-------------|
+| `INVALID_CONFIG` | 🔴 High | Configuration invalide (pas de table) |
+| `TABLE_NOT_FOUND` | 🔴 High | Table n'existe pas |
+| `EMPTY_TABLE` | 🟡 Medium | Table sans enregistrements |
+| `LARGE_TABLE` | 🟡 Medium | Table avec >1M enregistrements |
+| `UNUSED_FIELD` | 🔴 High | Champ personnalisé jamais rempli (0%) |
+| `LOW_USAGE_FIELD` | 🟡 Medium | Champ personnalisé peu utilisé (<10%) |
+| `POTENTIAL_DUPLICATE` | 🟡 Medium | Champ u_xxx qui duplique un champ OOTB |
+| `TOO_MANY_CUSTOM_FIELDS` | 🟡 Medium | Plus de 50 champs personnalisés |
+| `INVALID_REFERENCE` | 🔴 High | Référence vers table inexistante |
+| `MANY_BUSINESS_RULES` | 🟡 Medium | Plus de 20 BR actives |
+| `INACTIVE_BUSINESS_RULES` | 🟢 Low | Plus de 10 BR inactives |
+| `MANY_CLIENT_SCRIPTS` | 🟡 Medium | Plus de 15 CS actifs |
+| `MANY_CHILD_TABLES` | 🟢 Low | Plus de 10 tables enfants |
 
 ### FHCheckAutomation
 
 Analyzes automation elements:
 
 - **Scheduled Jobs**: Jobs related to the table
-- **Flows**: Flow Designer flows
-- **Workflows**: Legacy workflows
-- **Notifications**: Email notifications
+- **Flows**: Flow Designer flows (table + parents)
+- **Workflows**: Legacy workflows (table + parents)
+- **Notifications**: Email notifications (table + parents)
+- **UI Actions**: UI Actions (table + parents)
+- **UI Policies**: UI Policies (table + parents)
 
 **Issues Detected:**
-- `INACTIVE_JOB` - Inactive scheduled jobs
-- `INACTIVE_FLOW` - Inactive flows
-- `INACTIVE_WORKFLOW` - Inactive workflows
-- `INACTIVE_NOTIFICATION` - Inactive notifications
+| Code | Sévérité | Description |
+|------|----------|-------------|
+| `INACTIVE_SCHEDULED_JOB` | 🟢 Low | Scheduled job inactif |
+| `INACTIVE_FLOW` | 🟢 Low | Flow inactif |
+| `MANY_FLOWS` | 🟡 Medium | Plus de 10 flows |
+| `UNPUBLISHED_WORKFLOW` | 🟡 Medium | Workflow actif mais non publié |
+| `LEGACY_WORKFLOWS` | 🟢 Low | Table utilise des workflows legacy |
+| `MANY_NOTIFICATIONS` | 🟡 Medium | Plus de 20 notifications |
+| `MANY_UI_ACTIONS` | 🟡 Medium | Plus de 25 UI Actions |
+| `MANY_UI_POLICIES` | 🟡 Medium | Plus de 15 UI Policies |
 
 ### FHCheckIntegration
 
 Analyzes integration elements:
 
 - **Data Sources**: Import data sources
+- **Import Sets**: Import set runs and failures
 - **Transform Maps**: Data transformation maps
+- **ACLs**: Security configuration (table + parents)
+- **REST APIs**: Scripted REST APIs referencing the table
 
 **Issues Detected:**
-- `INACTIVE_DATASOURCE` - Inactive data sources
-- `INACTIVE_TRANSFORM` - Inactive transform maps
-- `NO_FIELD_MAPS` - Transform maps without field mappings
+| Code | Sévérité | Description |
+|------|----------|-------------|
+| `INACTIVE_DATA_SOURCE` | 🟢 Low | Data source inactive |
+| `FAILED_IMPORTS` | 🟡 Medium | Imports échoués dans les 30 derniers jours |
+| `INACTIVE_TRANSFORM_MAP` | 🟢 Low | Transform map inactive |
+| `NO_READ_ACL` | 🟡 Medium | Pas d'ACL de lecture |
+| `NO_WRITE_ACL` | 🟡 Medium | Pas d'ACL d'écriture |
+| `MANY_INTEGRATIONS` | 🟢 Low | Plus de 10 intégrations |
 
 ---
 
@@ -715,6 +892,15 @@ Proprietary - All rights reserved
 ---
 
 ## 📅 Changelog
+
+### v1.1.0 (2026-01-04)
+- **New**: Configuration options (`deep_scan`, `include_children_tables`, `analyze_references`)
+- **New**: Deep scan - Script quality analysis (current.update, hardcoded sys_ids, eval)
+- **New**: Children tables analysis with record counts
+- **New**: Reference field quality analysis (orphan detection)
+- **New**: Integration dependencies mapping (inbound/outbound)
+- **Improved**: Table hierarchy support (parents + children)
+- **Improved**: Detailed documentation of all options
 
 ### v1.0.0 (2026-01-03)
 - Initial release
