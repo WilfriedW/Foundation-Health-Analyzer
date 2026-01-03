@@ -469,12 +469,13 @@ FHCheckIntegration.prototype = {
         var issues = [];
         if (!script) return issues;
         
-        // Check for hardcoded sys_ids
-        var sysIdPattern = /['"][a-f0-9]{32}['"]/gi;
-        if (sysIdPattern.test(script)) {
+        // Check for hardcoded sys_ids (32 hex characters)
+        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
+        var sysIdMatches = script.match(sysIdPattern);
+        if (sysIdMatches && sysIdMatches.length > 0) {
             issues.push({
                 code: 'HARDCODED_SYSID',
-                message: 'Transform map "' + scriptName + '" contains hardcoded sys_id values',
+                message: 'Transform map "' + scriptName + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s)',
                 severity: 'medium'
             });
         }

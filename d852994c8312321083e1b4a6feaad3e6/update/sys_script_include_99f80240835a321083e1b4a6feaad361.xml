@@ -607,12 +607,14 @@ FHCheckTable.prototype = {
             });
         }
         
-        // Check for hardcoded sys_ids
-        var sysIdPattern = /['"][a-f0-9]{32}['"]/gi;
-        if (sysIdPattern.test(script)) {
+        // Check for hardcoded sys_ids (32 hex characters)
+        // Pattern matches: "abc123...", 'abc123...', or just abc123... in addQuery/get calls
+        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
+        var sysIdMatches = script.match(sysIdPattern);
+        if (sysIdMatches && sysIdMatches.length > 0) {
             issues.push({
                 code: 'HARDCODED_SYSID',
-                message: scriptType + ' "' + scriptName + '" contains hardcoded sys_id values',
+                message: scriptType + ' "' + scriptName + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s)',
                 severity: 'medium'
             });
         }
