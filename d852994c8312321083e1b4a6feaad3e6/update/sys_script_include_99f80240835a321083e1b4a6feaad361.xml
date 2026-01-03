@@ -11,6 +11,7 @@
         <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[/**
  * FHCheckTable - Check for table-specific issues
+ * Analyzes custom fields, reference fields, and business rules
  */
 var FHCheckTable = Class.create();
 FHCheckTable.prototype = {
@@ -19,39 +20,274 @@ FHCheckTable.prototype = {
      * @param {Object} ctx - Analysis context
      */
     execute: function(ctx) {
+        this._checkTableExists(ctx);
+        this._checkRecordCount(ctx);
         this._checkFieldUsage(ctx);
         this._checkReferenceFields(ctx);
         this._checkBusinessRules(ctx);
+        this._checkClientScripts(ctx);
     },
 
     /**
-     * Check field usage
+     * Check if table exists
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkTableExists: function(ctx) {
+        var tableName = ctx.config.table_name;
+        var gr = new GlideRecord('sys_db_object');
+        if (!gr.get('name', tableName)) {
+            ctx.addIssue('TABLE_NOT_FOUND', 'La table "' + tableName + '" n\'existe pas dans le système', 'high');
+            ctx.metrics.table_exists = false;
+            return;
+        }
+        ctx.metrics.table_exists = true;
+        ctx.metrics.table_label = gr.getValue('label') || tableName;
+    },
+
+    /**
+     * Check record count
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkRecordCount: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+        
+        var tableName = ctx.config.table_name;
+        var ga = new GlideAggregate(tableName);
+        ga.addAggregate('COUNT');
+        ga.query();
+        
+        var count = 0;
+        if (ga.next()) {
+            count = parseInt(ga.getAggregate('COUNT')) || 0;
+        }
+        
+        ctx.metrics.record_count = count;
+        
+        if (count === 0) {
+            ctx.addIssue('EMPTY_TABLE', 'La table ne contient aucun enregistrement', 'medium');
+        } else if (count > 1000000) {
+            ctx.addIssue('LARGE_TABLE', 'La table contient plus d\'un million d\'enregistrements (' + count + '). Considérez l\'archivage.', 'medium');
+        }
+    },
+
+    /**
+     * Check field usage - analyzes custom fields and their fill rates
      * @private
      * @param {Object} ctx - Analysis context
      */
     _checkFieldUsage: function(ctx) {
-        // Implementation for checking field usage
-        // Add issues to context as needed
+        if (!ctx.metrics.table_exists) return;
+        
+        var tableName = ctx.config.table_name;
+        var customFields = [];
+        var unusedFields = [];
+        var lowUsageFields = [];
+        
+        // Get all custom fields (u_ prefix or from scoped app)
+        var gr = new GlideRecord('sys_dictionary');
+        gr.addQuery('name', tableName);
+        gr.addQuery('element', 'STARTSWITH', 'u_');
+        gr.addQuery('internal_type', '!=', 'collection');
+        gr.orderBy('element');
+        gr.query();
+        
+        while (gr.next()) {
+            var fieldName = gr.getValue('element');
+            var fieldLabel = gr.getValue('column_label') || fieldName;
+            var fieldType = gr.getValue('internal_type');
+            
+            // Calculate fill rate
+            var fillRate = this._calculateFillRate(tableName, fieldName, ctx.metrics.record_count);
+            
+            var fieldInfo = {
+                name: fieldName,
+                label: fieldLabel,
+                type: fieldType,
+                fill_rate: fillRate,
+                mandatory: gr.getValue('mandatory') === 'true'
+            };
+            
+            customFields.push(fieldInfo);
+            
+            // Check for issues
+            if (fillRate === 0) {
+                unusedFields.push(fieldName);
+                ctx.addIssue('UNUSED_FIELD', 'Le champ "' + fieldLabel + '" (' + fieldName + ') n\'est jamais rempli (0%)', 'high');
+            } else if (fillRate < 10) {
+                lowUsageFields.push(fieldName);
+                ctx.addIssue('LOW_USAGE_FIELD', 'Le champ "' + fieldLabel + '" (' + fieldName + ') est peu utilisé (' + fillRate + '%)', 'medium');
+            }
+            
+            // Check for potential OOTB duplicates
+            var baseName = fieldName.substring(2); // Remove u_ prefix
+            if (this._ootbFieldExists(tableName, baseName)) {
+                ctx.addIssue('POTENTIAL_DUPLICATE', 'Le champ "' + fieldName + '" pourrait être un doublon du champ OOTB "' + baseName + '"', 'medium');
+            }
+        }
+        
+        ctx.metrics.custom_fields = customFields;
+        ctx.metrics.custom_field_count = customFields.length;
+        ctx.metrics.unused_field_count = unusedFields.length;
+        ctx.metrics.low_usage_field_count = lowUsageFields.length;
+        
+        if (customFields.length > 50) {
+            ctx.addIssue('TOO_MANY_CUSTOM_FIELDS', 'La table contient ' + customFields.length + ' champs personnalisés. Envisagez une consolidation.', 'medium');
+        }
     },
 
     /**
-     * Check reference fields
+     * Calculate fill rate for a field
+     * @private
+     */
+    _calculateFillRate: function(tableName, fieldName, totalRecords) {
+        if (!totalRecords || totalRecords === 0) return 0;
+        
+        var ga = new GlideAggregate(tableName);
+        ga.addNotNullQuery(fieldName);
+        ga.addQuery(fieldName, '!=', '');
+        ga.addAggregate('COUNT');
+        ga.query();
+        
+        var filledCount = 0;
+        if (ga.next()) {
+            filledCount = parseInt(ga.getAggregate('COUNT')) || 0;
+        }
+        
+        return Math.round((filledCount / totalRecords) * 100);
+    },
+
+    /**
+     * Check if OOTB field exists
+     * @private
+     */
+    _ootbFieldExists: function(tableName, fieldName) {
+        var gr = new GlideRecord('sys_dictionary');
+        gr.addQuery('name', tableName);
+        gr.addQuery('element', fieldName);
+        gr.addQuery('element', 'NOT STARTSWITH', 'u_');
+        gr.setLimit(1);
+        gr.query();
+        return gr.hasNext();
+    },
+
+    /**
+     * Check reference fields for orphan references
      * @private
      * @param {Object} ctx - Analysis context
      */
     _checkReferenceFields: function(ctx) {
-        // Implementation for checking reference fields
-        // Add issues to context as needed
+        if (!ctx.metrics.table_exists) return;
+        
+        var tableName = ctx.config.table_name;
+        var referenceFields = [];
+        
+        // Get all reference fields
+        var gr = new GlideRecord('sys_dictionary');
+        gr.addQuery('name', tableName);
+        gr.addQuery('internal_type', 'reference');
+        gr.query();
+        
+        while (gr.next()) {
+            var fieldName = gr.getValue('element');
+            var refTable = gr.getValue('reference');
+            
+            if (!refTable) continue;
+            
+            referenceFields.push({
+                name: fieldName,
+                reference_table: refTable
+            });
+            
+            // Check if referenced table exists
+            var tableGr = new GlideRecord('sys_db_object');
+            if (!tableGr.get('name', refTable)) {
+                ctx.addIssue('INVALID_REFERENCE', 'Le champ "' + fieldName + '" référence une table inexistante: ' + refTable, 'high');
+            }
+        }
+        
+        ctx.metrics.reference_field_count = referenceFields.length;
+        ctx.metrics.reference_fields = referenceFields;
     },
 
     /**
-     * Check business rules
+     * Check business rules on the table
      * @private
      * @param {Object} ctx - Analysis context
      */
     _checkBusinessRules: function(ctx) {
-        // Implementation for checking business rules
-        // Add issues to context as needed
+        if (!ctx.metrics.table_exists) return;
+        
+        var tableName = ctx.config.table_name;
+        var businessRules = [];
+        var activeBRCount = 0;
+        var inactiveBRCount = 0;
+        
+        var gr = new GlideRecord('sys_script');
+        gr.addQuery('collection', tableName);
+        gr.query();
+        
+        while (gr.next()) {
+            var brInfo = {
+                name: gr.getValue('name'),
+                active: gr.getValue('active') === 'true',
+                when: gr.getValue('when'),
+                order: gr.getValue('order')
+            };
+            
+            businessRules.push(brInfo);
+            
+            if (brInfo.active) {
+                activeBRCount++;
+            } else {
+                inactiveBRCount++;
+            }
+        }
+        
+        ctx.metrics.business_rules = businessRules;
+        ctx.metrics.active_br_count = activeBRCount;
+        ctx.metrics.inactive_br_count = inactiveBRCount;
+        
+        if (activeBRCount > 20) {
+            ctx.addIssue('MANY_BUSINESS_RULES', 'La table a ' + activeBRCount + ' business rules actives. Cela peut impacter les performances.', 'medium');
+        }
+        
+        if (inactiveBRCount > 10) {
+            ctx.addIssue('INACTIVE_BUSINESS_RULES', 'La table a ' + inactiveBRCount + ' business rules inactives. Envisagez de les supprimer.', 'low');
+        }
+    },
+
+    /**
+     * Check client scripts on the table
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkClientScripts: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+        
+        var tableName = ctx.config.table_name;
+        var clientScripts = [];
+        
+        var gr = new GlideRecord('sys_script_client');
+        gr.addQuery('table', tableName);
+        gr.addQuery('active', true);
+        gr.query();
+        
+        while (gr.next()) {
+            clientScripts.push({
+                name: gr.getValue('name'),
+                type: gr.getValue('type'),
+                ui_type: gr.getValue('ui_type')
+            });
+        }
+        
+        ctx.metrics.client_scripts = clientScripts;
+        ctx.metrics.client_script_count = clientScripts.length;
+        
+        if (clientScripts.length > 15) {
+            ctx.addIssue('MANY_CLIENT_SCRIPTS', 'La table a ' + clientScripts.length + ' client scripts actifs. Cela peut impacter l\'expérience utilisateur.', 'medium');
+        }
     },
 
     type: 'FHCheckTable'

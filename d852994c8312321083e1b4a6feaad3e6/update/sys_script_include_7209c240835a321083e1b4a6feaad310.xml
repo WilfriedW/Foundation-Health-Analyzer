@@ -11,6 +11,7 @@
         <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[/**
  * FHCheckAutomation - Check for automation issues
+ * Analyzes scheduled jobs, flows, workflows, and notifications
  */
 var FHCheckAutomation = Class.create();
 FHCheckAutomation.prototype = {
@@ -19,28 +20,212 @@ FHCheckAutomation.prototype = {
      * @param {Object} ctx - Analysis context
      */
     execute: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+        
         this._checkScheduledJobs(ctx);
         this._checkFlows(ctx);
+        this._checkWorkflows(ctx);
+        this._checkNotifications(ctx);
+        this._checkUIActions(ctx);
+        this._checkUIPolicies(ctx);
     },
 
     /**
-     * Check scheduled jobs
+     * Check scheduled jobs that reference this table
      * @private
      * @param {Object} ctx - Analysis context
      */
     _checkScheduledJobs: function(ctx) {
-        // Implementation for checking scheduled jobs
-        // Add issues to context as needed
+        var tableName = ctx.config.table_name;
+        var scheduledJobs = [];
+        
+        // Check sys_trigger for scheduled jobs
+        var gr = new GlideRecord('sysauto_script');
+        gr.addQuery('script', 'CONTAINS', tableName);
+        gr.query();
+        
+        while (gr.next()) {
+            var jobInfo = {
+                name: gr.getValue('name'),
+                active: gr.getValue('active') === 'true',
+                run_type: gr.getValue('run_type'),
+                next_action: gr.getValue('next_action')
+            };
+            scheduledJobs.push(jobInfo);
+            
+            if (!jobInfo.active) {
+                ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Job planifié inactif: "' + jobInfo.name + '"', 'low');
+            }
+        }
+        
+        ctx.metrics.scheduled_jobs = scheduledJobs;
+        ctx.metrics.scheduled_job_count = scheduledJobs.length;
     },
 
     /**
-     * Check flows
+     * Check Flow Designer flows for this table
      * @private
      * @param {Object} ctx - Analysis context
      */
     _checkFlows: function(ctx) {
-        // Implementation for checking flows
-        // Add issues to context as needed
+        var tableName = ctx.config.table_name;
+        var flows = [];
+        
+        // Check for flows triggered by this table
+        var gr = new GlideRecord('sys_hub_flow');
+        gr.addQuery('trigger_table', tableName);
+        gr.query();
+        
+        while (gr.next()) {
+            var flowInfo = {
+                name: gr.getValue('name'),
+                active: gr.getValue('active') === 'true',
+                trigger_type: gr.getValue('trigger_type'),
+                description: gr.getValue('description')
+            };
+            flows.push(flowInfo);
+            
+            if (!flowInfo.active) {
+                ctx.addIssue('INACTIVE_FLOW', 'Flow inactif: "' + flowInfo.name + '"', 'low');
+            }
+        }
+        
+        ctx.metrics.flows = flows;
+        ctx.metrics.flow_count = flows.length;
+        
+        if (flows.length > 10) {
+            ctx.addIssue('MANY_FLOWS', 'Cette table a ' + flows.length + ' flows. Vérifiez qu\'il n\'y a pas de redondance.', 'medium');
+        }
+    },
+
+    /**
+     * Check legacy workflows for this table
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkWorkflows: function(ctx) {
+        var tableName = ctx.config.table_name;
+        var workflows = [];
+        
+        var gr = new GlideRecord('wf_workflow');
+        gr.addQuery('table', tableName);
+        gr.query();
+        
+        while (gr.next()) {
+            var wfInfo = {
+                name: gr.getValue('name'),
+                active: gr.getValue('active') === 'true',
+                published: gr.getValue('published') === 'true'
+            };
+            workflows.push(wfInfo);
+            
+            // Check for unpublished active workflows
+            if (wfInfo.active && !wfInfo.published) {
+                ctx.addIssue('UNPUBLISHED_WORKFLOW', 'Workflow actif non publié: "' + wfInfo.name + '"', 'medium');
+            }
+        }
+        
+        ctx.metrics.workflows = workflows;
+        ctx.metrics.workflow_count = workflows.length;
+        
+        // Recommend migrating to Flow Designer if using legacy workflows
+        if (workflows.length > 0) {
+            ctx.addIssue('LEGACY_WORKFLOWS', 'Cette table utilise ' + workflows.length + ' workflow(s) legacy. Envisagez la migration vers Flow Designer.', 'low');
+        }
+    },
+
+    /**
+     * Check notifications for this table
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkNotifications: function(ctx) {
+        var tableName = ctx.config.table_name;
+        var notifications = [];
+        
+        var gr = new GlideRecord('sysevent_email_action');
+        gr.addQuery('collection', tableName);
+        gr.query();
+        
+        while (gr.next()) {
+            var notifInfo = {
+                name: gr.getValue('name'),
+                active: gr.getValue('active') === 'true',
+                event_name: gr.getValue('event_name'),
+                send_self: gr.getValue('send_self') === 'true'
+            };
+            notifications.push(notifInfo);
+        }
+        
+        ctx.metrics.notifications = notifications;
+        ctx.metrics.notification_count = notifications.length;
+        
+        if (notifications.length > 20) {
+            ctx.addIssue('MANY_NOTIFICATIONS', 'Cette table a ' + notifications.length + ' notifications. Vérifiez qu\'il n\'y a pas de spam potentiel.', 'medium');
+        }
+    },
+
+    /**
+     * Check UI Actions for this table
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkUIActions: function(ctx) {
+        var tableName = ctx.config.table_name;
+        var uiActions = [];
+        
+        var gr = new GlideRecord('sys_ui_action');
+        gr.addQuery('table', tableName);
+        gr.addQuery('active', true);
+        gr.query();
+        
+        while (gr.next()) {
+            uiActions.push({
+                name: gr.getValue('name'),
+                action_name: gr.getValue('action_name'),
+                client: gr.getValue('client') === 'true',
+                form_button: gr.getValue('form_button') === 'true',
+                list_button: gr.getValue('list_button') === 'true'
+            });
+        }
+        
+        ctx.metrics.ui_actions = uiActions;
+        ctx.metrics.ui_action_count = uiActions.length;
+        
+        if (uiActions.length > 25) {
+            ctx.addIssue('MANY_UI_ACTIONS', 'Cette table a ' + uiActions.length + ' UI Actions actives. L\'interface peut être surchargée.', 'medium');
+        }
+    },
+
+    /**
+     * Check UI Policies for this table
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkUIPolicies: function(ctx) {
+        var tableName = ctx.config.table_name;
+        var uiPolicies = [];
+        
+        var gr = new GlideRecord('sys_ui_policy');
+        gr.addQuery('table', tableName);
+        gr.addQuery('active', true);
+        gr.query();
+        
+        while (gr.next()) {
+            uiPolicies.push({
+                name: gr.getValue('short_description'),
+                on_load: gr.getValue('on_load') === 'true',
+                reverse_if_false: gr.getValue('reverse_if_false') === 'true',
+                global: gr.getValue('global') === 'true'
+            });
+        }
+        
+        ctx.metrics.ui_policies = uiPolicies;
+        ctx.metrics.ui_policy_count = uiPolicies.length;
+        
+        if (uiPolicies.length > 15) {
+            ctx.addIssue('MANY_UI_POLICIES', 'Cette table a ' + uiPolicies.length + ' UI Policies actives. Cela peut ralentir le chargement des formulaires.', 'medium');
+        }
     },
 
     type: 'FHCheckAutomation'

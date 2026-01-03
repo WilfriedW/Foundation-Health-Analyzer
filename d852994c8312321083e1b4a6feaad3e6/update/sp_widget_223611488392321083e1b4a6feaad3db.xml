@@ -1,43 +1,344 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[function($scope, spUtil) {
+        <client_script><![CDATA[function($scope, spUtil, $location) {
     var c = this;
 
     c.selectedConfig = null;
     c.loading = false;
     c.result = null;
+    c.error = null;
+    c.tables = c.data.configurations || [];
+    c.recentAnalyses = c.data.recentAnalyses || [];
+    c.analysisId = null;
 
+    // Run analysis for selected configuration
     c.runAnalysis = function() {
         if (!c.selectedConfig) return;
 
         c.loading = true;
         c.result = null;
+        c.error = null;
 
         c.server.get({
             action: 'run_analysis',
             configSysId: c.selectedConfig
         }).then(function(response) {
-            c.result = response.data.runResult;
             c.loading = false;
+            if (response.data.success) {
+                c.result = response.data.runResult;
+                c.analysisId = response.data.analysisId;
+                // Refresh recent analyses
+                c.refreshRecentAnalyses();
+            } else {
+                c.error = response.data.error || 'Une erreur est survenue';
+            }
+        }, function(error) {
+            c.loading = false;
+            c.error = 'Erreur de communication avec le serveur';
         });
     };
 
-    // Charger un résultat existant
+    // Load an existing result
     c.loadResult = function(analysisId) {
         c.loading = true;
+        c.error = null;
         c.server.get({
             action: 'get_result',
             analysisId: analysisId
         }).then(function(response) {
-            c.result = response.data.analysisResult;
             c.loading = false;
+            if (response.data.success) {
+                c.result = response.data.analysisResult;
+                c.analysisId = analysisId;
+            } else {
+                c.error = response.data.error || 'Analyse non trouvée';
+            }
         });
+    };
+
+    // Refresh recent analyses list
+    c.refreshRecentAnalyses = function() {
+        c.server.get({
+            action: 'get_recent_analyses'
+        }).then(function(response) {
+            if (response.data.success) {
+                c.recentAnalyses = response.data.analyses;
+            }
+        });
+    };
+
+    // Navigate to detailed results
+    c.viewDetails = function(analysisId) {
+        $location.path('/fha-analysis-results/' + analysisId);
+    };
+
+    // Get severity class for styling
+    c.getSeverityClass = function(severity) {
+        switch(severity) {
+            case 'high': return 'danger';
+            case 'medium': return 'warning';
+            case 'low': return 'info';
+            default: return 'default';
+        }
+    };
+
+    // Get health score class
+    c.getHealthScoreClass = function(score) {
+        if (score >= 70) return 'success';
+        if (score >= 40) return 'warning';
+        return 'danger';
+    };
+
+    // Calculate health score from issues
+    c.calculateHealthScore = function() {
+        if (!c.result || !c.result.issues) return 100;
+        var score = 100;
+        c.result.issues.forEach(function(issue) {
+            if (issue.severity === 'high') score -= 15;
+            else if (issue.severity === 'medium') score -= 5;
+            else score -= 2;
+        });
+        return Math.max(0, score);
     };
 }
 ]]></client_script>
         <controller_as>c</controller_as>
-        <css/>
+        <css><![CDATA[.fha-dashboard {
+  padding: 20px;
+}
+
+.fha-header {
+  background: linear-gradient(135deg, #0378BE 0%, #035B8E 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+}
+
+.fha-header h2 {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.fha-header p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.fha-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.fha-card-header {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fha-card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.fha-card-body {
+  padding: 20px;
+}
+
+.fha-select {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: border-color 0.2s;
+}
+
+.fha-select:focus {
+  border-color: #0378BE;
+  outline: none;
+}
+
+.fha-btn-primary {
+  background: #0378BE;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-btn-primary:hover:not(:disabled) {
+  background: #035B8E;
+  transform: translateY(-1px);
+}
+
+.fha-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fha-loading {
+  display: inline-flex;
+  align-items: center;
+  color: #0378BE;
+  margin-left: 15px;
+}
+
+.fha-loading i {
+  margin-right: 8px;
+}
+
+.fha-score-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.fha-score-success {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28A745;
+}
+
+.fha-score-warning {
+  background: rgba(255, 193, 7, 0.15);
+  color: #856404;
+}
+
+.fha-score-danger {
+  background: rgba(220, 53, 69, 0.15);
+  color: #DC3545;
+}
+
+.fha-issue-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.fha-issue-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.fha-issue-item:last-child {
+  border-bottom: none;
+}
+
+.fha-issue-severity {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 12px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.fha-severity-high {
+  background: #DC3545;
+  color: white;
+}
+
+.fha-severity-medium {
+  background: #FFC107;
+  color: #333;
+}
+
+.fha-severity-low {
+  background: #17A2B8;
+  color: white;
+}
+
+.fha-issue-content {
+  flex: 1;
+}
+
+.fha-issue-code {
+  font-weight: 600;
+  color: #333;
+}
+
+.fha-issue-message {
+  color: #666;
+  margin-top: 4px;
+}
+
+.fha-recent-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fha-recent-table th,
+.fha-recent-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fha-recent-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #666;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.fha-recent-table tr:hover {
+  background: #f8f9fa;
+}
+
+.fha-stats-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.fha-stat-box {
+  flex: 1;
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.fha-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0378BE;
+}
+
+.fha-stat-label {
+  font-size: 13px;
+  color: #666;
+  margin-top: 5px;
+}
+
+.fha-no-issues {
+  text-align: center;
+  padding: 30px;
+  color: #28A745;
+}
+
+.fha-no-issues i {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+]]></css>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -54,10 +355,100 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function() {
-
-    return {
-        data: {}
-    };
+    // Load available configurations
+    data.configurations = [];
+    var configGr = new GlideRecord('x_1310794_founda_0_fha_configuration');
+    configGr.addQuery('active', true);
+    configGr.orderBy('name');
+    configGr.query();
+    
+    while (configGr.next()) {
+        var tableRef = configGr.table_reference.getRefRecord();
+        data.configurations.push({
+            config_sys_id: configGr.getUniqueValue(),
+            display_name: configGr.getValue('name'),
+            table_name: tableRef ? tableRef.getValue('name') : '',
+            table_label: tableRef ? tableRef.getValue('label') : '',
+            description: configGr.getValue('description')
+        });
+    }
+    
+    // Load recent analyses
+    data.recentAnalyses = [];
+    var resultsGr = new GlideRecord('x_1310794_founda_0_fha_results');
+    resultsGr.addQuery('status', 'completed');
+    resultsGr.orderByDesc('sys_created_on');
+    resultsGr.setLimit(5);
+    resultsGr.query();
+    
+    while (resultsGr.next()) {
+        data.recentAnalyses.push({
+            sys_id: resultsGr.getUniqueValue(),
+            number: resultsGr.getValue('number'),
+            table_name: resultsGr.table_name.getDisplayValue(),
+            health_score: resultsGr.getValue('health_score'),
+            issue_count: resultsGr.getValue('issue_found'),
+            created_on: resultsGr.getValue('sys_created_on')
+        });
+    }
+    
+    // Handle server actions
+    if (input && input.action) {
+        switch(input.action) {
+            case 'run_analysis':
+                try {
+                    var analyzer = new x_1310794_founda_0.FHAnalyzer();
+                    var result = analyzer.runAnalysis(input.configSysId, {});
+                    
+                    if (result.success) {
+                        data.success = true;
+                        data.runResult = result.details;
+                        data.analysisId = result.analysis_id;
+                    } else {
+                        data.success = false;
+                        data.error = result.error;
+                    }
+                } catch(e) {
+                    data.success = false;
+                    data.error = e.message;
+                }
+                break;
+                
+            case 'get_result':
+                try {
+                    var analyzer = new x_1310794_founda_0.FHAnalyzer();
+                    var result = analyzer.getAnalysisResult(input.analysisId);
+                    data.success = result.success;
+                    data.analysisResult = result.result;
+                    data.error = result.error;
+                } catch(e) {
+                    data.success = false;
+                    data.error = e.message;
+                }
+                break;
+                
+            case 'get_recent_analyses':
+                data.success = true;
+                data.analyses = [];
+                var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+                gr.addQuery('status', 'completed');
+                gr.orderByDesc('sys_created_on');
+                gr.setLimit(5);
+                gr.query();
+                
+                while (gr.next()) {
+                    data.analyses.push({
+                        sys_id: gr.getUniqueValue(),
+                        number: gr.getValue('number'),
+                        table_name: gr.table_name.getDisplayValue(),
+                        health_score: gr.getValue('health_score'),
+                        issue_count: gr.getValue('issue_found'),
+                        created_on: gr.getValue('sys_created_on')
+                    });
+                }
+                break;
+        }
+    }
 })();
 ]]></script>
         <servicenow>false</servicenow>
@@ -73,74 +464,185 @@
         <sys_update_name>sp_widget_223611488392321083e1b4a6feaad3db</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
         <sys_updated_on>2026-01-03 07:53:42</sys_updated_on>
-        <template><![CDATA[<div class="panel panel-default">
-  <div class="panel-heading">
-    <h4>Foundation Health Analyzer</h4>
+        <template><![CDATA[<div class="fha-dashboard">
+  
+  <!-- Header -->
+  <div class="fha-header">
+    <h2><i class="fa fa-heartbeat"></i> Foundation Health Analyzer</h2>
+    <p>Analysez la santé de vos tables ServiceNow et obtenez des recommandations d'amélioration</p>
   </div>
 
-  <div class="panel-body">
+  <div class="row">
+    <!-- Main Analysis Panel -->
+    <div class="col-md-8">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-play-circle"></i> Lancer une analyse</h4>
+        </div>
+        <div class="fha-card-body">
+          
+          <!-- Configuration Selection -->
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; margin-bottom: 10px; display: block;">
+              Sélectionnez une configuration à analyser
+            </label>
+            <select class="fha-select"
+                    ng-model="c.selectedConfig"
+                    ng-options="t.config_sys_id as (t.display_name + ' (' + t.table_name + ')') for t in c.tables">
+              <option value="">-- Choisir une table --</option>
+            </select>
+          </div>
 
-    <!-- Sélection de la table -->
-    <div class="form-group">
-      <label>Table à analyser</label>
-      <select class="form-control"
-              ng-model="c.selectedConfig"
-              ng-options="t.config_sys_id as t.display_name for t in c.tables">
-        <option value="">-- Sélectionner une table --</option>
-      </select>
-    </div>
+          <!-- Selected Config Description -->
+          <div ng-if="c.selectedConfig" style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px;">
+            <div ng-repeat="t in c.tables" ng-if="t.config_sys_id === c.selectedConfig">
+              <strong>{{t.display_name}}</strong>
+              <p style="margin: 5px 0 0 0; color: #666;">{{t.description || 'Aucune description'}}</p>
+            </div>
+          </div>
 
-    <!-- Bouton pour lancer l'analyse -->
-    <button class="btn btn-primary"
-            ng-click="c.runAnalysis()"
-            ng-disabled="!c.selectedConfig || c.loading">
-      Lancer l’analyse
-    </button>
+          <!-- Run Button -->
+          <button class="fha-btn-primary"
+                  ng-click="c.runAnalysis()"
+                  ng-disabled="!c.selectedConfig || c.loading">
+            <i class="fa" ng-class="c.loading ? 'fa-spinner fa-spin' : 'fa-search'"></i>
+            {{c.loading ? 'Analyse en cours...' : 'Lancer l\'analyse'}}
+          </button>
 
-    <!-- Indicateur de chargement -->
-    <span ng-if="c.loading" class="text-info">
-      Analyse en cours...
-    </span>
-
-    <!-- Affichage des erreurs -->
-    <div ng-if="c.error" class="alert alert-danger" style="margin-top: 15px;">
-      {{c.error}}
-    </div>
-
-    <!-- Affichage des résultats -->
-    <div ng-if="c.result" class="margin-top">
-      <h4>Résultat</h4>
-
-      <p>
-        <strong>Table :</strong> {{c.result.summary.table}}<br/>
-        <strong>Durée :</strong> {{c.result.summary.duration_ms / 1000 | number:2}} sec<br/>
-        <strong>Problèmes détectés :</strong> {{c.result.summary.issues_found}}
-      </p>
-
-      <!-- Affichage des problèmes détectés -->
-      <div ng-if="c.result.issues && c.result.issues.length > 0">
-        <h5>Problèmes détectés</h5>
-        <ul>
-          <li ng-repeat="issue in c.result.issues">
-            <strong>{{issue.severity | uppercase}}</strong>
-            — {{issue.code}} : {{issue.message}}
-          </li>
-        </ul>
+          <!-- Error Message -->
+          <div ng-if="c.error" class="alert alert-danger" style="margin-top: 20px;">
+            <i class="fa fa-exclamation-triangle"></i> {{c.error}}
+          </div>
+        </div>
       </div>
 
-      <!-- Affichage si aucun problème détecté -->
-      <div ng-if="c.result.issues && c.result.issues.length === 0">
-        <p class="text-success">
-          ✅ Aucun problème détecté
-        </p>
+      <!-- Results Panel -->
+      <div class="fha-card" ng-if="c.result">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-chart-bar"></i> Résultats de l'analyse</h4>
+        </div>
+        <div class="fha-card-body">
+          
+          <!-- Stats Row -->
+          <div class="fha-stats-row">
+            <div class="fha-stat-box">
+              <div class="fha-stat-value">
+                <span class="fha-score-badge" 
+                      ng-class="'fha-score-' + c.getHealthScoreClass(c.calculateHealthScore())">
+                  {{c.calculateHealthScore()}}/100
+                </span>
+              </div>
+              <div class="fha-stat-label">Score de santé</div>
+            </div>
+            <div class="fha-stat-box">
+              <div class="fha-stat-value">{{c.result.issues.length}}</div>
+              <div class="fha-stat-label">Problèmes détectés</div>
+            </div>
+            <div class="fha-stat-box">
+              <div class="fha-stat-value">{{c.result.metrics.duration_ms || 0}}ms</div>
+              <div class="fha-stat-label">Durée d'analyse</div>
+            </div>
+          </div>
+
+          <!-- Issues List -->
+          <div ng-if="c.result.issues && c.result.issues.length > 0">
+            <h5 style="margin: 20px 0 15px 0; font-weight: 600;">
+              <i class="fa fa-exclamation-circle"></i> Problèmes identifiés
+            </h5>
+            <ul class="fha-issue-list">
+              <li class="fha-issue-item" ng-repeat="issue in c.result.issues | orderBy:'-severity'">
+                <span class="fha-issue-severity" 
+                      ng-class="'fha-severity-' + issue.severity">
+                  {{issue.severity}}
+                </span>
+                <div class="fha-issue-content">
+                  <div class="fha-issue-code">{{issue.code}}</div>
+                  <div class="fha-issue-message">{{issue.message}}</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- No Issues -->
+          <div ng-if="c.result.issues && c.result.issues.length === 0" class="fha-no-issues">
+            <i class="fa fa-check-circle"></i>
+            <h4>Excellent !</h4>
+            <p>Aucun problème détecté sur cette table.</p>
+          </div>
+
+          <!-- View Details Button -->
+          <div style="margin-top: 20px; text-align: right;" ng-if="c.analysisId">
+            <button class="fha-btn-primary" ng-click="c.viewDetails(c.analysisId)">
+              <i class="fa fa-arrow-right"></i> Voir les détails complets
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-4">
+      <!-- Recent Analyses -->
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-history"></i> Analyses récentes</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;">
+          <div ng-if="c.recentAnalyses.length === 0" style="padding: 30px; text-align: center; color: #999;">
+            <i class="fa fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
+            <p>Aucune analyse récente</p>
+          </div>
+          <table class="fha-recent-table" ng-if="c.recentAnalyses.length > 0">
+            <thead>
+              <tr>
+                <th>Table</th>
+                <th>Score</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="analysis in c.recentAnalyses">
+                <td>
+                  <strong>{{analysis.table_name}}</strong>
+                  <div style="font-size: 11px; color: #999;">{{analysis.number}}</div>
+                </td>
+                <td>
+                  <span class="fha-score-badge" 
+                        ng-class="'fha-score-' + c.getHealthScoreClass(analysis.health_score)"
+                        style="font-size: 14px; padding: 4px 10px;">
+                    {{analysis.health_score}}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn btn-xs btn-default" ng-click="c.loadResult(analysis.sys_id)">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Lien pour partager le résultat -->
-      <div class="margin-top">
-        <a href="#/fha-analysis-results/{{c.analysisId}}"
-           class="btn btn-info btn-sm">
-          <i class="fa fa-external-link"></i> Voir les détails
-        </a>
+      <!-- Quick Stats -->
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-info-circle"></i> Informations</h4>
+        </div>
+        <div class="fha-card-body">
+          <p><strong>{{c.tables.length}}</strong> configurations disponibles</p>
+          <p style="font-size: 13px; color: #666; margin-top: 15px;">
+            L'analyseur vérifie :
+          </p>
+          <ul style="font-size: 13px; color: #666; padding-left: 20px;">
+            <li>Champs personnalisés inutilisés</li>
+            <li>Business Rules et Client Scripts</li>
+            <li>ACLs et sécurité</li>
+            <li>Intégrations et imports</li>
+            <li>Workflows et Flows</li>
+            <li>Notifications</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
