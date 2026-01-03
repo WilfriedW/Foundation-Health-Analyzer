@@ -700,18 +700,7 @@
             // Query directly by sys_id (not analysis_id)
             var gr = new GlideRecord('x_1310794_founda_0_fha_results');
             if (gr.get(sysId)) {
-                // Get table name from reference
-                var tableName = '';
-                var tableLabel = '';
-                if (gr.table_name && !gr.table_name.nil()) {
-                    var tableRef = gr.table_name.getRefRecord();
-                    if (tableRef) {
-                        tableName = tableRef.getValue('name') || '';
-                        tableLabel = tableRef.getValue('label') || tableName;
-                    }
-                }
-                
-                // Parse detail_json for full metrics
+                // Parse detail_json for full metrics first
                 var detailJson = {};
                 try {
                     var detailStr = gr.getValue('detail_json');
@@ -720,6 +709,25 @@
                     }
                 } catch(e) {
                     // Ignore parse errors
+                }
+                
+                // Get table name from reference field OR from detail_json
+                var tableName = '';
+                var tableLabel = '';
+                
+                // First try from reference field
+                if (gr.table_name && !gr.table_name.nil()) {
+                    var tableRef = gr.table_name.getRefRecord();
+                    if (tableRef) {
+                        tableName = tableRef.getValue('name') || '';
+                        tableLabel = tableRef.getValue('label') || tableName;
+                    }
+                }
+                
+                // Fallback to detail_json if reference didn't work
+                if (!tableName && detailJson.table_name) {
+                    tableName = detailJson.table_name;
+                    tableLabel = detailJson.table_label || detailJson.table_name;
                 }
                 
                 data.result = {
@@ -736,7 +744,7 @@
                     metrics: detailJson.metrics || {},
                     duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
                 };
-        } else {
+            } else {
                 data.error = 'Analysis record not found (sys_id: ' + sysId + ')';
             }
         } catch(e) {
