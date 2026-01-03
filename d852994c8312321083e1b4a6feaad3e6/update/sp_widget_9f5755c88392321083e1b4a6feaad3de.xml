@@ -160,6 +160,99 @@
         linkElement.setAttribute('download', exportName);
         linkElement.click();
     };
+
+    // Export to PDF
+    c.exportPDF = function() {
+        if (!c.result) return;
+        
+        // Create a printable HTML content
+        var printContent = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+        printContent += '<title>FHA Analysis Report - ' + (c.result.table_label || c.result.table_name) + '</title>';
+        printContent += '<style>';
+        printContent += 'body { font-family: Arial, sans-serif; padding: 40px; color: #333; }';
+        printContent += 'h1 { color: #0378BE; border-bottom: 3px solid #0378BE; padding-bottom: 10px; }';
+        printContent += 'h2 { color: #035B8E; margin-top: 30px; }';
+        printContent += 'h3 { color: #495057; margin-top: 20px; }';
+        printContent += '.header-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }';
+        printContent += '.score-circle { display: inline-block; width: 80px; height: 80px; border-radius: 50%; text-align: center; line-height: 80px; font-size: 28px; font-weight: bold; margin-right: 20px; }';
+        printContent += '.score-good { background: #d4edda; color: #28A745; border: 3px solid #28A745; }';
+        printContent += '.score-medium { background: #fff3cd; color: #856404; border: 3px solid #FFC107; }';
+        printContent += '.score-poor { background: #f8d7da; color: #DC3545; border: 3px solid #DC3545; }';
+        printContent += 'table { width: 100%; border-collapse: collapse; margin: 15px 0; }';
+        printContent += 'th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }';
+        printContent += 'th { background: #f8f9fa; font-weight: 600; }';
+        printContent += '.severity-high { background: #DC3545; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.severity-medium { background: #FFC107; color: #333; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.severity-low { background: #17A2B8; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }';
+        printContent += '.summary-item { text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px; }';
+        printContent += '.summary-value { font-size: 24px; font-weight: bold; }';
+        printContent += '.summary-label { font-size: 12px; color: #666; margin-top: 5px; }';
+        printContent += '.footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; text-align: center; }';
+        printContent += '@media print { body { padding: 20px; } }';
+        printContent += '</style></head><body>';
+        
+        // Header
+        printContent += '<h1>Foundation Health Analysis Report</h1>';
+        printContent += '<div class="header-info">';
+        printContent += '<p><strong>Table:</strong> ' + (c.result.table_label || c.result.table_name) + ' (' + c.result.table_name + ')</p>';
+        printContent += '<p><strong>Analysis Number:</strong> ' + c.result.number + '</p>';
+        printContent += '<p><strong>Date:</strong> ' + c.result.created_on + '</p>';
+        printContent += '<p><strong>Analyzed by:</strong> ' + c.result.created_by + '</p>';
+        printContent += '</div>';
+        
+        // Health Score
+        var scoreClass = c.result.health_score >= 70 ? 'score-good' : (c.result.health_score >= 40 ? 'score-medium' : 'score-poor');
+        printContent += '<h2>Health Score</h2>';
+        printContent += '<div class="score-circle ' + scoreClass + '">' + c.result.health_score + '</div>';
+        printContent += '<span style="font-size: 18px;">' + (c.result.health_score >= 70 ? 'Good' : (c.result.health_score >= 40 ? 'Needs Attention' : 'Critical')) + '</span>';
+        
+        // Summary
+        printContent += '<div class="summary-grid">';
+        printContent += '<div class="summary-item"><div class="summary-value">' + c.result.issues.length + '</div><div class="summary-label">Total Issues</div></div>';
+        printContent += '<div class="summary-item"><div class="summary-value" style="color:#DC3545;">' + c.countBySeverity('high') + '</div><div class="summary-label">High Severity</div></div>';
+        printContent += '<div class="summary-item"><div class="summary-value" style="color:#FFC107;">' + c.countBySeverity('medium') + '</div><div class="summary-label">Medium Severity</div></div>';
+        printContent += '<div class="summary-item"><div class="summary-value" style="color:#17A2B8;">' + c.countBySeverity('low') + '</div><div class="summary-label">Low Severity</div></div>';
+        printContent += '</div>';
+        
+        // Issues List
+        if (c.result.issues && c.result.issues.length > 0) {
+            printContent += '<h2>Issues Found</h2>';
+            printContent += '<table><thead><tr><th>Severity</th><th>Category</th><th>Code</th><th>Description</th></tr></thead><tbody>';
+            c.result.issues.forEach(function(issue) {
+                var severityClass = 'severity-' + issue.severity;
+                printContent += '<tr>';
+                printContent += '<td><span class="' + severityClass + '">' + issue.severity.toUpperCase() + '</span></td>';
+                printContent += '<td>' + (issue.category || 'general') + '</td>';
+                printContent += '<td>' + issue.code + '</td>';
+                printContent += '<td>' + issue.message + '</td>';
+                printContent += '</tr>';
+            });
+            printContent += '</tbody></table>';
+        } else {
+            printContent += '<h2>Issues Found</h2>';
+            printContent += '<p style="color: #28A745;"><strong>No issues found. This table is in excellent health!</strong></p>';
+        }
+        
+        // Footer
+        printContent += '<div class="footer">';
+        printContent += '<p>Generated by Foundation Health Analyzer</p>';
+        printContent += '<p>' + new Date().toLocaleString() + '</p>';
+        printContent += '</div>';
+        
+        printContent += '</body></html>';
+        
+        // Open print window
+        var printWindow = window.open('', '_blank');
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        // Auto print after a short delay
+        setTimeout(function() {
+            printWindow.print();
+        }, 500);
+    };
 }
 ]]></client_script>
         <controller_as>c</controller_as>
@@ -184,15 +277,13 @@
   font-weight: 600;
 }
 
-.fha-results-header .fha-breadcrumb {
-  font-size: 14px;
-  opacity: 0.9;
+.fha-results-header .fha-table-code {
+  opacity: 0.85;
 }
 
-.fha-results-header .fha-breadcrumb a {
+.fha-results-header p {
   color: white;
-  text-decoration: underline;
-  cursor: pointer;
+  margin: 0;
 }
 
 /* Stats Row */
@@ -267,6 +358,20 @@
   border-bottom: 2px solid #e9ecef;
   margin-bottom: 25px;
   gap: 5px;
+}
+
+/* Tab content - ensure proper display */
+.fha-tab-content {
+  display: block;
+}
+
+.fha-tab-content[ng-if] {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .fha-tab-btn {
@@ -538,12 +643,13 @@
   display: flex;
   gap: 20px;
   font-size: 13px;
-  color: #666;
-  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 15px;
 }
 
 .fha-metadata i {
   margin-right: 5px;
+  opacity: 0.8;
 }
 
 /* Actions panel */
@@ -658,13 +764,10 @@
   
   <!-- Page Header -->
   <div class="fha-results-header">
-    <div class="fha-breadcrumb">
-      <a ng-click="c.goBack()"><i class="fa fa-home"></i> ${Dashboard}</a> / ${Analysis Results}
-    </div>
     <h1><i class="fa fa-chart-bar"></i> ${Analysis Results}</h1>
     <p ng-if="c.result">
       ${Detailed analysis of table:} <strong>{{c.result.table_label || c.result.table_name}}</strong>
-      <span style="opacity: 0.8;">({{c.result.table_name}})</span>
+      <span class="fha-table-code">({{c.result.table_name}})</span>
     </p>
     <div class="fha-metadata" ng-if="c.result">
       <span><i class="fa fa-hashtag"></i> {{c.result.number}}</span>
@@ -708,7 +811,7 @@
       <div class="fha-stat-card">
         <div class="fha-stat-value medium">{{c.countBySeverity('medium')}}</div>
         <div class="fha-stat-label">${Medium Severity Issues}</div>
-      </div>
+          </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value" style="color: #17A2B8;">{{c.countBySeverity('low')}}</div>
         <div class="fha-stat-label">${Low Severity Issues}</div>
@@ -719,10 +822,10 @@
       <div class="fha-card">
         <div class="fha-card-body">
         <div class="fha-actions-panel">
-          <button class="fha-btn fha-btn-secondary" ng-click="c.goBack()">
-            <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
+          <button class="fha-btn fha-btn-primary" ng-click="c.exportPDF()">
+            <i class="fa fa-file-pdf-o"></i> ${Export PDF}
           </button>
-          <button class="fha-btn fha-btn-primary" ng-click="c.exportJSON()">
+          <button class="fha-btn fha-btn-secondary" ng-click="c.exportJSON()">
             <i class="fa fa-download"></i> ${Export JSON}
           </button>
         </div>
@@ -753,7 +856,7 @@
     </div>
 
     <!-- ==================== OVERVIEW TAB ==================== -->
-    <div ng-if="c.activeTab === 'overview'">
+    <div class="fha-tab-content" ng-show="c.activeTab === 'overview'">
       <div class="row">
         <div class="col-md-6">
       <div class="fha-card">
@@ -810,14 +913,14 @@
                   <td>{{c.countBySeverity('low')}}</td>
                 </tr>
               </table>
-            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
     <!-- ==================== ISSUES TAB ==================== -->
-    <div ng-if="c.activeTab === 'issues'">
+    <div class="fha-tab-content" ng-show="c.activeTab === 'issues'">
       <div class="fha-card" ng-if="c.result.issues.length > 0">
         <div class="fha-card-header">
           <h4><i class="fa fa-exclamation-circle"></i> ${All Issues} ({{c.result.issues.length}})</h4>
@@ -868,7 +971,7 @@
   </div>
 
     <!-- ==================== FIELDS TAB ==================== -->
-    <div ng-if="c.activeTab === 'fields'">
+    <div class="fha-tab-content" ng-show="c.activeTab === 'fields'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>
@@ -916,7 +1019,7 @@
     </div>
 
     <!-- ==================== AUTOMATION TAB ==================== -->
-    <div ng-if="c.activeTab === 'automation'">
+    <div class="fha-tab-content" ng-show="c.activeTab === 'automation'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-cogs"></i> ${Automation Items} ({{c.getAutomationItems().length}})</h4>
@@ -957,7 +1060,7 @@
   </div>
 
     <!-- ==================== INTEGRATIONS TAB ==================== -->
-    <div ng-if="c.activeTab === 'integration'">
+    <div class="fha-tab-content" ng-show="c.activeTab === 'integration'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-exchange"></i> ${Integration Items} ({{c.getIntegrationItems().length}})</h4>
@@ -1002,3 +1105,13 @@
 ]]></template>
     </sp_widget>
 </record_update>
+
+
+
+
+
+
+
+
+
+
