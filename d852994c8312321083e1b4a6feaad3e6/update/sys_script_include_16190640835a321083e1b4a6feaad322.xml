@@ -181,7 +181,43 @@ FHCheckIntegration.prototype = {
     },
 
     /**
-     * Check ACLs for this table
+     * Get table hierarchy (current table + all parent tables)
+     * @private
+     * @param {String} tableName - Table name
+     * @returns {Array} Array of table names
+     */
+    _getTableHierarchy: function(tableName) {
+        var tables = [tableName];
+        
+        try {
+            var tableGr = new GlideRecord('sys_db_object');
+            tableGr.addQuery('name', tableName);
+            tableGr.query();
+            
+            if (tableGr.next()) {
+                var superClass = tableGr.getValue('super_class');
+                while (superClass) {
+                    var parentGr = new GlideRecord('sys_db_object');
+                    if (parentGr.get(superClass)) {
+                        var parentName = parentGr.getValue('name');
+                        if (parentName && tables.indexOf(parentName) === -1) {
+                            tables.push(parentName);
+                        }
+                        superClass = parentGr.getValue('super_class');
+                    } else {
+                        break;
+                    }
+                }
+            }
+        } catch(e) {
+            // If we can't get hierarchy, just use the table itself
+        }
+        
+        return tables;
+    },
+
+    /**
+     * Check ACLs for this table (including inherited from parent tables)
      * @private
      * @param {Object} ctx - Analysis context
      */
@@ -196,15 +232,36 @@ FHCheckIntegration.prototype = {
         };
         var self = this;
         
+        // Get all tables in hierarchy
+        var tablesToCheck = self._getTableHierarchy(tableName);
+        
+        // Build query for ACLs on any table in hierarchy
         var gr = new GlideRecord('sys_security_acl');
-        gr.addQuery('name', 'STARTSWITH', tableName);
+        var qc = gr.addQuery('name', 'STARTSWITH', tableName);
+        for (var i = 1; i < tablesToCheck.length; i++) {
+            qc.addOrCondition('name', 'STARTSWITH', tablesToCheck[i]);
+        }
         gr.addQuery('active', true);
         gr.query();
         
         while (gr.next()) {
+            var aclName = self._safeGetValue(gr, 'name');
             var operation = self._safeGetValue(gr, 'operation');
+            
+            // Determine which table this ACL is for
+            var aclTable = tableName;
+            for (var j = 0; j < tablesToCheck.length; j++) {
+                if (aclName.indexOf(tablesToCheck[j]) === 0) {
+                    aclTable = tablesToCheck[j];
+                    break;
+                }
+            }
+            
             var aclInfo = {
-                name: self._safeGetValue(gr, 'name'),
+                sys_id: gr.getUniqueValue(),
+                name: aclName,
+                table: aclTable,
+                inherited: (aclTable !== tableName),
                 operation: operation,
                 admin_overrides: self._safeGetValue(gr, 'admin_overrides') === 'true',
                 condition: self._safeGetValue(gr, 'condition') ? true : false
@@ -218,20 +275,22 @@ FHCheckIntegration.prototype = {
         
         ctx.metrics.acls = acls;
         ctx.metrics.acl_count = acls.length;
+        ctx.metrics.acl_direct_count = acls.filter(function(a) { return !a.inherited; }).length;
+        ctx.metrics.acl_inherited_count = acls.filter(function(a) { return a.inherited; }).length;
         ctx.metrics.acls_by_operation = aclsByOperation;
         
-        // Check for missing ACLs
+        // Check for missing ACLs (only warn if no ACL at all in hierarchy)
         if (aclsByOperation.read === 0) {
-            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table', 'medium', {
+            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
                 record_table: 'sys_security_acl',
-                record_filter: 'name=' + tableName,
+                record_filter: 'nameSTARTSWITH' + tableName,
                 category: 'security'
             });
         }
         if (aclsByOperation.write === 0) {
-            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table', 'medium', {
+            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
                 record_table: 'sys_security_acl',
-                record_filter: 'name=' + tableName,
+                record_filter: 'nameSTARTSWITH' + tableName,
                 category: 'security'
             });
         }
