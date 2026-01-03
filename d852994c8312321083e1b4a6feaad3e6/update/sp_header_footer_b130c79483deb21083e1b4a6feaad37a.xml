@@ -4,8 +4,9 @@
         <client_script><![CDATA[api.controller = function($scope, $location, $window) {
     var c = this;
     
-    // Get menu items from server data (loaded from sp_instance_menu)
+    // Get menu items from server data
     c.menuItems = c.data.menuItems || [];
+    c.portalSuffix = c.data.portalSuffix || 'fha';
     
     // Set active menu item based on current page
     c.$onInit = function() {
@@ -20,7 +21,7 @@
         if (item.type === 'url' && item.url) {
             $window.location.href = item.url;
         } else if (item.page) {
-            $window.location.href = '/fha?id=' + item.page;
+            $window.location.href = '/' + c.portalSuffix + '?id=' + item.page;
         }
     };
     
@@ -72,45 +73,68 @@
     // Get portal info
     data.portalTitle = 'Foundation Health Analyzer';
     data.portalSubtitle = 'ServiceNow Analysis Tool';
+    data.portalSuffix = $sp.getPortalRecord() ? $sp.getPortalRecord().getValue('url_suffix') : 'fha';
     
     // Get menu items from FHA Menu (sp_instance_menu)
     data.menuItems = [];
     
-    // Find the FHA Menu instance
-    var menuGr = new GlideRecord('sp_instance_menu');
-    menuGr.addQuery('title', 'FHA Menu');
-    menuGr.query();
-    
-    if (menuGr.next()) {
-        // Get menu items for this menu
-        var itemGr = new GlideRecord('sp_instance_menu_item');
-        itemGr.addQuery('sp_instance_menu', menuGr.getUniqueValue());
-        itemGr.addQuery('active', true);
-        itemGr.orderBy('order');
-        itemGr.query();
-        
-        while (itemGr.next()) {
-            var menuItem = {
-                label: itemGr.getValue('label') || '',
-                type: itemGr.getValue('type') || 'page',
-                url: itemGr.getValue('url') || '',
-                page: '',
-                icon: itemGr.getValue('glyph') || 'fa-circle'
-            };
-            
-            // Get page ID if type is 'page'
-            if (menuItem.type === 'page' && !itemGr.sp_page.nil()) {
-                var pageGr = itemGr.sp_page.getRefRecord();
-                if (pageGr) {
-                    menuItem.page = pageGr.getValue('id') || '';
-                }
+    // Method 1: Try to get menu from portal's rectangle menu configuration
+    var rectangleMenu = $sp.getValue('sp_rectangle_menu');
+    if (rectangleMenu) {
+        data.menuWidget = $sp.getWidgetFromInstance(rectangleMenu);
+        if (data.menuWidget && data.menuWidget.data && data.menuWidget.data.menu && data.menuWidget.data.menu.items) {
+            var items = data.menuWidget.data.menu.items;
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                data.menuItems.push({
+                    label: item.label || '',
+                    type: item.type || 'page',
+                    url: item.url || '',
+                    page: item.sp_page || '',
+                    icon: item.glyph || 'fa-circle',
+                    sys_id: item.sys_id || ''
+                });
             }
-            
-            data.menuItems.push(menuItem);
         }
     }
     
-    // Fallback to default menu if no items found
+    // Method 2: If no rectangle menu, try sp_instance_menu by title
+    if (data.menuItems.length === 0) {
+        var menuGr = new GlideRecord('sp_instance_menu');
+        menuGr.addQuery('title', 'FHA Menu');
+        menuGr.query();
+        
+        if (menuGr.next()) {
+            // Get menu items for this menu
+            var itemGr = new GlideRecord('sp_instance_menu_item');
+            itemGr.addQuery('sp_instance_menu', menuGr.getUniqueValue());
+            itemGr.addQuery('active', true);
+            itemGr.orderBy('order');
+            itemGr.query();
+            
+            while (itemGr.next()) {
+                var menuItem = {
+                    label: itemGr.getValue('label') || '',
+                    type: itemGr.getValue('type') || 'page',
+                    url: itemGr.getValue('url') || '',
+                    page: '',
+                    icon: itemGr.getValue('glyph') || 'fa-circle'
+                };
+                
+                // Get page ID if type is 'page'
+                if (menuItem.type === 'page' && !itemGr.sp_page.nil()) {
+                    var pageGr = itemGr.sp_page.getRefRecord();
+                    if (pageGr) {
+                        menuItem.page = pageGr.getValue('id') || '';
+                    }
+                }
+                
+                data.menuItems.push(menuItem);
+            }
+        }
+    }
+    
+    // Method 3: Fallback to default menu if no items found
     if (data.menuItems.length === 0) {
         data.menuItems = [
             { label: 'Dashboard', page: 'fha_homepage', icon: 'fa-tachometer-alt', type: 'page' },
