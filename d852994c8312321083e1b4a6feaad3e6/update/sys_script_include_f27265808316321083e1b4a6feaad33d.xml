@@ -22,6 +22,16 @@ FHAnalyzer.prototype = {
     },
 
     /**
+     * Check if a value is truthy (handles 'true', '1', true, 1)
+     * @private
+     * @param {*} val - Value to check
+     * @returns {Boolean} True if value is truthy
+     */
+    _isTrue: function(val) {
+        return val === 'true' || val === '1' || val === true || val === 1;
+    },
+
+    /**
      * Get the table name from the table_reference field
      * @private
      * @param {GlideRecord} gr - Configuration GlideRecord
@@ -85,10 +95,10 @@ FHAnalyzer.prototype = {
                 table_label: tableInfo.label,
                 table_sys_id: tableInfo.sys_id,
                 description: gr.getValue('description') || '',
-                active: gr.getValue('active') === 'true',
-                include_children_tables: gr.getValue('include_children_tables') === 'true',
-                analyze_references: gr.getValue('analyze_references') === 'true',
-                deep_scan: gr.getValue('deep_scan') === 'true'
+                active: this._isTrue(gr.getValue('active')),
+                include_children_tables: this._isTrue(gr.getValue('include_children_tables')),
+                analyze_references: this._isTrue(gr.getValue('analyze_references')),
+                deep_scan: this._isTrue(gr.getValue('deep_scan'))
             };
         }
         return null;
