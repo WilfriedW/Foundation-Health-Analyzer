@@ -27,17 +27,21 @@ FHAnalyzer.prototype = {
      * @param {GlideRecord} gr - Configuration GlideRecord
      * @returns {String} Table name or empty string
      */
-    _getTableNameFromReference: function(gr) {
+    _getTableInfoFromReference: function(gr) {
         // table_reference is a reference to sys_db_object
         var tableRef = gr.table_reference;
         if (tableRef && !tableRef.nil()) {
             // Get the referenced sys_db_object record
             var tableGr = tableRef.getRefRecord();
             if (tableGr) {
-                return tableGr.getValue('name') || '';
+                return {
+                    name: tableGr.getValue('name') || '',
+                    label: tableGr.getValue('label') || tableGr.getValue('name') || '',
+                    sys_id: tableGr.getUniqueValue()
+                };
             }
         }
-        return '';
+        return { name: '', label: '', sys_id: '' };
     },
 
     /**
@@ -52,11 +56,12 @@ FHAnalyzer.prototype = {
         gr.query();
 
         while (gr.next()) {
-            var tableName = this._getTableNameFromReference(gr);
+            var tableInfo = this._getTableInfoFromReference(gr);
             tables.push({
                 config_sys_id: gr.sys_id.toString(),
                 display_name: gr.getValue('name') || '',
-                table_name: tableName,
+                table_name: tableInfo.name,
+                table_label: tableInfo.label,
                 description: gr.getValue('description') || ''
             });
         }
@@ -72,11 +77,13 @@ FHAnalyzer.prototype = {
     getAnalysisConfiguration: function(configSysId) {
         var gr = new GlideRecord(this.configTable);
         if (gr.get(configSysId)) {
-            var tableName = this._getTableNameFromReference(gr);
+            var tableInfo = this._getTableInfoFromReference(gr);
             return {
                 sys_id: gr.sys_id.toString(),
                 name: gr.getValue('name') || '',
-                table_name: tableName,
+                table_name: tableInfo.name,
+                table_label: tableInfo.label,
+                table_sys_id: tableInfo.sys_id,
                 description: gr.getValue('description') || '',
                 active: gr.getValue('active') === 'true',
                 include_children_tables: gr.getValue('include_children_tables') === 'true',
@@ -149,22 +156,60 @@ FHAnalyzer.prototype = {
         var gr = new GlideRecord(this.resultsTable);
         gr.initialize();
 
-        var analysisId = gs.generateGUID();
-        gr.setValue('analysis_id', analysisId);
-        gr.setValue('config_sys_id', config.sys_id);
-        gr.setValue('table_name', config.table_name);
-        gr.setValue('details', JSON.stringify(result));
-        gr.setValue('parameters', JSON.stringify(parameters || {}));
+        // Set table_name reference (sys_db_object)
+        gr.setValue('table_name', config.table_sys_id);
+        
+        // Set status
         gr.setValue('status', 'completed');
-        gr.setValue('user_id', gs.getUserID());
+        
+        // Calculate and set health score
+        var healthScore = this._calculateHealthScore(result);
+        gr.setValue('health_score', healthScore);
+        
+        // Set issue count
+        var issueCount = result.issues ? result.issues.length : 0;
+        gr.setValue('issue_found', issueCount);
+        
+        // Set summary
+        var summary = result.getSummary ? result.getSummary() : '';
+        gr.setValue('summary', summary);
+        
+        // Store full details as JSON in detail_json field
+        var detailObj = {
+            issues: result.issues || [],
+            metrics: result.metrics || {},
+            table_name: config.table_name,
+            table_label: config.table_label || config.table_name,
+            parameters: parameters || {},
+            analysis_date: new GlideDateTime().toString()
+        };
+        gr.setValue('detail_json', JSON.stringify(detailObj));
 
         var sysId = gr.insert();
         if (sysId) {
-            // Return the sys_id of the created record, not the analysis_id GUID
             return sysId.toString();
         }
 
         throw new Error('Failed to save analysis result');
+    },
+    
+    /**
+     * Calculate health score based on issues
+     * @private
+     * @param {Object} result - Analysis result
+     * @returns {Number} Health score (0-100)
+     */
+    _calculateHealthScore: function(result) {
+        if (!result || !result.issues) return 100;
+        
+        var score = 100;
+        result.issues.forEach(function(issue) {
+            if (issue.severity === 'high') score -= 15;
+            else if (issue.severity === 'medium') score -= 5;
+            else score -= 2;
+        });
+        
+        return Math.max(0, Math.min(100, score));
     },
 
     type: 'FHAnalyzer'
