@@ -70,7 +70,7 @@
 
     // Navigate to detailed results
     c.viewDetails = function(analysisId) {
-        window.location.href = '/fha?id=fha_analysis_results&sys_id=' + analysisId;
+        window.location.href = '/fha?id=fha_analysis_detail&sys_id=' + analysisId;
     };
 
     // Get severity class for styling
@@ -212,10 +212,9 @@
         return c.getIssuesBySeverity(severity).length;
     };
 
-    // View all analyses - opens native ServiceNow list
+    // View all analyses - redirects to analysis results page
     c.viewAllAnalyses = function() {
-        var url = '/x_1310794_founda_0_fha_results_list.do?sysparm_query=status=completed^ORDERBYDESCsys_created_on';
-        window.open(url, '_blank');
+        window.location.href = '/fha?id=fha_analysis_results';
     };
 
     // Toggle section visibility
