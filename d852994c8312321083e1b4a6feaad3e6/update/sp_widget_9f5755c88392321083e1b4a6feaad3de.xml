@@ -582,70 +582,56 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function() {
-    // Get analysis ID from URL path parameter
-    // URL format: /fha_analysis_results/{analysis_id}
-    var analysisId = $sp.getParameter('sys_id') || '';
+    // Get sys_id from URL parameter
+    var sysId = $sp.getParameter('sys_id') || '';
     
-    // Also check URL path for ID
-    if (!analysisId) {
-        var path = $sp.getParameter('id');
-        // Try to extract from page route
-    }
-    
-    data.analysisId = analysisId;
+    data.analysisId = sysId;
     data.result = null;
     data.error = null;
     
-    if (analysisId) {
+    if (sysId) {
         try {
-            var analyzer = new x_1310794_founda_0.FHAnalyzer();
-            var result = analyzer.getAnalysisResult(analysisId);
-            
-            if (result && result.success) {
-                // Get the analysis record details
-                var gr = new GlideRecord('x_1310794_founda_0_fha_results');
-                if (gr.get(analysisId)) {
-                    // Get table name from reference
-                    var tableName = '';
-                    var tableLabel = '';
-                    if (gr.table_name && !gr.table_name.nil()) {
-                        var tableRef = gr.table_name.getRefRecord();
-                        if (tableRef) {
-                            tableName = tableRef.getValue('name') || '';
-                            tableLabel = tableRef.getValue('label') || tableName;
-                        }
+            // Query directly by sys_id (not analysis_id)
+            var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+            if (gr.get(sysId)) {
+                // Get table name from reference
+                var tableName = '';
+                var tableLabel = '';
+                if (gr.table_name && !gr.table_name.nil()) {
+                    var tableRef = gr.table_name.getRefRecord();
+                    if (tableRef) {
+                        tableName = tableRef.getValue('name') || '';
+                        tableLabel = tableRef.getValue('label') || tableName;
                     }
-                    
-                    // Parse detail_json for full metrics
-                    var detailJson = {};
-                    try {
-                        var detailStr = gr.getValue('detail_json');
-                        if (detailStr) {
-                            detailJson = JSON.parse(detailStr);
-                        }
-                    } catch(e) {
-                        // Ignore parse errors
-                    }
-                    
-                    data.result = {
-                        sys_id: gr.getUniqueValue(),
-                        number: gr.getValue('number'),
-                        table_name: tableName,
-                        table_label: tableLabel,
-                        health_score: parseInt(gr.getValue('health_score'), 10) || 0,
-                        issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
-                        status: gr.getValue('status'),
-                        created_on: gr.getValue('sys_created_on'),
-                        created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : '',
-                        issues: detailJson.issues || [],
-                        metrics: detailJson.metrics || {},
-                        duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
-                    };
-                } else {
-                    data.error = 'Analysis record not found';
                 }
+                
+                // Parse detail_json for full metrics
+                var detailJson = {};
+                try {
+                    var detailStr = gr.getValue('detail_json');
+                    if (detailStr) {
+                        detailJson = JSON.parse(detailStr);
+                    }
+                } catch(e) {
+                    // Ignore parse errors
+                }
+                
+                data.result = {
+                    sys_id: gr.getUniqueValue(),
+                    number: gr.getValue('number'),
+                    table_name: tableName,
+                    table_label: tableLabel,
+                    health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                    issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                    status: gr.getValue('status'),
+                    created_on: gr.getValue('sys_created_on'),
+                    created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : '',
+                    issues: detailJson.issues || [],
+                    metrics: detailJson.metrics || {},
+                    duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
+                };
         } else {
-                data.error = result ? result.error : 'Failed to load analysis';
+                data.error = 'Analysis record not found (sys_id: ' + sysId + ')';
             }
         } catch(e) {
             data.error = 'Error loading analysis: ' + e.message;
@@ -698,7 +684,7 @@
 
   <!-- Loading State -->
   <div ng-if="c.loading && !c.error" style="text-align: center; padding: 80px;">
-    <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
+        <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
     <h3 style="margin-top: 20px; color: #666;">${Loading analysis results...}</h3>
   </div>
 
@@ -712,7 +698,7 @@
           {{c.result.health_score}}
         </div>
         <div class="fha-stat-label">${Health Score}</div>
-      </div>
+          </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value" ng-class="c.countBySeverity('high') > 0 ? 'poor' : 'good'">
           {{c.countBySeverity('high')}}
@@ -726,12 +712,12 @@
       <div class="fha-stat-card">
         <div class="fha-stat-value" style="color: #17A2B8;">{{c.countBySeverity('low')}}</div>
         <div class="fha-stat-label">${Low Severity Issues}</div>
+        </div>
       </div>
-    </div>
-
+      
     <!-- Actions Bar -->
-    <div class="fha-card">
-      <div class="fha-card-body">
+      <div class="fha-card">
+        <div class="fha-card-body">
         <div class="fha-actions-panel">
           <button class="fha-btn fha-btn-secondary" ng-click="c.goBack()">
             <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
@@ -742,7 +728,7 @@
         </div>
       </div>
     </div>
-
+    
     <!-- Tabs Navigation -->
     <div class="fha-tabs-nav">
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'overview'}" ng-click="c.setActiveTab('overview')">
@@ -770,11 +756,11 @@
     <div ng-if="c.activeTab === 'overview'">
       <div class="row">
         <div class="col-md-6">
-          <div class="fha-card">
-            <div class="fha-card-header">
+      <div class="fha-card">
+        <div class="fha-card-header">
               <h4><i class="fa fa-table"></i> ${Table Information}</h4>
-            </div>
-            <div class="fha-card-body">
+        </div>
+        <div class="fha-card-body">
               <table class="fha-data-table">
                 <tr>
                   <td><strong>${Table Name}</strong></td>
@@ -825,10 +811,10 @@
                 </tr>
               </table>
             </div>
-          </div>
         </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== ISSUES TAB ==================== -->
     <div ng-if="c.activeTab === 'issues'">
@@ -871,15 +857,15 @@
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
       <div class="fha-card" ng-if="c.result.issues.length === 0">
         <div class="fha-card-body" style="text-align: center; padding: 50px;">
           <i class="fa fa-check-circle fa-3x" style="color: #28A745;"></i>
           <h3 style="margin-top: 15px; color: #28A745;">${No Issues Found!}</h3>
           <p style="color: #666;">${This table is in excellent health.}</p>
-        </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== FIELDS TAB ==================== -->
     <div ng-if="c.activeTab === 'fields'">
@@ -966,9 +952,9 @@
         <div class="fha-card-body" ng-if="c.getAutomationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No automation items found for this table.}</p>
-        </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== INTEGRATIONS TAB ==================== -->
     <div ng-if="c.activeTab === 'integration'">
@@ -1003,13 +989,13 @@
               </tr>
             </tbody>
           </table>
-        </div>
+            </div>
         <div class="fha-card-body" ng-if="c.getIntegrationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No integration items found for this table.}</p>
-        </div>
       </div>
     </div>
+  </div>
 
   </div>
 </div>
