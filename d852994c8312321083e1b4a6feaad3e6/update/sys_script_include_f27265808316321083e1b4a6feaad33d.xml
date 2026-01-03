@@ -109,7 +109,8 @@ FHAnalyzer.prototype = {
 
         return {
             success: true,
-            analysis_id: resultSysId,
+            analysis_id: resultSysId,  // This is now the sys_id of fha_results record
+            sys_id: resultSysId,       // Explicit sys_id for clarity
             summary: engineResult.getSummary(),
             details: engineResult
         };
@@ -157,8 +158,10 @@ FHAnalyzer.prototype = {
         gr.setValue('status', 'completed');
         gr.setValue('user_id', gs.getUserID());
 
-        if (gr.insert()) {
-            return analysisId;
+        var sysId = gr.insert();
+        if (sysId) {
+            // Return the sys_id of the created record, not the analysis_id GUID
+            return sysId.toString();
         }
 
         throw new Error('Failed to save analysis result');
