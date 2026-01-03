@@ -217,6 +217,192 @@
         var url = '/x_1310794_founda_0_fha_results_list.do?sysparm_query=status=completed^ORDERBYDESCsys_created_on';
         window.open(url, '_blank');
     };
+
+    // Toggle section visibility
+    c.expandedSections = {};
+    c.toggleSection = function(section) {
+        c.expandedSections[section] = !c.expandedSections[section];
+    };
+    c.isSectionExpanded = function(section) {
+        return c.expandedSections[section] === true;
+    };
+
+    // Get metrics safely
+    c.getMetrics = function() {
+        return (c.result && c.result.metrics) ? c.result.metrics : {};
+    };
+
+    // Get custom fields from metrics
+    c.getCustomFields = function() {
+        var metrics = c.getMetrics();
+        return metrics.custom_fields || [];
+    };
+
+    // Get business rules from metrics
+    c.getBusinessRules = function() {
+        var metrics = c.getMetrics();
+        return metrics.business_rules || [];
+    };
+
+    // Get all automation items
+    c.getAutomationOverview = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        // Scheduled Jobs
+        if (metrics.scheduled_jobs) {
+            metrics.scheduled_jobs.forEach(function(job) {
+                items.push({
+                    type: 'Scheduled Job',
+                    name: job.name,
+                    active: job.active,
+                    sys_id: job.sys_id,
+                    table: 'sysauto_script'
+                });
+            });
+        }
+        
+        // Flows
+        if (metrics.flows) {
+            metrics.flows.forEach(function(flow) {
+                items.push({
+                    type: 'Flow',
+                    name: flow.name,
+                    active: flow.active,
+                    sys_id: flow.sys_id,
+                    table: 'sys_hub_flow'
+                });
+            });
+        }
+        
+        // Workflows
+        if (metrics.workflows) {
+            metrics.workflows.forEach(function(wf) {
+                items.push({
+                    type: 'Workflow',
+                    name: wf.name,
+                    active: wf.active,
+                    sys_id: wf.sys_id,
+                    table: 'wf_workflow'
+                });
+            });
+        }
+        
+        // Notifications
+        if (metrics.notifications) {
+            metrics.notifications.forEach(function(notif) {
+                items.push({
+                    type: 'Notification',
+                    name: notif.name,
+                    active: notif.active,
+                    sys_id: notif.sys_id,
+                    table: 'sysevent_email_action'
+                });
+            });
+        }
+        
+        // UI Actions
+        if (metrics.ui_actions) {
+            metrics.ui_actions.forEach(function(action) {
+                items.push({
+                    type: 'UI Action',
+                    name: action.name,
+                    active: true,
+                    sys_id: action.sys_id,
+                    table: 'sys_ui_action'
+                });
+            });
+        }
+        
+        return items;
+    };
+
+    // Get integrations overview
+    c.getIntegrationsOverview = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.data_sources) {
+            metrics.data_sources.forEach(function(ds) {
+                items.push({
+                    type: 'Data Source',
+                    name: ds.name,
+                    active: ds.active,
+                    sys_id: ds.sys_id,
+                    table: 'sys_data_source'
+                });
+            });
+        }
+        
+        if (metrics.transform_maps) {
+            metrics.transform_maps.forEach(function(tm) {
+                items.push({
+                    type: 'Transform Map',
+                    name: tm.name,
+                    active: tm.active,
+                    sys_id: tm.sys_id,
+                    table: 'sys_transform_map'
+                });
+            });
+        }
+        
+        return items;
+    };
+
+    // Open record from overview
+    c.openOverviewRecord = function(item) {
+        if (item.sys_id && item.table) {
+            var url = '/' + item.table + '.do?sys_id=' + item.sys_id;
+            window.open(url, '_blank');
+        }
+    };
+
+    // Get category link for header button
+    c.getCategoryListUrl = function(category) {
+        var metrics = c.getMetrics();
+        var tableName = c.result && c.result.table ? c.result.table : '';
+        
+        var urls = {
+            'business_rule': '/sys_script_list.do?sysparm_query=collection=' + tableName,
+            'client_script': '/sys_script_client_list.do?sysparm_query=table=' + tableName,
+            'field': '/sys_dictionary_list.do?sysparm_query=name=' + tableName + '^elementSTARTSWITHu_',
+            'automation': '/sysauto_script_list.do',
+            'integration': '/sys_transform_map_list.do?sysparm_query=target_table=' + tableName,
+            'security': '/sys_security_acl_list.do?sysparm_query=nameSTARTSWITH' + tableName
+        };
+        
+        return urls[category] || '';
+    };
+
+    // Open category list
+    c.openCategoryList = function(category) {
+        var url = c.getCategoryListUrl(category);
+        if (url) {
+            window.open(url, '_blank');
+        }
+    };
+
+    // Get category total count from metrics
+    c.getCategoryTotalCount = function(category) {
+        var metrics = c.getMetrics();
+        
+        switch(category) {
+            case 'business_rule':
+                return (metrics.active_br_count || 0) + (metrics.inactive_br_count || 0);
+            case 'client_script':
+                return metrics.client_script_count || 0;
+            case 'field':
+                return metrics.custom_field_count || 0;
+            case 'automation':
+                return (metrics.scheduled_job_count || 0) + (metrics.flow_count || 0) + 
+                       (metrics.workflow_count || 0) + (metrics.notification_count || 0) +
+                       (metrics.ui_action_count || 0);
+            case 'integration':
+                return (metrics.data_source_count || 0) + (metrics.transform_map_count || 0);
+            default:
+                return 0;
+        }
+    };
 }
 ]]></client_script>
         <controller_as>c</controller_as>
@@ -651,6 +837,7 @@
   text-decoration: none;
   font-weight: 500;
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 .fha-view-all-link:hover {
@@ -661,6 +848,276 @@
 .fha-view-all-link i {
   margin-left: 4px;
   font-size: 11px;
+}
+
+/* ==================== NEW SECTION STYLES ==================== */
+
+.fha-section {
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.fha-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.fha-section-header:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+}
+
+.fha-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-section-title i {
+  color: #0378BE;
+  font-size: 18px;
+}
+
+.fha-section-title h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.fha-section-count {
+  background: #6c757d;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fha-section-detail {
+  font-size: 12px;
+  color: #666;
+  font-weight: normal;
+}
+
+.fha-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.fha-section-actions > i {
+  color: #666;
+  font-size: 14px;
+}
+
+.fha-header-link {
+  padding: 6px 12px;
+  background: #0378BE;
+  color: white !important;
+  border-radius: 4px;
+  font-size: 12px;
+  text-decoration: none !important;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fha-header-link:hover {
+  background: #035B8E;
+  transform: translateY(-1px);
+}
+
+.fha-header-link-green {
+  background: #28A745;
+}
+
+.fha-header-link-green:hover {
+  background: #1e7e34;
+}
+
+/* Section Issues */
+.fha-section-issues {
+  border-top: 1px solid #e9ecef;
+}
+
+.fha-section-issues .fha-issue-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+
+.fha-section-issues .fha-issue-item:last-child {
+  border-bottom: none;
+}
+
+.fha-section-issues .fha-issue-item:hover {
+  background: #f8f9fa;
+}
+
+.fha-section-issues .fha-issue-item.clickable {
+  cursor: pointer;
+}
+
+.fha-section-issues .fha-issue-item.clickable:hover {
+  background: #e9f5ff;
+}
+
+/* Section Overview */
+.fha-section-overview {
+  border-top: 1px solid #e9ecef;
+  background: #fafbfc;
+  padding: 15px 20px;
+}
+
+.fha-overview-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fha-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fha-overview-table th {
+  text-align: left;
+  padding: 8px 12px;
+  background: #e9ecef;
+  font-weight: 600;
+  color: #495057;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.fha-overview-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.fha-overview-table tr:hover {
+  background: #f0f7ff;
+}
+
+.fha-overview-table tr.fha-row-inactive {
+  opacity: 0.6;
+}
+
+.fha-overview-table tr.fha-row-warning {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.fha-overview-table tr.fha-row-danger {
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.fha-overview-table a {
+  color: #0378BE;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.fha-overview-table a:hover {
+  text-decoration: underline;
+}
+
+.fha-overview-table code {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+/* Status and Type Badges */
+.fha-status-badge {
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.fha-status-badge.active {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28A745;
+}
+
+.fha-status-badge.inactive {
+  background: rgba(108, 117, 125, 0.15);
+  color: #6c757d;
+}
+
+.fha-type-badge {
+  background: #e9ecef;
+  color: #495057;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Fill Rate Bar */
+.fha-fill-rate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-fill-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #28A745;
+  min-width: 5px;
+  max-width: 100px;
+}
+
+.fha-fill-bar.danger {
+  background: #DC3545;
+}
+
+.fha-fill-bar.warning {
+  background: #FFC107;
+}
+
+.fha-fill-bar.success {
+  background: #28A745;
+}
+
+.fha-fill-rate span {
+  font-size: 12px;
+  color: #666;
+  min-width: 35px;
+}
+
+/* Mini Link */
+.fha-mini-link {
+  color: #0378BE;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.fha-mini-link:hover {
+  background: #e9f5ff;
+  color: #035B8E;
 }
 ]]></css>
         <data_table>sp_instance</data_table>
@@ -886,76 +1343,328 @@
             </div>
     </div>
 
-          <!-- Issues List -->
-          <div ng-if="c.result.issues && c.result.issues.length > 0">
-            <h5 style="margin: 20px 0 15px 0; font-weight: 600;">
-              <i class="fa fa-exclamation-circle"></i> ${Identified Issues}
-            </h5>
-            
-            <!-- Severity Summary -->
-            <div class="fha-severity-summary">
-              <div class="fha-severity-badge high" ng-if="c.countBySeverity('high') > 0">
-                <i class="fa fa-exclamation-triangle"></i>
-                {{c.countBySeverity('high')}} ${High}
-              </div>
-              <div class="fha-severity-badge medium" ng-if="c.countBySeverity('medium') > 0">
-                <i class="fa fa-exclamation-circle"></i>
-                {{c.countBySeverity('medium')}} ${Medium}
-              </div>
-              <div class="fha-severity-badge low" ng-if="c.countBySeverity('low') > 0">
-                <i class="fa fa-info-circle"></i>
-                {{c.countBySeverity('low')}} ${Low}
-              </div>
+          <!-- Severity Summary -->
+          <div class="fha-severity-summary" ng-if="c.result.issues && c.result.issues.length > 0">
+            <div class="fha-severity-badge high" ng-if="c.countBySeverity('high') > 0">
+              <i class="fa fa-exclamation-triangle"></i>
+              {{c.countBySeverity('high')}} ${High}
             </div>
-
-            <!-- Grouped by Category -->
-            <div class="fha-category-group" ng-repeat="(category, issues) in c.getGroupedIssues()">
-              <div class="fha-category-header">
-                <i class="fa" ng-class="c.getCategoryIcon(category)"></i>
-                <h5>{{c.getCategoryLabel(category)}}</h5>
-                <span class="fha-category-count">{{issues.length}}</span>
-              </div>
-              <div class="fha-category-body">
-                <ul class="fha-issue-list">
-                  <li class="fha-issue-item" 
-                      ng-repeat="issue in issues"
-                      ng-class="{'clickable': c.hasRecordLink(issue)}"
-                      ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
-                    <span class="fha-issue-severity" 
-                          ng-class="'fha-severity-' + issue.severity">
-                      {{issue.severity}}
-                    </span>
-                    <div class="fha-issue-content">
-                      <div class="fha-issue-code">{{issue.code}}</div>
-                      <div class="fha-issue-message">{{issue.message}}</div>
-                    </div>
-                    <div class="fha-issue-actions" ng-if="c.hasRecordLink(issue) || c.hasListLink(issue)">
-                      <a class="fha-issue-link" 
-                         ng-if="c.hasRecordLink(issue) && !c.hasListLink(issue)"
-                         ng-click="$event.stopPropagation(); c.goToRecord(issue)"
-                         title="${View Record}">
-                        <i class="fa fa-external-link-alt"></i>
-                        ${View}
-                      </a>
-                      <a class="fha-issue-link fha-issue-link-list" 
-                         ng-if="c.hasListLink(issue)"
-                         ng-click="$event.stopPropagation(); c.goToList(issue)"
-                         title="${View all records}">
-                        <i class="fa fa-list"></i>
-                        {{c.getRecordCount(issue)}} ${records}
-                      </a>
-                    </div>
-          </li>
-        </ul>
-              </div>
+            <div class="fha-severity-badge medium" ng-if="c.countBySeverity('medium') > 0">
+              <i class="fa fa-exclamation-circle"></i>
+              {{c.countBySeverity('medium')}} ${Medium}
             </div>
-          </div>
+            <div class="fha-severity-badge low" ng-if="c.countBySeverity('low') > 0">
+              <i class="fa fa-info-circle"></i>
+              {{c.countBySeverity('low')}} ${Low}
+            </div>
+    </div>
 
-          <!-- No Issues -->
+          <!-- No Issues Message -->
           <div ng-if="c.result.issues && c.result.issues.length === 0" class="fha-no-issues">
             <i class="fa fa-check-circle"></i>
             <h4>${Excellent!}</h4>
             <p>${No issues detected on this table.}</p>
+          </div>
+
+          <!-- ==================== FIELDS SECTION ==================== -->
+          <div class="fha-section" ng-if="c.getCustomFields().length > 0">
+            <div class="fha-section-header" ng-click="c.toggleSection('fields')">
+              <div class="fha-section-title">
+                <i class="fa fa-columns"></i>
+                <h5>${Custom Fields}</h5>
+                <span class="fha-section-count">{{c.getCustomFields().length}} ${fields}</span>
+              </div>
+              <div class="fha-section-actions">
+                <a class="fha-header-link" ng-click="$event.stopPropagation(); c.openCategoryList('field')">
+                  <i class="fa fa-external-link-alt"></i> ${View All}
+                </a>
+                <i class="fa" ng-class="c.isSectionExpanded('fields') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </div>
+            </div>
+            
+            <!-- Issues for Fields -->
+            <div class="fha-section-issues" ng-if="c.getGroupedIssues()['field']">
+              <div class="fha-issue-item" ng-repeat="issue in c.getGroupedIssues()['field']"
+                   ng-class="{'clickable': c.hasRecordLink(issue)}"
+                   ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
+                <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
+                <div class="fha-issue-content">
+                  <div class="fha-issue-code">{{issue.code}}</div>
+                  <div class="fha-issue-message">{{issue.message}}</div>
+                </div>
+                <a class="fha-issue-link" ng-if="c.hasRecordLink(issue)" 
+                   ng-click="$event.stopPropagation(); c.goToRecord(issue)">
+                  <i class="fa fa-external-link-alt"></i> ${View}
+                </a>
+              </div>
+      </div>
+
+            <!-- Overview of all custom fields -->
+            <div class="fha-section-overview" ng-show="c.isSectionExpanded('fields')">
+              <div class="fha-overview-header">${All Custom Fields}</div>
+              <table class="fha-overview-table">
+                <thead>
+                  <tr>
+                    <th>${Field Name}</th>
+                    <th>${Label}</th>
+                    <th>${Type}</th>
+                    <th>${Fill Rate}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="field in c.getCustomFields()" 
+                      ng-class="{'fha-row-warning': field.fill_rate < 10, 'fha-row-danger': field.fill_rate === 0}">
+                    <td><code>{{field.name}}</code></td>
+                    <td>{{field.label}}</td>
+                    <td><span class="fha-type-badge">{{field.type}}</span></td>
+                    <td>
+                      <div class="fha-fill-rate">
+                        <div class="fha-fill-bar" ng-style="{'width': field.fill_rate + '%'}" 
+                             ng-class="{'danger': field.fill_rate === 0, 'warning': field.fill_rate > 0 && field.fill_rate < 10, 'success': field.fill_rate >= 10}"></div>
+                        <span>{{field.fill_rate}}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ==================== BUSINESS RULES SECTION ==================== -->
+          <div class="fha-section" ng-if="c.getCategoryTotalCount('business_rule') > 0">
+            <div class="fha-section-header" ng-click="c.toggleSection('business_rules')">
+              <div class="fha-section-title">
+                <i class="fa fa-cogs"></i>
+                <h5>${Business Rules}</h5>
+                <span class="fha-section-count">{{c.getCategoryTotalCount('business_rule')}} ${total}</span>
+                <span class="fha-section-detail">({{c.getMetrics().active_br_count || 0}} ${active}, {{c.getMetrics().inactive_br_count || 0}} ${inactive})</span>
+              </div>
+              <div class="fha-section-actions">
+                <a class="fha-header-link fha-header-link-green" ng-click="$event.stopPropagation(); c.openCategoryList('business_rule')">
+                  <i class="fa fa-list"></i> {{c.getCategoryTotalCount('business_rule')}} ${records}
+                </a>
+                <i class="fa" ng-class="c.isSectionExpanded('business_rules') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </div>
+            </div>
+            
+            <!-- Issues for Business Rules -->
+            <div class="fha-section-issues" ng-if="c.getGroupedIssues()['business_rule']">
+              <div class="fha-issue-item" ng-repeat="issue in c.getGroupedIssues()['business_rule']">
+                <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
+                <div class="fha-issue-content">
+                  <div class="fha-issue-code">{{issue.code}}</div>
+                  <div class="fha-issue-message">{{issue.message}}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Overview of all business rules -->
+            <div class="fha-section-overview" ng-show="c.isSectionExpanded('business_rules')">
+              <div class="fha-overview-header">${All Business Rules}</div>
+              <table class="fha-overview-table">
+                <thead>
+                  <tr>
+                    <th>${Name}</th>
+                    <th>${When}</th>
+                    <th>${Order}</th>
+                    <th>${Status}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="br in c.getBusinessRules()" ng-class="{'fha-row-inactive': !br.active}">
+                    <td>
+                      <a ng-click="c.openOverviewRecord({sys_id: br.sys_id, table: 'sys_script'})">{{br.name}}</a>
+                    </td>
+                    <td>{{br.when}}</td>
+                    <td>{{br.order}}</td>
+                    <td>
+                      <span class="fha-status-badge" ng-class="br.active ? 'active' : 'inactive'">
+                        {{br.active ? '${Active}' : '${Inactive}'}}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ==================== AUTOMATION SECTION ==================== -->
+          <div class="fha-section" ng-if="c.getCategoryTotalCount('automation') > 0">
+            <div class="fha-section-header" ng-click="c.toggleSection('automation')">
+              <div class="fha-section-title">
+                <i class="fa fa-robot"></i>
+                <h5>${Automation}</h5>
+                <span class="fha-section-count">{{c.getCategoryTotalCount('automation')}} ${items}</span>
+              </div>
+              <div class="fha-section-actions">
+                <i class="fa" ng-class="c.isSectionExpanded('automation') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </div>
+            </div>
+            
+            <!-- Issues for Automation -->
+            <div class="fha-section-issues" ng-if="c.getGroupedIssues()['automation']">
+              <div class="fha-issue-item" ng-repeat="issue in c.getGroupedIssues()['automation']"
+                   ng-class="{'clickable': c.hasRecordLink(issue)}"
+                   ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
+                <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
+                <div class="fha-issue-content">
+                  <div class="fha-issue-code">{{issue.code}}</div>
+                  <div class="fha-issue-message">{{issue.message}}</div>
+                </div>
+                <a class="fha-issue-link" ng-if="c.hasRecordLink(issue)" 
+                   ng-click="$event.stopPropagation(); c.goToRecord(issue)">
+                  <i class="fa fa-external-link-alt"></i> ${View}
+                </a>
+              </div>
+            </div>
+
+            <!-- Overview of all automation -->
+            <div class="fha-section-overview" ng-show="c.isSectionExpanded('automation')">
+              <div class="fha-overview-header">${All Automation Items}</div>
+              <table class="fha-overview-table">
+                <thead>
+                  <tr>
+                    <th>${Type}</th>
+                    <th>${Name}</th>
+                    <th>${Status}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="item in c.getAutomationOverview()" ng-class="{'fha-row-inactive': !item.active}">
+                    <td><span class="fha-type-badge">{{item.type}}</span></td>
+                    <td>{{item.name}}</td>
+                    <td>
+                      <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
+                        {{item.active ? '${Active}' : '${Inactive}'}}
+                      </span>
+                    </td>
+                    <td>
+                      <a class="fha-mini-link" ng-click="c.openOverviewRecord(item)" ng-if="item.sys_id">
+                        <i class="fa fa-external-link-alt"></i>
+                      </a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ==================== INTEGRATIONS SECTION ==================== -->
+          <div class="fha-section" ng-if="c.getCategoryTotalCount('integration') > 0 || c.getGroupedIssues()['integration']">
+            <div class="fha-section-header" ng-click="c.toggleSection('integration')">
+              <div class="fha-section-title">
+                <i class="fa fa-exchange-alt"></i>
+                <h5>${Integrations}</h5>
+                <span class="fha-section-count">{{c.getCategoryTotalCount('integration')}} ${items}</span>
+              </div>
+              <div class="fha-section-actions">
+                <a class="fha-header-link" ng-click="$event.stopPropagation(); c.openCategoryList('integration')">
+                  <i class="fa fa-external-link-alt"></i> ${View All}
+                </a>
+                <i class="fa" ng-class="c.isSectionExpanded('integration') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </div>
+            </div>
+            
+            <!-- Issues for Integrations -->
+            <div class="fha-section-issues" ng-if="c.getGroupedIssues()['integration']">
+              <div class="fha-issue-item" ng-repeat="issue in c.getGroupedIssues()['integration']"
+                   ng-class="{'clickable': c.hasRecordLink(issue)}"
+                   ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
+                <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
+                <div class="fha-issue-content">
+                  <div class="fha-issue-code">{{issue.code}}</div>
+                  <div class="fha-issue-message">{{issue.message}}</div>
+                </div>
+                <a class="fha-issue-link" ng-if="c.hasRecordLink(issue)" 
+                   ng-click="$event.stopPropagation(); c.goToRecord(issue)">
+                  <i class="fa fa-external-link-alt"></i> ${View}
+                </a>
+              </div>
+            </div>
+
+            <!-- Overview of all integrations -->
+            <div class="fha-section-overview" ng-show="c.isSectionExpanded('integration')">
+              <div class="fha-overview-header">${All Integration Items}</div>
+              <table class="fha-overview-table">
+                <thead>
+                  <tr>
+                    <th>${Type}</th>
+                    <th>${Name}</th>
+                    <th>${Status}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="item in c.getIntegrationsOverview()" ng-class="{'fha-row-inactive': !item.active}">
+                    <td><span class="fha-type-badge">{{item.type}}</span></td>
+                    <td>{{item.name}}</td>
+                    <td>
+                      <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
+                        {{item.active ? '${Active}' : '${Inactive}'}}
+                      </span>
+                    </td>
+                    <td>
+                      <a class="fha-mini-link" ng-click="c.openOverviewRecord(item)" ng-if="item.sys_id">
+                        <i class="fa fa-external-link-alt"></i>
+                      </a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ==================== SECURITY SECTION ==================== -->
+          <div class="fha-section" ng-if="c.getGroupedIssues()['security']">
+            <div class="fha-section-header">
+              <div class="fha-section-title">
+                <i class="fa fa-shield-alt"></i>
+                <h5>${Security}</h5>
+                <span class="fha-section-count">{{c.getGroupedIssues()['security'].length}} ${issues}</span>
+              </div>
+              <div class="fha-section-actions">
+                <a class="fha-header-link" ng-click="c.openCategoryList('security')">
+                  <i class="fa fa-external-link-alt"></i> ${View ACLs}
+                </a>
+              </div>
+            </div>
+            <div class="fha-section-issues">
+              <div class="fha-issue-item" ng-repeat="issue in c.getGroupedIssues()['security']">
+                <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
+                <div class="fha-issue-content">
+                  <div class="fha-issue-code">{{issue.code}}</div>
+                  <div class="fha-issue-message">{{issue.message}}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== OTHER ISSUES (General, UI, etc.) ==================== -->
+          <div class="fha-section" ng-repeat="(category, issues) in c.getGroupedIssues()" 
+               ng-if="category !== 'field' && category !== 'business_rule' && category !== 'automation' && category !== 'integration' && category !== 'security'">
+            <div class="fha-section-header">
+              <div class="fha-section-title">
+                <i class="fa" ng-class="c.getCategoryIcon(category)"></i>
+                <h5>{{c.getCategoryLabel(category)}}</h5>
+                <span class="fha-section-count">{{issues.length}} ${issues}</span>
+              </div>
+            </div>
+            <div class="fha-section-issues">
+              <div class="fha-issue-item" ng-repeat="issue in issues"
+                   ng-class="{'clickable': c.hasRecordLink(issue)}"
+                   ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
+                <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
+                <div class="fha-issue-content">
+                  <div class="fha-issue-code">{{issue.code}}</div>
+                  <div class="fha-issue-message">{{issue.message}}</div>
+                </div>
+                <a class="fha-issue-link" ng-if="c.hasRecordLink(issue)" 
+                   ng-click="$event.stopPropagation(); c.goToRecord(issue)">
+                  <i class="fa fa-external-link-alt"></i> ${View}
+                </a>
+              </div>
+            </div>
           </div>
 
           <!-- View Details Button -->
@@ -997,8 +1706,8 @@
           <h4 style="margin: 0;"><i class="fa fa-history"></i> ${Recent Analyses}</h4>
           <a ng-click="c.viewAllAnalyses()" class="fha-view-all-link" title="${View all analyses}">
             ${View All} <i class="fa fa-arrow-right"></i>
-          </a>
-        </div>
+        </a>
+      </div>
         <div class="fha-card-body" style="padding: 0;">
           <div ng-if="c.recentAnalyses.length === 0" style="padding: 30px; text-align: center; color: #999;">
             <i class="fa fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
