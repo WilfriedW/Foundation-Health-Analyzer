@@ -7,10 +7,74 @@
         <enforce_acl/>
         <http_method>GET</http_method>
         <name>History</name>
-        <operation_script><![CDATA[(function process(/*RESTAPIRequest*/ request, /*RESTAPIResponse*/ response) {
-
-    // implement resource here
-
+        <operation_script><![CDATA[(function process(request, response) {
+    try {
+        // Get query parameters
+        var limit = parseInt(request.queryParams.limit, 10) || 20;
+        var offset = parseInt(request.queryParams.offset, 10) || 0;
+        var tableName = request.queryParams.table_name || '';
+        var status = request.queryParams.status || '';
+        
+        // Cap limit at 100
+        if (limit > 100) limit = 100;
+        
+        var history = [];
+        var totalCount = 0;
+        
+        // Count total records
+        var countGa = new GlideAggregate('x_1310794_founda_0_fha_results');
+        if (tableName) {
+            countGa.addQuery('table_name.name', tableName);
+        }
+        if (status) {
+            countGa.addQuery('status', status);
+        }
+        countGa.addAggregate('COUNT');
+        countGa.query();
+        if (countGa.next()) {
+            totalCount = parseInt(countGa.getAggregate('COUNT'), 10) || 0;
+        }
+        
+        // Get history records
+        var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+        if (tableName) {
+            gr.addQuery('table_name.name', tableName);
+        }
+        if (status) {
+            gr.addQuery('status', status);
+        }
+        gr.orderByDesc('sys_created_on');
+        gr.chooseWindow(offset, offset + limit);
+        gr.query();
+        
+        while (gr.next()) {
+            history.push({
+                sys_id: gr.getUniqueValue(),
+                number: gr.getValue('number'),
+                table_name: gr.table_name ? gr.table_name.getDisplayValue() : '',
+                health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                issues_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                status: gr.getValue('status'),
+                created_on: gr.getValue('sys_created_on'),
+                created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : ''
+            });
+        }
+        
+        response.setStatus(200);
+        response.setBody({
+            success: true,
+            total: totalCount,
+            limit: limit,
+            offset: offset,
+            history: history
+        });
+    } catch (error) {
+        response.setStatus(500);
+        response.setBody({
+            success: false,
+            error: error.message
+        });
+    }
 })(request, response);]]></operation_script>
         <operation_uri>/api/x_1310794_founda_0/fha/history</operation_uri>
         <produces>application/json,application/xml,text/xml</produces>

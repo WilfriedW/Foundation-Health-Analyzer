@@ -20,14 +20,14 @@
             return;
         }
         
-        var analyzer = new global.FHAnalyzer();
+        var analyzer = new x_1310794_founda_0.FHAnalyzer();
         var result = analyzer.getAnalysisResult(analysisId);
         
-        if (!result) {
+        if (!result || !result.success) {
             response.setStatus(404);
             response.setBody({
                 success: false,
-                error: 'Analysis not found'
+                error: result ? result.error : 'Analysis not found'
             });
             return;
         }
@@ -35,7 +35,16 @@
         response.setStatus(200);
         response.setBody({
             success: true,
-            analysis: result
+            analysis: {
+                sys_id: analysisId,
+                table_name: result.result.table_name,
+                health_score: result.result.health_score,
+                issues_count: result.result.issue_found,
+                status: result.result.status,
+                created_on: result.result.created_on,
+                issues: result.result.issues || [],
+                metrics: result.result.metrics || {}
+            }
         });
     } catch (error) {
         response.setStatus(500);
@@ -44,7 +53,7 @@
             error: error.message
         });
     }
-})();
+})(request, response);
 ]]></operation_script>
         <operation_uri>/api/x_1310794_founda_0/fha/analysis/{analysis_id}</operation_uri>
         <produces>application/json,application/xml,text/xml</produces>

@@ -134,17 +134,29 @@ FHCheckTable.prototype = {
             // Check for issues
             if (fillRate === 0) {
                 unusedFields.push(fieldName);
-                ctx.addIssue('UNUSED_FIELD', 'Field "' + fieldLabel + '" (' + fieldName + ') is never populated (0%)', 'high');
+                ctx.addIssue('UNUSED_FIELD', 'Field "' + fieldLabel + '" (' + fieldName + ') is never populated (0%)', 'high', {
+                    record_table: 'sys_dictionary',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'field'
+                });
             } else if (fillRate < 10) {
                 lowUsageFields.push(fieldName);
-                ctx.addIssue('LOW_USAGE_FIELD', 'Field "' + fieldLabel + '" (' + fieldName + ') has low usage (' + fillRate + '%)', 'medium');
+                ctx.addIssue('LOW_USAGE_FIELD', 'Field "' + fieldLabel + '" (' + fieldName + ') has low usage (' + fillRate + '%)', 'medium', {
+                    record_table: 'sys_dictionary',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'field'
+                });
             }
             
             // Check for potential OOTB duplicates
             if (fieldName.length > 2) {
                 var baseName = fieldName.substring(2); // Remove u_ prefix
                 if (this._ootbFieldExists(tableName, baseName)) {
-                    ctx.addIssue('POTENTIAL_DUPLICATE', 'Field "' + fieldName + '" might be a duplicate of OOTB field "' + baseName + '"', 'medium');
+                    ctx.addIssue('POTENTIAL_DUPLICATE', 'Field "' + fieldName + '" might be a duplicate of OOTB field "' + baseName + '"', 'medium', {
+                        record_table: 'sys_dictionary',
+                        record_sys_id: gr.getUniqueValue(),
+                        category: 'field'
+                    });
                 }
             }
         }
@@ -232,7 +244,11 @@ FHCheckTable.prototype = {
             // Check if referenced table exists
             var tableGr = new GlideRecord('sys_db_object');
             if (!tableGr.get('name', refTable)) {
-                ctx.addIssue('INVALID_REFERENCE', 'Field "' + fieldName + '" references non-existent table: ' + refTable, 'high');
+                ctx.addIssue('INVALID_REFERENCE', 'Field "' + fieldName + '" references non-existent table: ' + refTable, 'high', {
+                    record_table: 'sys_dictionary',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'field'
+                });
             }
         }
         
@@ -280,11 +296,19 @@ FHCheckTable.prototype = {
         ctx.metrics.inactive_br_count = inactiveBRCount;
         
         if (activeBRCount > 20) {
-            ctx.addIssue('MANY_BUSINESS_RULES', 'Table has ' + activeBRCount + ' active business rules. This may impact performance.', 'medium');
+            ctx.addIssue('MANY_BUSINESS_RULES', 'Table has ' + activeBRCount + ' active business rules. This may impact performance.', 'medium', {
+                record_table: 'sys_script',
+                record_filter: 'collection=' + tableName + '^active=true',
+                category: 'business_rule'
+            });
         }
         
         if (inactiveBRCount > 10) {
-            ctx.addIssue('INACTIVE_BUSINESS_RULES', 'Table has ' + inactiveBRCount + ' inactive business rules. Consider removing them.', 'low');
+            ctx.addIssue('INACTIVE_BUSINESS_RULES', 'Table has ' + inactiveBRCount + ' inactive business rules. Consider removing them.', 'low', {
+                record_table: 'sys_script',
+                record_filter: 'collection=' + tableName + '^active=false',
+                category: 'business_rule'
+            });
         }
     },
 
@@ -317,7 +341,11 @@ FHCheckTable.prototype = {
         ctx.metrics.client_script_count = clientScripts.length;
         
         if (clientScripts.length > 15) {
-            ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium');
+            ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
+                record_table: 'sys_script_client',
+                record_filter: 'table=' + tableName + '^active=true',
+                category: 'client_script'
+            });
         }
     },
 

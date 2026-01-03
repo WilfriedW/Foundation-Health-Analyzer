@@ -25,14 +25,25 @@ FHAnalysisContext.prototype = {
      * @param {String} code - Issue code
      * @param {String} message - Issue message
      * @param {String} severity - Issue severity (low, medium, high)
+     * @param {Object} metadata - Optional metadata (record_table, record_sys_id, record_filter, category)
      */
-    addIssue: function(code, message, severity) {
-        this.issues.push({
+    addIssue: function(code, message, severity, metadata) {
+        var issue = {
             code: code,
             message: message,
             severity: severity || 'low',
             timestamp: new Date().toISOString()
-        });
+        };
+        
+        // Add metadata for record linking
+        if (metadata) {
+            if (metadata.record_table) issue.record_table = metadata.record_table;
+            if (metadata.record_sys_id) issue.record_sys_id = metadata.record_sys_id;
+            if (metadata.record_filter) issue.record_filter = metadata.record_filter;
+            if (metadata.category) issue.category = metadata.category;
+        }
+        
+        this.issues.push(issue);
     },
 
     /**

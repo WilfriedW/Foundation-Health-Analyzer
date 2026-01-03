@@ -7,10 +7,94 @@
         <enforce_acl/>
         <http_method>GET</http_method>
         <name>Statistics</name>
-        <operation_script><![CDATA[(function process(/*RESTAPIRequest*/ request, /*RESTAPIResponse*/ response) {
-
-    // implement resource here
-
+        <operation_script><![CDATA[(function process(request, response) {
+    try {
+        var stats = {
+            configurations: {
+                total: 0,
+                active: 0
+            },
+            analyses: {
+                total: 0,
+                completed: 0,
+                failed: 0,
+                average_health_score: 0
+            },
+            recent_analyses: []
+        };
+        
+        // Count configurations
+        var configGa = new GlideAggregate('x_1310794_founda_0_fha_configuration');
+        configGa.addAggregate('COUNT');
+        configGa.query();
+        if (configGa.next()) {
+            stats.configurations.total = parseInt(configGa.getAggregate('COUNT'), 10) || 0;
+        }
+        
+        var activeConfigGa = new GlideAggregate('x_1310794_founda_0_fha_configuration');
+        activeConfigGa.addQuery('active', true);
+        activeConfigGa.addAggregate('COUNT');
+        activeConfigGa.query();
+        if (activeConfigGa.next()) {
+            stats.configurations.active = parseInt(activeConfigGa.getAggregate('COUNT'), 10) || 0;
+        }
+        
+        // Count analyses
+        var analysisGa = new GlideAggregate('x_1310794_founda_0_fha_results');
+        analysisGa.addAggregate('COUNT');
+        analysisGa.query();
+        if (analysisGa.next()) {
+            stats.analyses.total = parseInt(analysisGa.getAggregate('COUNT'), 10) || 0;
+        }
+        
+        var completedGa = new GlideAggregate('x_1310794_founda_0_fha_results');
+        completedGa.addQuery('status', 'completed');
+        completedGa.addAggregate('COUNT');
+        completedGa.addAggregate('AVG', 'health_score');
+        completedGa.query();
+        if (completedGa.next()) {
+            stats.analyses.completed = parseInt(completedGa.getAggregate('COUNT'), 10) || 0;
+            stats.analyses.average_health_score = Math.round(parseFloat(completedGa.getAggregate('AVG', 'health_score')) || 0);
+        }
+        
+        var failedGa = new GlideAggregate('x_1310794_founda_0_fha_results');
+        failedGa.addQuery('status', 'failed');
+        failedGa.addAggregate('COUNT');
+        failedGa.query();
+        if (failedGa.next()) {
+            stats.analyses.failed = parseInt(failedGa.getAggregate('COUNT'), 10) || 0;
+        }
+        
+        // Get recent analyses
+        var recentGr = new GlideRecord('x_1310794_founda_0_fha_results');
+        recentGr.addQuery('status', 'completed');
+        recentGr.orderByDesc('sys_created_on');
+        recentGr.setLimit(10);
+        recentGr.query();
+        
+        while (recentGr.next()) {
+            stats.recent_analyses.push({
+                sys_id: recentGr.getUniqueValue(),
+                number: recentGr.getValue('number'),
+                table_name: recentGr.table_name ? recentGr.table_name.getDisplayValue() : '',
+                health_score: parseInt(recentGr.getValue('health_score'), 10) || 0,
+                issues_count: parseInt(recentGr.getValue('issue_found'), 10) || 0,
+                created_on: recentGr.getValue('sys_created_on')
+            });
+        }
+        
+        response.setStatus(200);
+        response.setBody({
+            success: true,
+            statistics: stats
+        });
+    } catch (error) {
+        response.setStatus(500);
+        response.setBody({
+            success: false,
+            error: error.message
+        });
+    }
 })(request, response);]]></operation_script>
         <operation_uri>/api/x_1310794_founda_0/fha/statistics</operation_uri>
         <produces>application/json,application/xml,text/xml</produces>

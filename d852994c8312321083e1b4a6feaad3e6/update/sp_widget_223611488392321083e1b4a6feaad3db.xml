@@ -101,6 +101,93 @@
         });
         return Math.max(0, score);
     };
+
+    // Group issues by category
+    c.getGroupedIssues = function() {
+        if (!c.result || !c.result.issues) return {};
+        
+        var grouped = {};
+        c.result.issues.forEach(function(issue) {
+            var category = issue.category || 'general';
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push(issue);
+        });
+        
+        // Sort each category by severity
+        Object.keys(grouped).forEach(function(key) {
+            grouped[key].sort(function(a, b) {
+                var severityOrder = { high: 0, medium: 1, low: 2 };
+                return (severityOrder[a.severity] || 3) - (severityOrder[b.severity] || 3);
+            });
+        });
+        
+        return grouped;
+    };
+
+    // Get category display name
+    c.getCategoryLabel = function(category) {
+        var labels = {
+            field: '${Fields}',
+            business_rule: '${Business Rules}',
+            client_script: '${Client Scripts}',
+            integration: '${Integrations}',
+            automation: '${Automation}',
+            security: '${Security}',
+            notification: '${Notifications}',
+            ui: '${User Interface}',
+            general: '${General}'
+        };
+        return labels[category] || category;
+    };
+
+    // Get category icon
+    c.getCategoryIcon = function(category) {
+        var icons = {
+            field: 'fa-columns',
+            business_rule: 'fa-cogs',
+            client_script: 'fa-code',
+            integration: 'fa-exchange-alt',
+            automation: 'fa-robot',
+            security: 'fa-shield-alt',
+            notification: 'fa-envelope',
+            ui: 'fa-desktop',
+            general: 'fa-info-circle'
+        };
+        return icons[category] || 'fa-exclamation-circle';
+    };
+
+    // Navigate to record
+    c.goToRecord = function(issue) {
+        if (issue.record_sys_id && issue.record_table) {
+            // Direct link to record
+            var url = '/' + issue.record_table + '.do?sys_id=' + issue.record_sys_id;
+            window.open(url, '_blank');
+        } else if (issue.record_filter && issue.record_table) {
+            // Link to filtered list
+            var url = '/' + issue.record_table + '_list.do?sysparm_query=' + encodeURIComponent(issue.record_filter);
+            window.open(url, '_blank');
+        }
+    };
+
+    // Check if issue has a link
+    c.hasRecordLink = function(issue) {
+        return (issue.record_sys_id && issue.record_table) || (issue.record_filter && issue.record_table);
+    };
+
+    // Get issues by severity
+    c.getIssuesBySeverity = function(severity) {
+        if (!c.result || !c.result.issues) return [];
+        return c.result.issues.filter(function(issue) {
+            return issue.severity === severity;
+        });
+    };
+
+    // Count issues by severity
+    c.countBySeverity = function(severity) {
+        return c.getIssuesBySeverity(severity).length;
+    };
 }
 ]]></client_script>
         <controller_as>c</controller_as>
@@ -338,6 +425,179 @@
   font-size: 48px;
   margin-bottom: 15px;
 }
+
+/* Category grouping */
+.fha-category-group {
+  margin-bottom: 25px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.fha-category-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fha-category-header i {
+  color: #0378BE;
+  font-size: 18px;
+}
+
+.fha-category-header h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.fha-category-count {
+  background: #6c757d;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fha-category-body {
+  background: white;
+}
+
+/* Improved issue item */
+.fha-issue-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 15px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+
+.fha-issue-item:last-child {
+  border-bottom: none;
+}
+
+.fha-issue-item:hover {
+  background: #f8f9fa;
+}
+
+.fha-issue-item.clickable {
+  cursor: pointer;
+}
+
+.fha-issue-item.clickable:hover {
+  background: #e9f5ff;
+}
+
+.fha-issue-link {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: #0378BE;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fha-issue-link:hover {
+  background: #035B8E;
+  color: white;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+/* Severity summary badges */
+.fha-severity-summary {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.fha-severity-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.fha-severity-badge.high {
+  background: rgba(220, 53, 69, 0.1);
+  color: #DC3545;
+}
+
+.fha-severity-badge.medium {
+  background: rgba(255, 193, 7, 0.15);
+  color: #856404;
+}
+
+.fha-severity-badge.low {
+  background: rgba(23, 162, 184, 0.1);
+  color: #17A2B8;
+}
+
+.fha-severity-badge i {
+  font-size: 12px;
+}
+
+/* Tabs for view modes */
+.fha-view-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 10px;
+}
+
+.fha-view-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.fha-view-tab:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.fha-view-tab.active {
+  background: #0378BE;
+  color: white;
+}
+
+/* Improved stats */
+.fha-stat-box.highlight {
+  border: 2px solid #0378BE;
+}
+
+.fha-stat-value.danger {
+  color: #DC3545;
+}
+
+.fha-stat-value.warning {
+  color: #FFC107;
+}
+
+.fha-stat-value.success {
+  color: #28A745;
+}
 ]]></css>
         <data_table>sp_instance</data_table>
         <demo_data/>
@@ -549,18 +809,55 @@
             <h5 style="margin: 20px 0 15px 0; font-weight: 600;">
               <i class="fa fa-exclamation-circle"></i> ${Identified Issues}
             </h5>
-            <ul class="fha-issue-list">
-              <li class="fha-issue-item" ng-repeat="issue in c.result.issues | orderBy:'-severity'">
-                <span class="fha-issue-severity" 
-                      ng-class="'fha-severity-' + issue.severity">
-                  {{issue.severity}}
-                </span>
-                <div class="fha-issue-content">
-                  <div class="fha-issue-code">{{issue.code}}</div>
-                  <div class="fha-issue-message">{{issue.message}}</div>
-                </div>
-              </li>
-            </ul>
+            
+            <!-- Severity Summary -->
+            <div class="fha-severity-summary">
+              <div class="fha-severity-badge high" ng-if="c.countBySeverity('high') > 0">
+                <i class="fa fa-exclamation-triangle"></i>
+                {{c.countBySeverity('high')}} ${High}
+              </div>
+              <div class="fha-severity-badge medium" ng-if="c.countBySeverity('medium') > 0">
+                <i class="fa fa-exclamation-circle"></i>
+                {{c.countBySeverity('medium')}} ${Medium}
+              </div>
+              <div class="fha-severity-badge low" ng-if="c.countBySeverity('low') > 0">
+                <i class="fa fa-info-circle"></i>
+                {{c.countBySeverity('low')}} ${Low}
+              </div>
+            </div>
+
+            <!-- Grouped by Category -->
+            <div class="fha-category-group" ng-repeat="(category, issues) in c.getGroupedIssues()">
+              <div class="fha-category-header">
+                <i class="fa" ng-class="c.getCategoryIcon(category)"></i>
+                <h5>{{c.getCategoryLabel(category)}}</h5>
+                <span class="fha-category-count">{{issues.length}}</span>
+              </div>
+              <div class="fha-category-body">
+                <ul class="fha-issue-list">
+                  <li class="fha-issue-item" 
+                      ng-repeat="issue in issues"
+                      ng-class="{'clickable': c.hasRecordLink(issue)}"
+                      ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
+                    <span class="fha-issue-severity" 
+                          ng-class="'fha-severity-' + issue.severity">
+                      {{issue.severity}}
+                    </span>
+                    <div class="fha-issue-content">
+                      <div class="fha-issue-code">{{issue.code}}</div>
+                      <div class="fha-issue-message">{{issue.message}}</div>
+                    </div>
+                    <a class="fha-issue-link" 
+                       ng-if="c.hasRecordLink(issue)"
+                       ng-click="$event.stopPropagation(); c.goToRecord(issue)"
+                       title="${View Record}">
+                      <i class="fa fa-external-link-alt"></i>
+                      ${View}
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           <!-- No Issues -->

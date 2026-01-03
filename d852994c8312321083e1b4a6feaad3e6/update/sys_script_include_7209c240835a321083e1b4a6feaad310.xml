@@ -66,7 +66,11 @@ FHCheckAutomation.prototype = {
             scheduledJobs.push(jobInfo);
             
             if (!jobInfo.active) {
-                ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + jobName + '"', 'low');
+                ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + jobName + '"', 'low', {
+                    record_table: 'sysauto_script',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'automation'
+                });
             }
         }
         
@@ -102,7 +106,11 @@ FHCheckAutomation.prototype = {
                     flows.push(flowInfo);
                     
                     if (!flowInfo.active) {
-                        ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low');
+                        ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low', {
+                            record_table: 'sys_hub_flow',
+                            record_sys_id: gr.getUniqueValue(),
+                            category: 'automation'
+                        });
                     }
                 }
             }
@@ -114,7 +122,11 @@ FHCheckAutomation.prototype = {
         ctx.metrics.flow_count = flows.length;
         
         if (flows.length > 10) {
-            ctx.addIssue('MANY_FLOWS', 'Table has ' + flows.length + ' flows. Check for redundancy.', 'medium');
+            ctx.addIssue('MANY_FLOWS', 'Table has ' + flows.length + ' flows. Check for redundancy.', 'medium', {
+                record_table: 'sys_hub_flow',
+                record_filter: 'trigger_table=' + tableName,
+                category: 'automation'
+            });
         }
     },
 
@@ -143,7 +155,11 @@ FHCheckAutomation.prototype = {
             
             // Check for unpublished active workflows
             if (wfInfo.active && !wfInfo.published) {
-                ctx.addIssue('UNPUBLISHED_WORKFLOW', 'Active but unpublished workflow: "' + wfName + '"', 'medium');
+                ctx.addIssue('UNPUBLISHED_WORKFLOW', 'Active but unpublished workflow: "' + wfName + '"', 'medium', {
+                    record_table: 'wf_workflow',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'automation'
+                });
             }
         }
         
@@ -152,7 +168,11 @@ FHCheckAutomation.prototype = {
         
         // Recommend migrating to Flow Designer if using legacy workflows
         if (workflows.length > 0) {
-            ctx.addIssue('LEGACY_WORKFLOWS', 'Table uses ' + workflows.length + ' legacy workflow(s). Consider migrating to Flow Designer.', 'low');
+            ctx.addIssue('LEGACY_WORKFLOWS', 'Table uses ' + workflows.length + ' legacy workflow(s). Consider migrating to Flow Designer.', 'low', {
+                record_table: 'wf_workflow',
+                record_filter: 'table=' + tableName,
+                category: 'automation'
+            });
         }
     },
 
@@ -184,7 +204,11 @@ FHCheckAutomation.prototype = {
         ctx.metrics.notification_count = notifications.length;
         
         if (notifications.length > 20) {
-            ctx.addIssue('MANY_NOTIFICATIONS', 'Table has ' + notifications.length + ' notifications. Check for potential spam.', 'medium');
+            ctx.addIssue('MANY_NOTIFICATIONS', 'Table has ' + notifications.length + ' notifications. Check for potential spam.', 'medium', {
+                record_table: 'sysevent_email_action',
+                record_filter: 'collection=' + tableName,
+                category: 'notification'
+            });
         }
     },
 
@@ -217,7 +241,11 @@ FHCheckAutomation.prototype = {
         ctx.metrics.ui_action_count = uiActions.length;
         
         if (uiActions.length > 25) {
-            ctx.addIssue('MANY_UI_ACTIONS', 'Table has ' + uiActions.length + ' active UI Actions. Interface may be overloaded.', 'medium');
+            ctx.addIssue('MANY_UI_ACTIONS', 'Table has ' + uiActions.length + ' active UI Actions. Interface may be overloaded.', 'medium', {
+                record_table: 'sys_ui_action',
+                record_filter: 'table=' + tableName + '^active=true',
+                category: 'ui'
+            });
         }
     },
 
@@ -249,7 +277,11 @@ FHCheckAutomation.prototype = {
         ctx.metrics.ui_policy_count = uiPolicies.length;
         
         if (uiPolicies.length > 15) {
-            ctx.addIssue('MANY_UI_POLICIES', 'Table has ' + uiPolicies.length + ' active UI Policies. This may slow down form loading.', 'medium');
+            ctx.addIssue('MANY_UI_POLICIES', 'Table has ' + uiPolicies.length + ' active UI Policies. This may slow down form loading.', 'medium', {
+                record_table: 'sys_ui_policy',
+                record_filter: 'table=' + tableName + '^active=true',
+                category: 'ui'
+            });
         }
     },
 

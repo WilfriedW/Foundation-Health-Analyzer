@@ -64,7 +64,11 @@ FHCheckIntegration.prototype = {
             dataSources.push(dsInfo);
             
             if (!dsInfo.active) {
-                ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low');
+                ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
+                    record_table: 'sys_data_source',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'integration'
+                });
             }
         }
         
@@ -112,7 +116,11 @@ FHCheckIntegration.prototype = {
             ctx.metrics.failed_import_count = failedCount;
             
             if (failedCount > 0) {
-                ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium');
+                ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium', {
+                    record_table: 'sys_import_set_run',
+                    record_filter: 'state=error^sys_created_on>=' + thirtyDaysAgo.getValue(),
+                    category: 'integration'
+                });
             }
         } catch (e) {
             ctx.metrics.failed_import_count = 0;
@@ -143,7 +151,11 @@ FHCheckIntegration.prototype = {
             transformMaps.push(tmInfo);
             
             if (!tmInfo.active) {
-                ctx.addIssue('INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low');
+                ctx.addIssue('INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low', {
+                    record_table: 'sys_transform_map',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'integration'
+                });
             }
         }
         
@@ -193,10 +205,18 @@ FHCheckIntegration.prototype = {
         
         // Check for missing ACLs
         if (aclsByOperation.read === 0) {
-            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table', 'medium');
+            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'name=' + tableName,
+                category: 'security'
+            });
         }
         if (aclsByOperation.write === 0) {
-            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table', 'medium');
+            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'name=' + tableName,
+                category: 'security'
+            });
         }
     },
 

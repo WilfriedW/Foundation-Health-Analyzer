@@ -10,7 +10,7 @@
         <operation_script><![CDATA[(function process(request, response) {
     try {
         var tableName = request.pathParams.table_name;
-        var parameters = request.body.data;
+        var parameters = request.body ? request.body.data : {};
         
         if (!tableName) {
             response.setStatus(400);
@@ -21,16 +21,46 @@
             return;
         }
         
-        var analyzer = new global.FHAnalyzer();
-        var analysisId = analyzer.startAnalysis(tableName, parameters);
+        // Find or create configuration for this table
+        var configGr = new GlideRecord('x_1310794_founda_0_fha_configuration');
+        configGr.addQuery('table_reference.name', tableName);
+        configGr.addQuery('active', true);
+        configGr.setLimit(1);
+        configGr.query();
         
-        response.setStatus(202); // Accepted
-        response.setBody({
-            success: true,
-            analysis_id: analysisId,
-            message: 'Analysis started',
-            status_url: '/api/x_[i]_fha/v1/analysis/' + analysisId
-        });
+        var configSysId = null;
+        if (configGr.next()) {
+            configSysId = configGr.getUniqueValue();
+        } else {
+            // Return error if no configuration exists
+            response.setStatus(404);
+            response.setBody({
+                success: false,
+                error: 'No active configuration found for table: ' + tableName
+            });
+            return;
+        }
+        
+        var analyzer = new x_1310794_founda_0.FHAnalyzer();
+        var result = analyzer.runAnalysis(configSysId, parameters || {});
+        
+        if (result.success) {
+            response.setStatus(200);
+            response.setBody({
+                success: true,
+                analysis_id: result.analysis_id,
+                health_score: result.details.health_score,
+                issues_count: result.details.issues ? result.details.issues.length : 0,
+                message: 'Analysis completed',
+                details_url: '/api/x_1310794_founda_0/fha/analysis/' + result.analysis_id
+            });
+        } else {
+            response.setStatus(500);
+            response.setBody({
+                success: false,
+                error: result.error
+            });
+        }
     } catch (error) {
         response.setStatus(500);
         response.setBody({
@@ -38,7 +68,7 @@
             error: error.message
         });
     }
-})();
+})(request, response);
 ]]></operation_script>
         <operation_uri>/api/x_1310794_founda_0/fha/analyze/{table_name}</operation_uri>
         <produces>application/json,application/xml,text/xml</produces>
