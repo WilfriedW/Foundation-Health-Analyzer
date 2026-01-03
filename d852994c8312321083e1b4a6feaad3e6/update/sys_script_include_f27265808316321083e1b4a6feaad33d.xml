@@ -22,6 +22,25 @@ FHAnalyzer.prototype = {
     },
 
     /**
+     * Get the table name from the table_reference field
+     * @private
+     * @param {GlideRecord} gr - Configuration GlideRecord
+     * @returns {String} Table name or empty string
+     */
+    _getTableNameFromReference: function(gr) {
+        // table_reference is a reference to sys_db_object
+        var tableRef = gr.table_reference;
+        if (tableRef && !tableRef.nil()) {
+            // Get the referenced sys_db_object record
+            var tableGr = tableRef.getRefRecord();
+            if (tableGr) {
+                return tableGr.getValue('name') || '';
+            }
+        }
+        return '';
+    },
+
+    /**
      * Get all available tables for analysis
      * @returns {Array} Array of table configurations
      */
@@ -33,11 +52,12 @@ FHAnalyzer.prototype = {
         gr.query();
 
         while (gr.next()) {
+            var tableName = this._getTableNameFromReference(gr);
             tables.push({
                 config_sys_id: gr.sys_id.toString(),
-                display_name: gr.getValue('name'),
-                table_name: gr.getValue('table_name'),
-                description: gr.getValue('description')
+                display_name: gr.getValue('name') || '',
+                table_name: tableName,
+                description: gr.getValue('description') || ''
             });
         }
 
@@ -52,12 +72,16 @@ FHAnalyzer.prototype = {
     getAnalysisConfiguration: function(configSysId) {
         var gr = new GlideRecord(this.configTable);
         if (gr.get(configSysId)) {
+            var tableName = this._getTableNameFromReference(gr);
             return {
                 sys_id: gr.sys_id.toString(),
-                name: gr.getValue('name'),
-                table_name: gr.getValue('table_name'),
-                description: gr.getValue('description'),
-                active: gr.getValue('active') === 'true'
+                name: gr.getValue('name') || '',
+                table_name: tableName,
+                description: gr.getValue('description') || '',
+                active: gr.getValue('active') === 'true',
+                include_children_tables: gr.getValue('include_children_tables') === 'true',
+                analyze_references: gr.getValue('analyze_references') === 'true',
+                deep_scan: gr.getValue('deep_scan') === 'true'
             };
         }
         return null;
