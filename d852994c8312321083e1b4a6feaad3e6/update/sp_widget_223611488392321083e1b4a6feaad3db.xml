@@ -211,6 +211,12 @@
     c.countBySeverity = function(severity) {
         return c.getIssuesBySeverity(severity).length;
     };
+
+    // View all analyses - opens native ServiceNow list
+    c.viewAllAnalyses = function() {
+        var url = '/x_1310794_founda_0_fha_results_list.do?sysparm_query=status=completed^ORDERBYDESCsys_created_on';
+        window.open(url, '_blank');
+    };
 }
 ]]></client_script>
         <controller_as>c</controller_as>
@@ -637,6 +643,25 @@
 .fha-stat-value.success {
   color: #28A745;
 }
+
+/* View All link */
+.fha-view-all-link {
+  font-size: 13px;
+  color: #0378BE;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.fha-view-all-link:hover {
+  color: #035B8E;
+  text-decoration: none;
+}
+
+.fha-view-all-link i {
+  margin-left: 4px;
+  font-size: 11px;
+}
 ]]></css>
         <data_table>sp_instance</data_table>
         <demo_data/>
@@ -677,16 +702,25 @@
     var resultsGr = new GlideRecord('x_1310794_founda_0_fha_results');
     resultsGr.addQuery('status', 'completed');
     resultsGr.orderByDesc('sys_created_on');
-    resultsGr.setLimit(5);
+    resultsGr.setLimit(10);
     resultsGr.query();
     
     while (resultsGr.next()) {
+        // Get table display name from reference
+        var tableDisplayName = '';
+        if (resultsGr.table_name && !resultsGr.table_name.nil()) {
+            var tableRefGr = resultsGr.table_name.getRefRecord();
+            if (tableRefGr) {
+                tableDisplayName = tableRefGr.getValue('label') || tableRefGr.getValue('name') || '';
+            }
+        }
+        
         data.recentAnalyses.push({
             sys_id: resultsGr.getUniqueValue(),
             number: resultsGr.getValue('number'),
-            table_name: resultsGr.table_name.getDisplayValue(),
-            health_score: resultsGr.getValue('health_score'),
-            issue_count: resultsGr.getValue('issue_found'),
+            table_name: tableDisplayName,
+            health_score: parseInt(resultsGr.getValue('health_score'), 10) || 0,
+            issue_count: parseInt(resultsGr.getValue('issue_found'), 10) || 0,
             created_on: resultsGr.getValue('sys_created_on')
         });
     }
@@ -732,16 +766,25 @@
                 var gr = new GlideRecord('x_1310794_founda_0_fha_results');
                 gr.addQuery('status', 'completed');
                 gr.orderByDesc('sys_created_on');
-                gr.setLimit(5);
+                gr.setLimit(10);
                 gr.query();
                 
                 while (gr.next()) {
+                    // Get table display name from reference
+                    var tblName = '';
+                    if (gr.table_name && !gr.table_name.nil()) {
+                        var tblRef = gr.table_name.getRefRecord();
+                        if (tblRef) {
+                            tblName = tblRef.getValue('label') || tblRef.getValue('name') || '';
+                        }
+                    }
+                    
                     data.analyses.push({
                         sys_id: gr.getUniqueValue(),
                         number: gr.getValue('number'),
-                        table_name: gr.table_name.getDisplayValue(),
-                        health_score: gr.getValue('health_score'),
-                        issue_count: gr.getValue('issue_found'),
+                        table_name: tblName,
+                        health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                        issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
                         created_on: gr.getValue('sys_created_on')
                     });
                 }
@@ -927,49 +970,7 @@
 
     <!-- Sidebar -->
     <div class="col-md-4">
-      <!-- Recent Analyses -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h4><i class="fa fa-history"></i> ${Recent Analyses}</h4>
-        </div>
-        <div class="fha-card-body" style="padding: 0;">
-          <div ng-if="c.recentAnalyses.length === 0" style="padding: 30px; text-align: center; color: #999;">
-            <i class="fa fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
-            <p>${No recent analyses}</p>
-          </div>
-          <table class="fha-recent-table" ng-if="c.recentAnalyses.length > 0">
-            <thead>
-              <tr>
-                <th>${Table}</th>
-                <th>${Score}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr ng-repeat="analysis in c.recentAnalyses">
-                <td>
-                  <strong>{{analysis.table_name}}</strong>
-                  <div style="font-size: 11px; color: #999;">{{analysis.number}}</div>
-                </td>
-                <td>
-                  <span class="fha-score-badge" 
-                        ng-class="'fha-score-' + c.getHealthScoreClass(analysis.health_score)"
-                        style="font-size: 14px; padding: 4px 10px;">
-                    {{analysis.health_score}}
-                  </span>
-                </td>
-                <td>
-                  <button class="btn btn-xs btn-default" ng-click="c.loadResult(analysis.sys_id)">
-                    <i class="fa fa-eye"></i>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Quick Stats -->
+      <!-- Quick Stats (moved to top) -->
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-info-circle"></i> ${Information}</h4>
@@ -987,6 +988,51 @@
             <li>${Workflows and Flows}</li>
             <li>${Notifications}</li>
           </ul>
+        </div>
+      </div>
+
+      <!-- Recent Analyses (moved to bottom, limited to 10) -->
+      <div class="fha-card">
+        <div class="fha-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="margin: 0;"><i class="fa fa-history"></i> ${Recent Analyses}</h4>
+          <a ng-click="c.viewAllAnalyses()" class="fha-view-all-link" title="${View all analyses}">
+            ${View All} <i class="fa fa-arrow-right"></i>
+          </a>
+        </div>
+        <div class="fha-card-body" style="padding: 0;">
+          <div ng-if="c.recentAnalyses.length === 0" style="padding: 30px; text-align: center; color: #999;">
+            <i class="fa fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
+            <p>${No recent analyses}</p>
+          </div>
+          <table class="fha-recent-table" ng-if="c.recentAnalyses.length > 0">
+            <thead>
+              <tr>
+                <th>${Table}</th>
+                <th>${Score}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="analysis in c.recentAnalyses | limitTo:10">
+                <td>
+                  <strong>{{analysis.table_name || 'N/A'}}</strong>
+                  <div style="font-size: 11px; color: #999;">{{analysis.number}}</div>
+                </td>
+                <td>
+                  <span class="fha-score-badge" 
+                        ng-class="'fha-score-' + c.getHealthScoreClass(analysis.health_score)"
+                        style="font-size: 14px; padding: 4px 10px;">
+                    {{analysis.health_score}}/100
+                  </span>
+                </td>
+                <td>
+                  <button class="btn btn-xs btn-default" ng-click="c.loadResult(analysis.sys_id)" title="${Load this analysis}">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
