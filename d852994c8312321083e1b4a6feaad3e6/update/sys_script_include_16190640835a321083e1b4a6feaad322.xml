@@ -15,6 +15,16 @@
  */
 var FHCheckIntegration = Class.create();
 FHCheckIntegration.prototype = {
+    
+    /**
+     * Safe getValue - returns empty string if null
+     * @private
+     */
+    _safeGetValue: function(gr, field) {
+        var val = gr.getValue(field);
+        return (val === null || val === undefined) ? '' : String(val);
+    },
+
     /**
      * Execute the check
      * @param {Object} ctx - Analysis context
@@ -35,24 +45,26 @@ FHCheckIntegration.prototype = {
      * @param {Object} ctx - Analysis context
      */
     _checkDataSources: function(ctx) {
-        var tableName = ctx.config.table_name;
+        var tableName = String(ctx.config.table_name);
         var dataSources = [];
+        var self = this;
         
         var gr = new GlideRecord('sys_data_source');
         gr.addQuery('import_set_table_name', 'CONTAINS', tableName);
         gr.query();
         
         while (gr.next()) {
+            var dsName = self._safeGetValue(gr, 'name') || 'Unnamed';
             var dsInfo = {
-                name: gr.getValue('name'),
-                type: gr.getValue('type'),
-                active: gr.getValue('active') === 'true',
-                last_run: gr.getValue('last_run_on')
+                name: dsName,
+                type: self._safeGetValue(gr, 'type'),
+                active: self._safeGetValue(gr, 'active') === 'true',
+                last_run: self._safeGetValue(gr, 'last_run_on')
             };
             dataSources.push(dsInfo);
             
             if (!dsInfo.active) {
-                ctx.addIssue('INACTIVE_DATA_SOURCE', 'Data source inactive: "' + dsInfo.name + '"', 'low');
+                ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low');
             }
         }
         
@@ -66,36 +78,44 @@ FHCheckIntegration.prototype = {
      * @param {Object} ctx - Analysis context
      */
     _checkImportSets: function(ctx) {
-        var tableName = ctx.config.table_name;
+        var tableName = String(ctx.config.table_name);
         
         // Check for recent import set runs
-        var ga = new GlideAggregate('sys_import_set_run');
-        ga.addQuery('set.table_name', tableName);
-        ga.addAggregate('COUNT');
-        ga.query();
-        
-        var importRunCount = 0;
-        if (ga.next()) {
-            importRunCount = parseInt(ga.getAggregate('COUNT')) || 0;
+        try {
+            var ga = new GlideAggregate('sys_import_set_run');
+            ga.addQuery('set.table_name', tableName);
+            ga.addAggregate('COUNT');
+            ga.query();
+            
+            var importRunCount = 0;
+            if (ga.next()) {
+                importRunCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
+            }
+            
+            ctx.metrics.import_run_count = importRunCount;
+        } catch (e) {
+            ctx.metrics.import_run_count = 0;
         }
         
-        ctx.metrics.import_run_count = importRunCount;
-        
         // Check for failed imports in last 30 days
-        var thirtyDaysAgo = new GlideDateTime();
-        thirtyDaysAgo.addDaysUTC(-30);
-        
-        var failedGr = new GlideRecord('sys_import_set_run');
-        failedGr.addQuery('set.table_name', tableName);
-        failedGr.addQuery('state', 'error');
-        failedGr.addQuery('sys_created_on', '>=', thirtyDaysAgo);
-        failedGr.query();
-        
-        var failedCount = failedGr.getRowCount();
-        ctx.metrics.failed_import_count = failedCount;
-        
-        if (failedCount > 0) {
-            ctx.addIssue('FAILED_IMPORTS', failedCount + ' imports en erreur dans les 30 derniers jours', 'medium');
+        try {
+            var thirtyDaysAgo = new GlideDateTime();
+            thirtyDaysAgo.addDaysUTC(-30);
+            
+            var failedGr = new GlideRecord('sys_import_set_run');
+            failedGr.addQuery('set.table_name', tableName);
+            failedGr.addQuery('state', 'error');
+            failedGr.addQuery('sys_created_on', '>=', thirtyDaysAgo);
+            failedGr.query();
+            
+            var failedCount = failedGr.getRowCount();
+            ctx.metrics.failed_import_count = failedCount;
+            
+            if (failedCount > 0) {
+                ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium');
+            }
+        } catch (e) {
+            ctx.metrics.failed_import_count = 0;
         }
     },
 
@@ -105,23 +125,25 @@ FHCheckIntegration.prototype = {
      * @param {Object} ctx - Analysis context
      */
     _checkTransformMaps: function(ctx) {
-        var tableName = ctx.config.table_name;
+        var tableName = String(ctx.config.table_name);
         var transformMaps = [];
+        var self = this;
         
         var gr = new GlideRecord('sys_transform_map');
         gr.addQuery('target_table', tableName);
         gr.query();
         
         while (gr.next()) {
+            var tmName = self._safeGetValue(gr, 'name') || 'Unnamed';
             var tmInfo = {
-                name: gr.getValue('name'),
-                active: gr.getValue('active') === 'true',
-                source_table: gr.getValue('source_table')
+                name: tmName,
+                active: self._safeGetValue(gr, 'active') === 'true',
+                source_table: self._safeGetValue(gr, 'source_table')
             };
             transformMaps.push(tmInfo);
             
             if (!tmInfo.active) {
-                ctx.addIssue('INACTIVE_TRANSFORM_MAP', 'Transform map inactive: "' + tmInfo.name + '"', 'low');
+                ctx.addIssue('INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low');
             }
         }
         
@@ -135,7 +157,7 @@ FHCheckIntegration.prototype = {
      * @param {Object} ctx - Analysis context
      */
     _checkACLs: function(ctx) {
-        var tableName = ctx.config.table_name;
+        var tableName = String(ctx.config.table_name);
         var acls = [];
         var aclsByOperation = {
             read: 0,
@@ -143,6 +165,7 @@ FHCheckIntegration.prototype = {
             create: 0,
             delete: 0
         };
+        var self = this;
         
         var gr = new GlideRecord('sys_security_acl');
         gr.addQuery('name', 'STARTSWITH', tableName);
@@ -150,16 +173,17 @@ FHCheckIntegration.prototype = {
         gr.query();
         
         while (gr.next()) {
+            var operation = self._safeGetValue(gr, 'operation');
             var aclInfo = {
-                name: gr.getValue('name'),
-                operation: gr.getValue('operation'),
-                admin_overrides: gr.getValue('admin_overrides') === 'true',
-                condition: gr.getValue('condition') ? true : false
+                name: self._safeGetValue(gr, 'name'),
+                operation: operation,
+                admin_overrides: self._safeGetValue(gr, 'admin_overrides') === 'true',
+                condition: self._safeGetValue(gr, 'condition') ? true : false
             };
             acls.push(aclInfo);
             
-            if (aclsByOperation[aclInfo.operation] !== undefined) {
-                aclsByOperation[aclInfo.operation]++;
+            if (operation && aclsByOperation.hasOwnProperty(operation)) {
+                aclsByOperation[operation]++;
             }
         }
         
@@ -169,10 +193,10 @@ FHCheckIntegration.prototype = {
         
         // Check for missing ACLs
         if (aclsByOperation.read === 0) {
-            ctx.addIssue('NO_READ_ACL', 'Aucune ACL de lecture définie pour cette table', 'medium');
+            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table', 'medium');
         }
         if (aclsByOperation.write === 0) {
-            ctx.addIssue('NO_WRITE_ACL', 'Aucune ACL d\'écriture définie pour cette table', 'medium');
+            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table', 'medium');
         }
     },
 
@@ -182,7 +206,8 @@ FHCheckIntegration.prototype = {
      * @param {Object} ctx - Analysis context
      */
     _checkRestMessages: function(ctx) {
-        var tableName = ctx.config.table_name;
+        var tableName = String(ctx.config.table_name);
+        var self = this;
         
         // Check for Scripted REST APIs targeting this table
         var restApis = [];
@@ -192,9 +217,9 @@ FHCheckIntegration.prototype = {
         
         while (gr.next()) {
             restApis.push({
-                name: gr.getValue('name'),
-                http_method: gr.getValue('http_method'),
-                active: gr.getValue('active') === 'true'
+                name: self._safeGetValue(gr, 'name') || 'Unnamed',
+                http_method: self._safeGetValue(gr, 'http_method'),
+                active: self._safeGetValue(gr, 'active') === 'true'
             });
         }
         

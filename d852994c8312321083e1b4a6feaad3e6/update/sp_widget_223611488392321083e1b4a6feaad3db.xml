@@ -31,11 +31,11 @@
                 // Refresh recent analyses
                 c.refreshRecentAnalyses();
             } else {
-                c.error = response.data.error || 'Une erreur est survenue';
+                c.error = response.data.error || '${An error occurred}';
             }
         }, function(error) {
             c.loading = false;
-            c.error = 'Erreur de communication avec le serveur';
+            c.error = '${Server communication error}';
         });
     };
 
@@ -52,7 +52,7 @@
                 c.result = response.data.analysisResult;
                 c.analysisId = analysisId;
             } else {
-                c.error = response.data.error || 'Analyse non trouvée';
+                c.error = response.data.error || '${Analysis not found}';
             }
         });
     };
@@ -469,7 +469,7 @@
   <!-- Header -->
   <div class="fha-header">
     <h2><i class="fa fa-heartbeat"></i> Foundation Health Analyzer</h2>
-    <p>Analysez la santé de vos tables ServiceNow et obtenez des recommandations d'amélioration</p>
+    <p>${Analyze the health of your ServiceNow tables and get improvement recommendations}</p>
   </div>
 
   <div class="row">
@@ -477,19 +477,19 @@
     <div class="col-md-8">
       <div class="fha-card">
         <div class="fha-card-header">
-          <h4><i class="fa fa-play-circle"></i> Lancer une analyse</h4>
+          <h4><i class="fa fa-play-circle"></i> ${Run Analysis}</h4>
         </div>
         <div class="fha-card-body">
           
           <!-- Configuration Selection -->
           <div class="form-group" style="margin-bottom: 20px;">
             <label style="font-weight: 600; margin-bottom: 10px; display: block;">
-              Sélectionnez une configuration à analyser
+              ${Select a configuration to analyze}
             </label>
             <select class="fha-select"
                     ng-model="c.selectedConfig"
                     ng-options="t.config_sys_id as (t.display_name + ' (' + t.table_name + ')') for t in c.tables">
-              <option value="">-- Choisir une table --</option>
+              <option value="">-- ${Choose a table} --</option>
             </select>
           </div>
 
@@ -497,7 +497,7 @@
           <div ng-if="c.selectedConfig" style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px;">
             <div ng-repeat="t in c.tables" ng-if="t.config_sys_id === c.selectedConfig">
               <strong>{{t.display_name}}</strong>
-              <p style="margin: 5px 0 0 0; color: #666;">{{t.description || 'Aucune description'}}</p>
+              <p style="margin: 5px 0 0 0; color: #666;">{{t.description || '${No description}'}}</p>
             </div>
           </div>
 
@@ -506,7 +506,7 @@
                   ng-click="c.runAnalysis()"
                   ng-disabled="!c.selectedConfig || c.loading">
             <i class="fa" ng-class="c.loading ? 'fa-spinner fa-spin' : 'fa-search'"></i>
-            {{c.loading ? 'Analyse en cours...' : 'Lancer l\'analyse'}}
+            {{c.loading ? '${Analysis in progress...}' : '${Run Analysis}'}}
           </button>
 
           <!-- Error Message -->
@@ -519,7 +519,7 @@
       <!-- Results Panel -->
       <div class="fha-card" ng-if="c.result">
         <div class="fha-card-header">
-          <h4><i class="fa fa-chart-bar"></i> Résultats de l'analyse</h4>
+          <h4><i class="fa fa-chart-bar"></i> ${Analysis Results}</h4>
         </div>
         <div class="fha-card-body">
           
@@ -532,22 +532,22 @@
                   {{c.calculateHealthScore()}}/100
                 </span>
               </div>
-              <div class="fha-stat-label">Score de santé</div>
+              <div class="fha-stat-label">${Health Score}</div>
             </div>
             <div class="fha-stat-box">
               <div class="fha-stat-value">{{c.result.issues.length}}</div>
-              <div class="fha-stat-label">Problèmes détectés</div>
+              <div class="fha-stat-label">${Issues Found}</div>
             </div>
             <div class="fha-stat-box">
               <div class="fha-stat-value">{{c.result.metrics.duration_ms || 0}}ms</div>
-              <div class="fha-stat-label">Durée d'analyse</div>
+              <div class="fha-stat-label">${Analysis Duration}</div>
             </div>
           </div>
 
           <!-- Issues List -->
           <div ng-if="c.result.issues && c.result.issues.length > 0">
             <h5 style="margin: 20px 0 15px 0; font-weight: 600;">
-              <i class="fa fa-exclamation-circle"></i> Problèmes identifiés
+              <i class="fa fa-exclamation-circle"></i> ${Identified Issues}
             </h5>
             <ul class="fha-issue-list">
               <li class="fha-issue-item" ng-repeat="issue in c.result.issues | orderBy:'-severity'">
@@ -566,14 +566,14 @@
           <!-- No Issues -->
           <div ng-if="c.result.issues && c.result.issues.length === 0" class="fha-no-issues">
             <i class="fa fa-check-circle"></i>
-            <h4>Excellent !</h4>
-            <p>Aucun problème détecté sur cette table.</p>
+            <h4>${Excellent!}</h4>
+            <p>${No issues detected on this table.}</p>
           </div>
 
           <!-- View Details Button -->
           <div style="margin-top: 20px; text-align: right;" ng-if="c.analysisId">
             <button class="fha-btn-primary" ng-click="c.viewDetails(c.analysisId)">
-              <i class="fa fa-arrow-right"></i> Voir les détails complets
+              <i class="fa fa-arrow-right"></i> ${View Full Details}
             </button>
           </div>
         </div>
@@ -585,18 +585,18 @@
       <!-- Recent Analyses -->
       <div class="fha-card">
         <div class="fha-card-header">
-          <h4><i class="fa fa-history"></i> Analyses récentes</h4>
+          <h4><i class="fa fa-history"></i> ${Recent Analyses}</h4>
         </div>
         <div class="fha-card-body" style="padding: 0;">
           <div ng-if="c.recentAnalyses.length === 0" style="padding: 30px; text-align: center; color: #999;">
             <i class="fa fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
-            <p>Aucune analyse récente</p>
+            <p>${No recent analyses}</p>
           </div>
           <table class="fha-recent-table" ng-if="c.recentAnalyses.length > 0">
             <thead>
               <tr>
-                <th>Table</th>
-                <th>Score</th>
+                <th>${Table}</th>
+                <th>${Score}</th>
                 <th></th>
               </tr>
             </thead>
@@ -627,20 +627,20 @@
       <!-- Quick Stats -->
       <div class="fha-card">
         <div class="fha-card-header">
-          <h4><i class="fa fa-info-circle"></i> Informations</h4>
+          <h4><i class="fa fa-info-circle"></i> ${Information}</h4>
         </div>
         <div class="fha-card-body">
-          <p><strong>{{c.tables.length}}</strong> configurations disponibles</p>
+          <p><strong>{{c.tables.length}}</strong> ${available configurations}</p>
           <p style="font-size: 13px; color: #666; margin-top: 15px;">
-            L'analyseur vérifie :
+            ${The analyzer checks:}
           </p>
           <ul style="font-size: 13px; color: #666; padding-left: 20px;">
-            <li>Champs personnalisés inutilisés</li>
-            <li>Business Rules et Client Scripts</li>
-            <li>ACLs et sécurité</li>
-            <li>Intégrations et imports</li>
-            <li>Workflows et Flows</li>
-            <li>Notifications</li>
+            <li>${Unused custom fields}</li>
+            <li>${Business Rules and Client Scripts}</li>
+            <li>${ACLs and security}</li>
+            <li>${Integrations and imports}</li>
+            <li>${Workflows and Flows}</li>
+            <li>${Notifications}</li>
           </ul>
         </div>
       </div>
