@@ -333,7 +333,7 @@
 </css_variables>
         <footer/>
         <footer_fixed>true</footer_fixed>
-        <header/>
+        <header display_value="FHA Header Instance">fha_header_footer_001</header>
         <matching_now_experience_theme/>
         <name>FHA Theme</name>
         <navbar_fixed>true</navbar_fixed>
