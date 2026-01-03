@@ -70,7 +70,7 @@
 
     // Navigate to detailed results
     c.viewDetails = function(analysisId) {
-        $location.path('/fha-analysis-results/' + analysisId);
+        window.location.href = '/fha?id=fha_analysis_results&sys_id=' + analysisId;
     };
 
     // Get severity class for styling
