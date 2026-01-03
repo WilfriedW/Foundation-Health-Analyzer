@@ -57,15 +57,20 @@ FHCheckAutomation.prototype = {
         
         while (gr.next()) {
             var jobName = self._safeGetValue(gr, 'name') || 'Unnamed';
+            // Check active field - can be 'true', '1', or boolean
+            var activeVal = gr.getValue('active');
+            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+            
             var jobInfo = {
+                sys_id: gr.getUniqueValue(),
                 name: jobName,
-                active: self._safeGetValue(gr, 'active') === 'true',
+                active: isActive,
                 run_type: self._safeGetValue(gr, 'run_type'),
                 next_action: self._safeGetValue(gr, 'next_action')
             };
             scheduledJobs.push(jobInfo);
             
-            if (!jobInfo.active) {
+            if (!isActive) {
                 ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + jobName + '"', 'low', {
                     record_table: 'sysauto_script',
                     record_sys_id: gr.getUniqueValue(),
@@ -97,15 +102,20 @@ FHCheckAutomation.prototype = {
                 
                 while (gr.next()) {
                     var flowName = self._safeGetValue(gr, 'name') || 'Unnamed';
+                    // Check active field - can be 'true', '1', or boolean
+                    var activeVal = gr.getValue('active');
+                    var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+                    
                     var flowInfo = {
+                        sys_id: gr.getUniqueValue(),
                         name: flowName,
-                        active: self._safeGetValue(gr, 'active') === 'true',
+                        active: isActive,
                         trigger_type: self._safeGetValue(gr, 'trigger_type'),
                         description: self._safeGetValue(gr, 'description')
                     };
                     flows.push(flowInfo);
                     
-                    if (!flowInfo.active) {
+                    if (!isActive) {
                         ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low', {
                             record_table: 'sys_hub_flow',
                             record_sys_id: gr.getUniqueValue(),
@@ -146,15 +156,22 @@ FHCheckAutomation.prototype = {
         
         while (gr.next()) {
             var wfName = self._safeGetValue(gr, 'name') || 'Unnamed';
+            // Check active and published fields
+            var activeVal = gr.getValue('active');
+            var publishedVal = gr.getValue('published');
+            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+            var isPublished = (publishedVal === 'true' || publishedVal === '1' || publishedVal === true);
+            
             var wfInfo = {
+                sys_id: gr.getUniqueValue(),
                 name: wfName,
-                active: self._safeGetValue(gr, 'active') === 'true',
-                published: self._safeGetValue(gr, 'published') === 'true'
+                active: isActive,
+                published: isPublished
             };
             workflows.push(wfInfo);
             
             // Check for unpublished active workflows
-            if (wfInfo.active && !wfInfo.published) {
+            if (isActive && !isPublished) {
                 ctx.addIssue('UNPUBLISHED_WORKFLOW', 'Active but unpublished workflow: "' + wfName + '"', 'medium', {
                     record_table: 'wf_workflow',
                     record_sys_id: gr.getUniqueValue(),

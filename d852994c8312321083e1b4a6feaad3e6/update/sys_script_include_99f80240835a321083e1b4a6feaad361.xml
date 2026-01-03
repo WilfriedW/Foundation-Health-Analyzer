@@ -270,21 +270,27 @@ FHCheckTable.prototype = {
         var inactiveBRCount = 0;
         var self = this;
         
+        // Query business rules - collection field stores the table name
         var gr = new GlideRecord('sys_script');
         gr.addQuery('collection', tableName);
         gr.query();
         
         while (gr.next()) {
+            // Check active field - can be 'true', '1', or boolean
+            var activeVal = gr.getValue('active');
+            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+            
             var brInfo = {
+                sys_id: gr.getUniqueValue(),
                 name: self._safeGetValue(gr, 'name') || 'Unnamed',
-                active: self._safeGetValue(gr, 'active') === 'true',
+                active: isActive,
                 when: self._safeGetValue(gr, 'when'),
                 order: self._safeGetValue(gr, 'order')
             };
             
             businessRules.push(brInfo);
             
-            if (brInfo.active) {
+            if (isActive) {
                 activeBRCount++;
             } else {
                 inactiveBRCount++;

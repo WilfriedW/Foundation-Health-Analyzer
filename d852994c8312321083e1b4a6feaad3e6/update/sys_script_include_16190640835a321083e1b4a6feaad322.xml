@@ -55,15 +55,20 @@ FHCheckIntegration.prototype = {
         
         while (gr.next()) {
             var dsName = self._safeGetValue(gr, 'name') || 'Unnamed';
+            // Check active field - can be 'true', '1', or boolean
+            var activeVal = gr.getValue('active');
+            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+            
             var dsInfo = {
+                sys_id: gr.getUniqueValue(),
                 name: dsName,
                 type: self._safeGetValue(gr, 'type'),
-                active: self._safeGetValue(gr, 'active') === 'true',
+                active: isActive,
                 last_run: self._safeGetValue(gr, 'last_run_on')
             };
             dataSources.push(dsInfo);
             
-            if (!dsInfo.active) {
+            if (!isActive) {
                 ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
                     record_table: 'sys_data_source',
                     record_sys_id: gr.getUniqueValue(),
@@ -135,6 +140,8 @@ FHCheckIntegration.prototype = {
     _checkTransformMaps: function(ctx) {
         var tableName = String(ctx.config.table_name);
         var transformMaps = [];
+        var activeCount = 0;
+        var inactiveCount = 0;
         var self = this;
         
         var gr = new GlideRecord('sys_transform_map');
@@ -143,14 +150,22 @@ FHCheckIntegration.prototype = {
         
         while (gr.next()) {
             var tmName = self._safeGetValue(gr, 'name') || 'Unnamed';
+            // Check active field - can be 'true', '1', or boolean
+            var activeVal = gr.getValue('active');
+            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+            
             var tmInfo = {
+                sys_id: gr.getUniqueValue(),
                 name: tmName,
-                active: self._safeGetValue(gr, 'active') === 'true',
+                active: isActive,
                 source_table: self._safeGetValue(gr, 'source_table')
             };
             transformMaps.push(tmInfo);
             
-            if (!tmInfo.active) {
+            if (isActive) {
+                activeCount++;
+            } else {
+                inactiveCount++;
                 ctx.addIssue('INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low', {
                     record_table: 'sys_transform_map',
                     record_sys_id: gr.getUniqueValue(),
@@ -161,6 +176,8 @@ FHCheckIntegration.prototype = {
         
         ctx.metrics.transform_maps = transformMaps;
         ctx.metrics.transform_map_count = transformMaps.length;
+        ctx.metrics.active_transform_map_count = activeCount;
+        ctx.metrics.inactive_transform_map_count = inactiveCount;
     },
 
     /**
