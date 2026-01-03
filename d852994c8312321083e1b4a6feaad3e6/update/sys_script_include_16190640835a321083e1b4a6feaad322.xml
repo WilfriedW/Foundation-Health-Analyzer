@@ -12,6 +12,11 @@
         <script><![CDATA[/**
  * FHCheckIntegration - Check for integration issues
  * Analyzes data sources, import sets, web services, and REST integrations
+ * 
+ * Supports configuration options:
+ * - deep_scan: Analyze integration script content
+ * - include_children_tables: Include integrations for child tables
+ * - analyze_references: Analyze integration dependencies
  */
 var FHCheckIntegration = Class.create();
 FHCheckIntegration.prototype = {
@@ -26,31 +31,99 @@ FHCheckIntegration.prototype = {
     },
 
     /**
+     * Get configuration option with default value
+     * @private
+     */
+    _getOption: function(ctx, optionName, defaultValue) {
+        if (ctx.config && ctx.config[optionName] !== undefined) {
+            return ctx.config[optionName];
+        }
+        return defaultValue;
+    },
+
+    /**
      * Execute the check
      * @param {Object} ctx - Analysis context
      */
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
         
-        this._checkDataSources(ctx);
-        this._checkImportSets(ctx);
-        this._checkTransformMaps(ctx);
+        // Get options
+        var includeChildren = this._getOption(ctx, 'include_children_tables', false);
+        var deepScan = this._getOption(ctx, 'deep_scan', false);
+        var analyzeReferences = this._getOption(ctx, 'analyze_references', false);
+        
+        // Get tables to check
+        var tablesToCheck = this._getTablesToCheck(ctx, includeChildren);
+        ctx.metrics.integration_tables_checked = tablesToCheck;
+        
+        this._checkDataSources(ctx, tablesToCheck);
+        this._checkImportSets(ctx, tablesToCheck);
+        this._checkTransformMaps(ctx, tablesToCheck);
         this._checkACLs(ctx);
-        this._checkRestMessages(ctx);
+        this._checkRestMessages(ctx, tablesToCheck);
+        
+        // Deep scan: analyze transform map scripts
+        if (deepScan) {
+            this._deepScanTransformMaps(ctx);
+        }
+        
+        // Analyze references: check integration dependencies
+        if (analyzeReferences) {
+            this._analyzeIntegrationDependencies(ctx);
+        }
+    },
+
+    /**
+     * Get tables to check based on configuration
+     * @private
+     */
+    _getTablesToCheck: function(ctx, includeChildren) {
+        var tableName = String(ctx.config.table_name);
+        var tables = [tableName];
+        
+        if (includeChildren) {
+            // Get child tables
+            var parentGr = new GlideRecord('sys_db_object');
+            if (parentGr.get('name', tableName)) {
+                var parentSysId = parentGr.getUniqueValue();
+                
+                var gr = new GlideRecord('sys_db_object');
+                gr.addQuery('super_class', parentSysId);
+                gr.query();
+                
+                while (gr.next()) {
+                    var childName = this._safeGetValue(gr, 'name');
+                    if (childName && tables.indexOf(childName) === -1) {
+                        tables.push(childName);
+                    }
+                }
+            }
+        }
+        
+        return tables;
     },
 
     /**
      * Check data sources targeting this table
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
      */
-    _checkDataSources: function(ctx) {
+    _checkDataSources: function(ctx, tablesToCheck) {
         var tableName = String(ctx.config.table_name);
         var dataSources = [];
         var self = this;
         
         var gr = new GlideRecord('sys_data_source');
-        gr.addQuery('import_set_table_name', 'CONTAINS', tableName);
+        if (tablesToCheck.length === 1) {
+            gr.addQuery('import_set_table_name', 'CONTAINS', tablesToCheck[0]);
+        } else {
+            var qc = gr.addQuery('import_set_table_name', 'CONTAINS', tablesToCheck[0]);
+            for (var i = 1; i < tablesToCheck.length; i++) {
+                qc.addOrCondition('import_set_table_name', 'CONTAINS', tablesToCheck[i]);
+            }
+        }
         gr.query();
         
         while (gr.next()) {
@@ -85,8 +158,9 @@ FHCheckIntegration.prototype = {
      * Check import sets related to this table
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
      */
-    _checkImportSets: function(ctx) {
+    _checkImportSets: function(ctx, tablesToCheck) {
         var tableName = String(ctx.config.table_name);
         
         // Check for recent import set runs
@@ -136,8 +210,9 @@ FHCheckIntegration.prototype = {
      * Check transform maps for this table
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
      */
-    _checkTransformMaps: function(ctx) {
+    _checkTransformMaps: function(ctx, tablesToCheck) {
         var tableName = String(ctx.config.table_name);
         var transformMaps = [];
         var activeCount = 0;
@@ -145,7 +220,14 @@ FHCheckIntegration.prototype = {
         var self = this;
         
         var gr = new GlideRecord('sys_transform_map');
-        gr.addQuery('target_table', tableName);
+        if (tablesToCheck.length === 1) {
+            gr.addQuery('target_table', tablesToCheck[0]);
+        } else {
+            var qc = gr.addQuery('target_table', tablesToCheck[0]);
+            for (var i = 1; i < tablesToCheck.length; i++) {
+                qc.addOrCondition('target_table', tablesToCheck[i]);
+            }
+        }
         gr.query();
         
         while (gr.next()) {
@@ -300,19 +382,28 @@ FHCheckIntegration.prototype = {
      * Check REST messages that might interact with this table
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
      */
-    _checkRestMessages: function(ctx) {
+    _checkRestMessages: function(ctx, tablesToCheck) {
         var tableName = String(ctx.config.table_name);
         var self = this;
         
         // Check for Scripted REST APIs targeting this table
         var restApis = [];
         var gr = new GlideRecord('sys_ws_operation');
-        gr.addQuery('operation_script', 'CONTAINS', tableName);
+        if (tablesToCheck.length === 1) {
+            gr.addQuery('operation_script', 'CONTAINS', tablesToCheck[0]);
+        } else {
+            var qc = gr.addQuery('operation_script', 'CONTAINS', tablesToCheck[0]);
+            for (var i = 1; i < tablesToCheck.length; i++) {
+                qc.addOrCondition('operation_script', 'CONTAINS', tablesToCheck[i]);
+            }
+        }
         gr.query();
         
         while (gr.next()) {
             restApis.push({
+                sys_id: gr.getUniqueValue(),
                 name: self._safeGetValue(gr, 'name') || 'Unnamed',
                 http_method: self._safeGetValue(gr, 'http_method'),
                 active: self._safeGetValue(gr, 'active') === 'true'
@@ -321,6 +412,173 @@ FHCheckIntegration.prototype = {
         
         ctx.metrics.rest_apis = restApis;
         ctx.metrics.rest_api_count = restApis.length;
+    },
+
+    /**
+     * Deep scan transform maps for script quality (if deep_scan option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _deepScanTransformMaps: function(ctx) {
+        if (!ctx.metrics.transform_maps || ctx.metrics.transform_maps.length === 0) return;
+        
+        var transformIssues = [];
+        var self = this;
+        
+        ctx.metrics.transform_maps.forEach(function(tm) {
+            var gr = new GlideRecord('sys_transform_map');
+            if (gr.get(tm.sys_id)) {
+                // Check for script in transform map
+                var script = self._safeGetValue(gr, 'script');
+                if (script) {
+                    var issues = self._analyzeTransformScript(script, tm.name);
+                    transformIssues = transformIssues.concat(issues);
+                }
+                
+                // Check transform entries for scripts
+                var entryGr = new GlideRecord('sys_transform_entry');
+                entryGr.addQuery('map', tm.sys_id);
+                entryGr.query();
+                
+                while (entryGr.next()) {
+                    var entryScript = self._safeGetValue(entryGr, 'script');
+                    if (entryScript) {
+                        var entryIssues = self._analyzeTransformScript(entryScript, tm.name + ' - ' + self._safeGetValue(entryGr, 'target_field'));
+                        transformIssues = transformIssues.concat(entryIssues);
+                    }
+                }
+            }
+        });
+        
+        ctx.metrics.transform_script_issues = transformIssues;
+        ctx.metrics.transform_script_issue_count = transformIssues.length;
+        
+        // Add issues
+        transformIssues.forEach(function(issue) {
+            ctx.addIssue(issue.code, issue.message, issue.severity, {
+                category: 'integration'
+            });
+        });
+    },
+
+    /**
+     * Analyze transform script for common issues
+     * @private
+     */
+    _analyzeTransformScript: function(script, scriptName) {
+        var issues = [];
+        if (!script) return issues;
+        
+        // Check for hardcoded sys_ids
+        var sysIdPattern = /['"][a-f0-9]{32}['"]/gi;
+        if (sysIdPattern.test(script)) {
+            issues.push({
+                code: 'HARDCODED_SYSID',
+                message: 'Transform map "' + scriptName + '" contains hardcoded sys_id values',
+                severity: 'medium'
+            });
+        }
+        
+        // Check for ignore() without condition
+        if (script.indexOf('ignore') > -1 && script.indexOf('if') === -1) {
+            issues.push({
+                code: 'UNCONDITIONAL_IGNORE',
+                message: 'Transform map "' + scriptName + '" may have unconditional ignore()',
+                severity: 'low'
+            });
+        }
+        
+        // Check for error handling
+        if (script.indexOf('GlideRecord') > -1 && script.indexOf('try') === -1) {
+            issues.push({
+                code: 'NO_ERROR_HANDLING',
+                message: 'Transform map "' + scriptName + '" uses GlideRecord without try-catch',
+                severity: 'low'
+            });
+        }
+        
+        return issues;
+    },
+
+    /**
+     * Analyze integration dependencies (if analyze_references option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _analyzeIntegrationDependencies: function(ctx) {
+        var dependencies = {
+            inbound: [],
+            outbound: []
+        };
+        var tableName = String(ctx.config.table_name);
+        var self = this;
+        
+        // Inbound: Data sources and transform maps targeting this table
+        if (ctx.metrics.data_sources) {
+            ctx.metrics.data_sources.forEach(function(ds) {
+                dependencies.inbound.push({
+                    type: 'Data Source',
+                    name: ds.name,
+                    active: ds.active
+                });
+            });
+        }
+        
+        if (ctx.metrics.transform_maps) {
+            ctx.metrics.transform_maps.forEach(function(tm) {
+                dependencies.inbound.push({
+                    type: 'Transform Map',
+                    name: tm.name,
+                    active: tm.active,
+                    source: tm.source_table
+                });
+            });
+        }
+        
+        // Outbound: REST APIs that read from this table
+        if (ctx.metrics.rest_apis) {
+            ctx.metrics.rest_apis.forEach(function(api) {
+                dependencies.outbound.push({
+                    type: 'REST API',
+                    name: api.name,
+                    method: api.http_method,
+                    active: api.active
+                });
+            });
+        }
+        
+        // Check for outbound REST Messages that might use this table
+        var restMsgGr = new GlideRecord('sys_rest_message');
+        restMsgGr.query();
+        
+        while (restMsgGr.next()) {
+            // Check if any function references this table
+            var funcGr = new GlideRecord('sys_rest_message_fn');
+            funcGr.addQuery('rest_message', restMsgGr.getUniqueValue());
+            funcGr.addQuery('content', 'CONTAINS', tableName);
+            funcGr.setLimit(1);
+            funcGr.query();
+            
+            if (funcGr.hasNext()) {
+                dependencies.outbound.push({
+                    type: 'REST Message',
+                    name: self._safeGetValue(restMsgGr, 'name'),
+                    active: true
+                });
+            }
+        }
+        
+        ctx.metrics.integration_dependencies = dependencies;
+        ctx.metrics.inbound_integration_count = dependencies.inbound.length;
+        ctx.metrics.outbound_integration_count = dependencies.outbound.length;
+        
+        // Add summary issue if many integrations
+        var totalIntegrations = dependencies.inbound.length + dependencies.outbound.length;
+        if (totalIntegrations > 10) {
+            ctx.addIssue('MANY_INTEGRATIONS', 'Table has ' + totalIntegrations + ' integrations (' + dependencies.inbound.length + ' inbound, ' + dependencies.outbound.length + ' outbound). Consider documenting data flows.', 'low', {
+                category: 'integration'
+            });
+        }
     },
 
     type: 'FHCheckIntegration'

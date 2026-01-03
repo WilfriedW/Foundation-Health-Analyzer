@@ -12,6 +12,11 @@
         <script><![CDATA[/**
  * FHCheckTable - Check for table-specific issues
  * Analyzes custom fields, reference fields, and business rules
+ * 
+ * Supports configuration options:
+ * - deep_scan: Perform deeper analysis (script content, performance)
+ * - include_children_tables: Include child tables in analysis
+ * - analyze_references: Analyze reference field targets
  */
 var FHCheckTable = Class.create();
 FHCheckTable.prototype = {
@@ -26,16 +31,49 @@ FHCheckTable.prototype = {
     },
 
     /**
+     * Get configuration option with default value
+     * @private
+     */
+    _getOption: function(ctx, optionName, defaultValue) {
+        if (ctx.config && ctx.config[optionName] !== undefined) {
+            return ctx.config[optionName];
+        }
+        return defaultValue;
+    },
+
+    /**
      * Execute the check
      * @param {Object} ctx - Analysis context
      */
     execute: function(ctx) {
+        // Store options in metrics for reference
+        ctx.metrics.options = {
+            deep_scan: this._getOption(ctx, 'deep_scan', false),
+            include_children_tables: this._getOption(ctx, 'include_children_tables', false),
+            analyze_references: this._getOption(ctx, 'analyze_references', false)
+        };
+        
         this._checkTableExists(ctx);
         this._checkRecordCount(ctx);
         this._checkFieldUsage(ctx);
         this._checkReferenceFields(ctx);
         this._checkBusinessRules(ctx);
         this._checkClientScripts(ctx);
+        
+        // Include children tables analysis if option is enabled
+        if (ctx.metrics.options.include_children_tables) {
+            this._checkChildrenTables(ctx);
+        }
+        
+        // Deep scan: analyze reference field data quality
+        if (ctx.metrics.options.analyze_references) {
+            this._analyzeReferenceData(ctx);
+        }
+        
+        // Deep scan: analyze script quality
+        if (ctx.metrics.options.deep_scan) {
+            this._deepScanScripts(ctx);
+        }
     },
 
     /**
@@ -353,6 +391,260 @@ FHCheckTable.prototype = {
                 category: 'client_script'
             });
         }
+    },
+
+    /**
+     * Check children tables (if include_children_tables option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkChildrenTables: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+        
+        var tableName = String(ctx.config.table_name);
+        var childrenTables = [];
+        var self = this;
+        
+        // Get the sys_id of the parent table
+        var parentGr = new GlideRecord('sys_db_object');
+        if (!parentGr.get('name', tableName)) return;
+        
+        var parentSysId = parentGr.getUniqueValue();
+        
+        // Find all tables that extend this table
+        var gr = new GlideRecord('sys_db_object');
+        gr.addQuery('super_class', parentSysId);
+        gr.query();
+        
+        while (gr.next()) {
+            var childName = self._safeGetValue(gr, 'name');
+            var childLabel = self._safeGetValue(gr, 'label') || childName;
+            
+            // Get record count for child table
+            var childCount = 0;
+            try {
+                var ga = new GlideAggregate(childName);
+                ga.addAggregate('COUNT');
+                ga.query();
+                if (ga.next()) {
+                    childCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
+                }
+            } catch(e) {
+                // Table might not be accessible
+            }
+            
+            childrenTables.push({
+                sys_id: gr.getUniqueValue(),
+                name: childName,
+                label: childLabel,
+                record_count: childCount,
+                scope: self._safeGetValue(gr, 'sys_scope')
+            });
+        }
+        
+        ctx.metrics.children_tables = childrenTables;
+        ctx.metrics.children_table_count = childrenTables.length;
+        
+        if (childrenTables.length > 10) {
+            ctx.addIssue('MANY_CHILD_TABLES', 'Table has ' + childrenTables.length + ' child tables. Consider reviewing table hierarchy.', 'low', {
+                record_table: 'sys_db_object',
+                record_filter: 'super_class=' + parentSysId,
+                category: 'table'
+            });
+        }
+    },
+
+    /**
+     * Analyze reference field data quality (if analyze_references option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _analyzeReferenceData: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+        if (!ctx.metrics.reference_fields || ctx.metrics.reference_fields.length === 0) return;
+        
+        var tableName = String(ctx.config.table_name);
+        var totalRecords = ctx.metrics.record_count || 0;
+        var referenceAnalysis = [];
+        var self = this;
+        
+        ctx.metrics.reference_fields.forEach(function(refField) {
+            var fieldName = refField.name;
+            var refTable = refField.reference_table;
+            
+            // Check for orphan references (references to deleted records)
+            var orphanCount = 0;
+            var nullCount = 0;
+            
+            try {
+                // Count null references
+                var gaNulls = new GlideAggregate(tableName);
+                gaNulls.addNullQuery(fieldName);
+                gaNulls.addAggregate('COUNT');
+                gaNulls.query();
+                if (gaNulls.next()) {
+                    nullCount = parseInt(gaNulls.getAggregate('COUNT'), 10) || 0;
+                }
+                
+                // Sample check for orphans (check first 1000 records)
+                var gr = new GlideRecord(tableName);
+                gr.addNotNullQuery(fieldName);
+                gr.setLimit(1000);
+                gr.query();
+                
+                while (gr.next()) {
+                    var refValue = gr.getValue(fieldName);
+                    if (refValue) {
+                        var refGr = new GlideRecord(refTable);
+                        if (!refGr.get(refValue)) {
+                            orphanCount++;
+                        }
+                    }
+                }
+            } catch(e) {
+                // Skip on error
+            }
+            
+            var analysis = {
+                field: fieldName,
+                reference_table: refTable,
+                null_count: nullCount,
+                null_percentage: totalRecords > 0 ? Math.round((nullCount / totalRecords) * 100) : 0,
+                orphan_count: orphanCount,
+                orphan_detected: orphanCount > 0
+            };
+            referenceAnalysis.push(analysis);
+            
+            if (orphanCount > 0) {
+                ctx.addIssue('ORPHAN_REFERENCES', 'Field "' + fieldName + '" has orphan references (at least ' + orphanCount + ' found in sample)', 'medium', {
+                    record_table: tableName,
+                    record_filter: fieldName + 'ISNOTEMPTY',
+                    category: 'field'
+                });
+            }
+        });
+        
+        ctx.metrics.reference_analysis = referenceAnalysis;
+    },
+
+    /**
+     * Deep scan scripts for quality issues (if deep_scan option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _deepScanScripts: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+        
+        var tableName = String(ctx.config.table_name);
+        var scriptIssues = [];
+        var self = this;
+        
+        // Scan Business Rules
+        var gr = new GlideRecord('sys_script');
+        gr.addQuery('collection', tableName);
+        gr.addQuery('active', true);
+        gr.query();
+        
+        while (gr.next()) {
+            var script = self._safeGetValue(gr, 'script');
+            var brName = self._safeGetValue(gr, 'name') || 'Unnamed';
+            var issues = self._analyzeScript(script, brName, 'Business Rule');
+            scriptIssues = scriptIssues.concat(issues);
+        }
+        
+        // Scan Client Scripts
+        var csGr = new GlideRecord('sys_script_client');
+        csGr.addQuery('table', tableName);
+        csGr.addQuery('active', true);
+        csGr.query();
+        
+        while (csGr.next()) {
+            var csScript = self._safeGetValue(csGr, 'script');
+            var csName = self._safeGetValue(csGr, 'name') || 'Unnamed';
+            var csIssues = self._analyzeScript(csScript, csName, 'Client Script');
+            scriptIssues = scriptIssues.concat(csIssues);
+        }
+        
+        ctx.metrics.script_issues = scriptIssues;
+        ctx.metrics.script_issue_count = scriptIssues.length;
+        
+        // Add issues for each script problem found
+        scriptIssues.forEach(function(issue) {
+            ctx.addIssue(issue.code, issue.message, issue.severity, {
+                category: 'script'
+            });
+        });
+    },
+
+    /**
+     * Analyze a script for common issues
+     * @private
+     */
+    _analyzeScript: function(script, scriptName, scriptType) {
+        var issues = [];
+        if (!script) return issues;
+        
+        // Check for GlideRecord without limit in loops
+        if (script.indexOf('GlideRecord') > -1 && script.indexOf('.query()') > -1) {
+            if (script.indexOf('setLimit') === -1 && script.indexOf('get(') === -1) {
+                // Check if it's in a while loop without limit
+                if (script.indexOf('while') > -1 && script.indexOf('.next()') > -1) {
+                    issues.push({
+                        code: 'QUERY_NO_LIMIT',
+                        message: scriptType + ' "' + scriptName + '" has GlideRecord query without setLimit()',
+                        severity: 'medium'
+                    });
+                }
+            }
+        }
+        
+        // Check for current.update() in Business Rules (can cause infinite loops)
+        if (scriptType === 'Business Rule' && script.indexOf('current.update()') > -1) {
+            issues.push({
+                code: 'CURRENT_UPDATE',
+                message: scriptType + ' "' + scriptName + '" uses current.update() which can cause recursion',
+                severity: 'high'
+            });
+        }
+        
+        // Check for hardcoded sys_ids
+        var sysIdPattern = /['"][a-f0-9]{32}['"]/gi;
+        if (sysIdPattern.test(script)) {
+            issues.push({
+                code: 'HARDCODED_SYSID',
+                message: scriptType + ' "' + scriptName + '" contains hardcoded sys_id values',
+                severity: 'medium'
+            });
+        }
+        
+        // Check for console.log (should use gs.log in ServiceNow)
+        if (script.indexOf('console.log') > -1) {
+            issues.push({
+                code: 'CONSOLE_LOG',
+                message: scriptType + ' "' + scriptName + '" uses console.log instead of gs.log',
+                severity: 'low'
+            });
+        }
+        
+        // Check for eval() usage (security risk)
+        if (script.indexOf('eval(') > -1) {
+            issues.push({
+                code: 'EVAL_USAGE',
+                message: scriptType + ' "' + scriptName + '" uses eval() which is a security risk',
+                severity: 'high'
+            });
+        }
+        
+        // Check for synchronous GlideAjax calls
+        if (script.indexOf('GlideAjax') > -1 && script.indexOf('getXMLWait') > -1) {
+            issues.push({
+                code: 'SYNC_AJAX',
+                message: scriptType + ' "' + scriptName + '" uses synchronous GlideAjax (getXMLWait)',
+                severity: 'medium'
+            });
+        }
+        
+        return issues;
     },
 
     type: 'FHCheckTable'

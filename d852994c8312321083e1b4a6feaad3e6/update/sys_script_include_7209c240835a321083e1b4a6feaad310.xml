@@ -12,6 +12,10 @@
         <script><![CDATA[/**
  * FHCheckAutomation - Check for automation issues
  * Analyzes scheduled jobs, flows, workflows, and notifications
+ * 
+ * Supports configuration options:
+ * - deep_scan: Analyze script content in automations
+ * - include_children_tables: Include automations from child tables
  */
 var FHCheckAutomation = Class.create();
 FHCheckAutomation.prototype = {
@@ -26,33 +30,95 @@ FHCheckAutomation.prototype = {
     },
 
     /**
+     * Get configuration option with default value
+     * @private
+     */
+    _getOption: function(ctx, optionName, defaultValue) {
+        if (ctx.config && ctx.config[optionName] !== undefined) {
+            return ctx.config[optionName];
+        }
+        return defaultValue;
+    },
+
+    /**
      * Execute the check
      * @param {Object} ctx - Analysis context
      */
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
         
-        this._checkScheduledJobs(ctx);
-        this._checkFlows(ctx);
-        this._checkWorkflows(ctx);
-        this._checkNotifications(ctx);
+        // Get options
+        var includeChildren = this._getOption(ctx, 'include_children_tables', false);
+        var deepScan = this._getOption(ctx, 'deep_scan', false);
+        
+        // Get tables to check (main table + children if option enabled)
+        var tablesToCheck = this._getTablesToCheck(ctx, includeChildren);
+        ctx.metrics.automation_tables_checked = tablesToCheck;
+        
+        this._checkScheduledJobs(ctx, tablesToCheck);
+        this._checkFlows(ctx, tablesToCheck);
+        this._checkWorkflows(ctx, tablesToCheck);
+        this._checkNotifications(ctx, tablesToCheck);
         this._checkUIActions(ctx);
         this._checkUIPolicies(ctx);
+        
+        // Deep scan: analyze automation scripts
+        if (deepScan) {
+            this._deepScanAutomations(ctx);
+        }
+    },
+
+    /**
+     * Get tables to check based on configuration
+     * @private
+     */
+    _getTablesToCheck: function(ctx, includeChildren) {
+        var tableName = String(ctx.config.table_name);
+        var tables = [tableName];
+        
+        if (includeChildren) {
+            // Get child tables
+            var parentGr = new GlideRecord('sys_db_object');
+            if (parentGr.get('name', tableName)) {
+                var parentSysId = parentGr.getUniqueValue();
+                
+                var gr = new GlideRecord('sys_db_object');
+                gr.addQuery('super_class', parentSysId);
+                gr.query();
+                
+                while (gr.next()) {
+                    var childName = this._safeGetValue(gr, 'name');
+                    if (childName && tables.indexOf(childName) === -1) {
+                        tables.push(childName);
+                    }
+                }
+            }
+        }
+        
+        return tables;
     },
 
     /**
      * Check scheduled jobs that reference this table
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
      */
-    _checkScheduledJobs: function(ctx) {
+    _checkScheduledJobs: function(ctx, tablesToCheck) {
         var tableName = String(ctx.config.table_name);
         var scheduledJobs = [];
         var self = this;
         
-        // Check sys_trigger for scheduled jobs
+        // Check sys_trigger for scheduled jobs - search for any table in the list
         var gr = new GlideRecord('sysauto_script');
-        gr.addQuery('script', 'CONTAINS', tableName);
+        if (tablesToCheck.length === 1) {
+            gr.addQuery('script', 'CONTAINS', tablesToCheck[0]);
+        } else {
+            var qc = gr.addQuery('script', 'CONTAINS', tablesToCheck[0]);
+            for (var i = 1; i < tablesToCheck.length; i++) {
+                qc.addOrCondition('script', 'CONTAINS', tablesToCheck[i]);
+            }
+        }
         gr.query();
         
         while (gr.next()) {
@@ -87,14 +153,23 @@ FHCheckAutomation.prototype = {
      * Check Flow Designer flows for this table (including inherited from parent tables)
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} configTables - Tables from configuration (with children if enabled)
      */
-    _checkFlows: function(ctx) {
+    _checkFlows: function(ctx, configTables) {
         var tableName = String(ctx.config.table_name);
         var flows = [];
         var self = this;
         
-        // Get all tables in hierarchy (current table + parent tables)
-        var tablesToCheck = self._getTableHierarchy(tableName);
+        // Get all tables in hierarchy (parent tables)
+        var parentTables = self._getTableHierarchy(tableName);
+        
+        // Merge with config tables (children) and remove duplicates
+        var tablesToCheck = parentTables.slice();
+        configTables.forEach(function(t) {
+            if (tablesToCheck.indexOf(t) === -1) {
+                tablesToCheck.push(t);
+            }
+        });
         
         // Check for flows triggered by this table or parent tables
         try {
@@ -152,14 +227,23 @@ FHCheckAutomation.prototype = {
      * Check legacy workflows for this table (including inherited from parent tables)
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} configTables - Tables from configuration (with children if enabled)
      */
-    _checkWorkflows: function(ctx) {
+    _checkWorkflows: function(ctx, configTables) {
         var tableName = String(ctx.config.table_name);
         var workflows = [];
         var self = this;
         
-        // Get all tables in hierarchy (current table + parent tables)
-        var tablesToCheck = self._getTableHierarchy(tableName);
+        // Get all tables in hierarchy (parent tables)
+        var parentTables = self._getTableHierarchy(tableName);
+        
+        // Merge with config tables (children) and remove duplicates
+        var tablesToCheck = parentTables.slice();
+        configTables.forEach(function(t) {
+            if (tablesToCheck.indexOf(t) === -1) {
+                tablesToCheck.push(t);
+            }
+        });
         
         var gr = new GlideRecord('wf_workflow');
         gr.addQuery('table', 'IN', tablesToCheck.join(','));
@@ -213,14 +297,23 @@ FHCheckAutomation.prototype = {
      * Check notifications for this table (including inherited from parent tables)
      * @private
      * @param {Object} ctx - Analysis context
+     * @param {Array} configTables - Tables from configuration (with children if enabled)
      */
-    _checkNotifications: function(ctx) {
+    _checkNotifications: function(ctx, configTables) {
         var tableName = String(ctx.config.table_name);
         var notifications = [];
         var self = this;
         
-        // Get all tables in hierarchy (current table + parent tables)
-        var tablesToCheck = self._getTableHierarchy(tableName);
+        // Get all tables in hierarchy (parent tables)
+        var parentTables = self._getTableHierarchy(tableName);
+        
+        // Merge with config tables (children) and remove duplicates
+        var tablesToCheck = parentTables.slice();
+        configTables.forEach(function(t) {
+            if (tablesToCheck.indexOf(t) === -1) {
+                tablesToCheck.push(t);
+            }
+        });
         
         var gr = new GlideRecord('sysevent_email_action');
         gr.addQuery('collection', 'IN', tablesToCheck.join(','));
@@ -321,7 +414,7 @@ FHCheckAutomation.prototype = {
             });
         }
     },
-    
+
     /**
      * Get table hierarchy (current table + all parent tables)
      * @private
@@ -401,6 +494,117 @@ FHCheckAutomation.prototype = {
                 category: 'ui'
             });
         }
+    },
+
+    /**
+     * Deep scan automations for script quality (if deep_scan option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _deepScanAutomations: function(ctx) {
+        var tableName = String(ctx.config.table_name);
+        var automationIssues = [];
+        var self = this;
+        
+        // Scan Flows for complexity
+        if (ctx.metrics.flows && ctx.metrics.flows.length > 0) {
+            ctx.metrics.flows.forEach(function(flow) {
+                if (flow.active) {
+                    // Check for flows without description
+                    if (!flow.description) {
+                        automationIssues.push({
+                            type: 'Flow',
+                            name: flow.name,
+                            code: 'NO_DESCRIPTION',
+                            message: 'Flow "' + flow.name + '" has no description',
+                            severity: 'low'
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Scan Scheduled Jobs for script issues
+        if (ctx.metrics.scheduled_jobs && ctx.metrics.scheduled_jobs.length > 0) {
+            var jobGr = new GlideRecord('sysauto_script');
+            ctx.metrics.scheduled_jobs.forEach(function(job) {
+                if (jobGr.get(job.sys_id)) {
+                    var script = self._safeGetValue(jobGr, 'script');
+                    var issues = self._analyzeAutomationScript(script, job.name, 'Scheduled Job');
+                    automationIssues = automationIssues.concat(issues);
+                }
+            });
+        }
+        
+        ctx.metrics.automation_script_issues = automationIssues;
+        ctx.metrics.automation_script_issue_count = automationIssues.length;
+        
+        // Add issues
+        automationIssues.forEach(function(issue) {
+            ctx.addIssue(issue.code, issue.message, issue.severity, {
+                category: 'automation'
+            });
+        });
+    },
+
+    /**
+     * Analyze automation script for common issues
+     * @private
+     */
+    _analyzeAutomationScript: function(script, scriptName, scriptType) {
+        var issues = [];
+        if (!script) return issues;
+        
+        // Check for GlideRecord in loop without limit
+        if (script.indexOf('GlideRecord') > -1 && script.indexOf('.query()') > -1) {
+            if (script.indexOf('setLimit') === -1 && script.indexOf('get(') === -1) {
+                if (script.indexOf('while') > -1 && script.indexOf('.next()') > -1) {
+                    issues.push({
+                        type: scriptType,
+                        name: scriptName,
+                        code: 'QUERY_NO_LIMIT',
+                        message: scriptType + ' "' + scriptName + '" has GlideRecord query without setLimit()',
+                        severity: 'medium'
+                    });
+                }
+            }
+        }
+        
+        // Check for hardcoded sys_ids
+        var sysIdPattern = /['"][a-f0-9]{32}['"]/gi;
+        if (sysIdPattern.test(script)) {
+            issues.push({
+                type: scriptType,
+                name: scriptName,
+                code: 'HARDCODED_SYSID',
+                message: scriptType + ' "' + scriptName + '" contains hardcoded sys_id values',
+                severity: 'medium'
+            });
+        }
+        
+        // Check for gs.sleep (can cause performance issues)
+        if (script.indexOf('gs.sleep') > -1) {
+            issues.push({
+                type: scriptType,
+                name: scriptName,
+                code: 'GS_SLEEP',
+                message: scriptType + ' "' + scriptName + '" uses gs.sleep() which can impact performance',
+                severity: 'medium'
+            });
+        }
+        
+        // Check for eval usage
+        if (script.indexOf('eval(') > -1) {
+            issues.push({
+                type: scriptType,
+                name: scriptName,
+                code: 'EVAL_USAGE',
+                message: scriptType + ' "' + scriptName + '" uses eval() which is a security risk',
+                severity: 'high'
+            });
+        }
+        
+        return issues;
     },
 
     type: 'FHCheckAutomation'
