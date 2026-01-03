@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHCheckTable</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHCheckTable</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHCheckTable - Check for table-specific issues
+ */
+var FHCheckTable = Class.create();
+FHCheckTable.prototype = {
+    /**
+     * Execute the check
+     * @param {Object} ctx - Analysis context
+     */
+    execute: function(ctx) {
+        this._checkFieldUsage(ctx);
+        this._checkReferenceFields(ctx);
+        this._checkBusinessRules(ctx);
+    },
+
+    /**
+     * Check field usage
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkFieldUsage: function(ctx) {
+        // Implementation for checking field usage
+        // Add issues to context as needed
+    },
+
+    /**
+     * Check reference fields
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkReferenceFields: function(ctx) {
+        // Implementation for checking reference fields
+        // Add issues to context as needed
+    },
+
+    /**
+     * Check business rules
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkBusinessRules: function(ctx) {
+        // Implementation for checking business rules
+        // Add issues to context as needed
+    },
+
+    type: 'FHCheckTable'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 23:20:59</sys_created_on>
+        <sys_id>99f80240835a321083e1b4a6feaad361</sys_id>
+        <sys_mod_count>1</sys_mod_count>
+        <sys_name>FHCheckTable</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_99f80240835a321083e1b4a6feaad361</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 07:51:25</sys_updated_on>
+    </sys_script_include>
+</record_update>

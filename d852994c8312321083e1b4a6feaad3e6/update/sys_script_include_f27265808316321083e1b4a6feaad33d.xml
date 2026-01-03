@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHAnalyzer</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description>Foundation Health Analyzer main class</description>
+        <mobile_callable>false</mobile_callable>
+        <name>FHAnalyzer</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHAnalyzer - Main analysis engine for Foundation Health Assessment
+ * This script include contains all core logic for table analysis
+ */
+var FHAnalyzer = Class.create();
+FHAnalyzer.prototype = {
+    initialize: function() {
+        this.resultsTable = 'x_1310794_founda_0_fha_results';
+        this.configTable = 'x_1310794_founda_0_fha_configuration';
+        this.logPrefix = '[FHA] ';
+    },
+
+    /**
+     * Get all available tables for analysis
+     * @returns {Array} Array of table configurations
+     */
+    getAvailableAnalyses: function() {
+        var tables = [];
+        var gr = new GlideRecord(this.configTable);
+        gr.addQuery('active', true);
+        gr.orderBy('name');
+        gr.query();
+
+        while (gr.next()) {
+            tables.push({
+                config_sys_id: gr.sys_id.toString(),
+                display_name: gr.getValue('name'),
+                table_name: gr.getValue('table_name'),
+                description: gr.getValue('description')
+            });
+        }
+
+        return tables;
+    },
+
+    /**
+     * Get analysis configuration by sys_id
+     * @param {String} configSysId - Configuration sys_id
+     * @returns {Object} Configuration object or null
+     */
+    getAnalysisConfiguration: function(configSysId) {
+        var gr = new GlideRecord(this.configTable);
+        if (gr.get(configSysId)) {
+            return {
+                sys_id: gr.sys_id.toString(),
+                name: gr.getValue('name'),
+                table_name: gr.getValue('table_name'),
+                description: gr.getValue('description'),
+                active: gr.getValue('active') === 'true'
+            };
+        }
+        return null;
+    },
+
+    /**
+     * Run analysis for a specific configuration
+     * @param {String} configSysId - Configuration sys_id
+     * @param {Object} parameters - Analysis parameters
+     * @returns {Object} Analysis result
+     */
+    runAnalysis: function(configSysId, parameters) {
+        var config = this.getAnalysisConfiguration(configSysId);
+        if (!config) {
+            return {
+                success: false,
+                error: 'Invalid configuration'
+            };
+        }
+
+        var engine = new FHAnalysisEngine();
+        var engineResult = engine.run(config);
+
+        var resultSysId = this._saveResult(config, engineResult, parameters);
+
+        return {
+            success: true,
+            analysis_id: resultSysId,
+            summary: engineResult.getSummary(),
+            details: engineResult
+        };
+    },
+
+    /**
+     * Get analysis result by analysis_id
+     * @param {String} analysisId - Analysis ID
+     * @returns {Object} Analysis result or null
+     */
+    getAnalysisResult: function(analysisId) {
+        var gr = new GlideRecord(this.resultsTable);
+        if (gr.get('analysis_id', analysisId)) {
+            return {
+                success: true,
+                result: JSON.parse(gr.getValue('details')),
+                sys_id: gr.sys_id.toString(),
+                created_at: gr.getValue('sys_created_on')
+            };
+        }
+        return {
+            success: false,
+            error: 'Analysis not found'
+        };
+    },
+
+    /**
+     * Save analysis result to database
+     * @private
+     * @param {Object} config - Analysis configuration
+     * @param {Object} result - Analysis result
+     * @param {Object} parameters - Analysis parameters
+     * @returns {String} Result sys_id
+     */
+    _saveResult: function(config, result, parameters) {
+        var gr = new GlideRecord(this.resultsTable);
+        gr.initialize();
+
+        var analysisId = gs.generateGUID();
+        gr.setValue('analysis_id', analysisId);
+        gr.setValue('config_sys_id', config.sys_id);
+        gr.setValue('table_name', config.table_name);
+        gr.setValue('details', JSON.stringify(result));
+        gr.setValue('parameters', JSON.stringify(parameters || {}));
+        gr.setValue('status', 'completed');
+        gr.setValue('user_id', gs.getUserID());
+
+        if (gr.insert()) {
+            return analysisId;
+        }
+
+        throw new Error('Failed to save analysis result');
+    },
+
+    type: 'FHAnalyzer'
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 20:33:51</sys_created_on>
+        <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
+        <sys_mod_count>35</sys_mod_count>
+        <sys_name>FHAnalyzer</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 07:48:56</sys_updated_on>
+    </sys_script_include>
+</record_update>

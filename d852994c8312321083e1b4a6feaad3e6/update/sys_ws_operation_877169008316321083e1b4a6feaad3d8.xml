@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_operation">
+    <sys_ws_operation action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <consumes>application/json,application/xml,text/xml</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_operation_uri/>
+        <enforce_acl/>
+        <http_method>GET</http_method>
+        <name>Analysis</name>
+        <operation_script><![CDATA[(function process(request, response) {
+    try {
+        var analysisId = request.pathParams.analysis_id;
+        
+        if (!analysisId) {
+            response.setStatus(400);
+            response.setBody({
+                success: false,
+                error: 'Analysis ID is required'
+            });
+            return;
+        }
+        
+        var analyzer = new global.FHAnalyzer();
+        var result = analyzer.getAnalysisResult(analysisId);
+        
+        if (!result) {
+            response.setStatus(404);
+            response.setBody({
+                success: false,
+                error: 'Analysis not found'
+            });
+            return;
+        }
+        
+        response.setStatus(200);
+        response.setBody({
+            success: true,
+            analysis: result
+        });
+    } catch (error) {
+        response.setStatus(500);
+        response.setBody({
+            success: false,
+            error: error.message
+        });
+    }
+})();
+]]></operation_script>
+        <operation_uri>/api/x_1310794_founda_0/fha/analysis/{analysis_id}</operation_uri>
+        <produces>application/json,application/xml,text/xml</produces>
+        <produces_customized>false</produces_customized>
+        <relative_path>/analysis/{analysis_id}</relative_path>
+        <request_example/>
+        <requires_acl_authorization>true</requires_acl_authorization>
+        <requires_authentication>true</requires_authentication>
+        <requires_snc_internal_role>true</requires_snc_internal_role>
+        <short_description/>
+        <sys_class_name>sys_ws_operation</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 20:28:50</sys_created_on>
+        <sys_id>877169008316321083e1b4a6feaad3d8</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Analysis</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_ws_operation_877169008316321083e1b4a6feaad3d8</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-02 20:28:50</sys_updated_on>
+        <web_service_definition display_value="Foundation Health Analyzer API">8add5d0883d2321083e1b4a6feaad355</web_service_definition>
+        <web_service_version/>
+    </sys_ws_operation>
+</record_update>

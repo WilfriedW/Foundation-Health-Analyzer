@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHAnalysisContext</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHAnalysisContext</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHAnalysisContext - Context for analysis execution
+ */
+var FHAnalysisContext = Class.create();
+FHAnalysisContext.prototype = {
+    initialize: function(config) {
+        this.config = config;
+        this.metrics = {};
+        this.issues = [];
+    },
+
+    /**
+     * Add an issue to the context
+     * @param {String} code - Issue code
+     * @param {String} message - Issue message
+     * @param {String} severity - Issue severity (low, medium, high)
+     */
+    addIssue: function(code, message, severity) {
+        this.issues.push({
+            code: code,
+            message: message,
+            severity: severity || 'low',
+            timestamp: new Date().toISOString()
+        });
+    },
+
+    /**
+     * Convert context to result object
+     * @returns {Object} Result object
+     */
+    toResult: function() {
+        return {
+            table: this.config.table_name,
+            metrics: this.metrics,
+            issues: this.issues,
+            hasBlockingIssues: function() {
+                return this.issues.some(function(issue) {
+                    return issue.severity === 'high';
+                });
+            },
+            getSummary: function() {
+                return {
+                    issues_found: this.issues.length,
+                    duration_ms: this.metrics.duration_ms || 0
+                };
+            }
+        };
+    },
+
+    type: 'FHAnalysisContext'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 23:27:30</sys_created_on>
+        <sys_id>f17a0204835a321083e1b4a6feaad360</sys_id>
+        <sys_mod_count>9</sys_mod_count>
+        <sys_name>FHAnalysisContext</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 07:50:58</sys_updated_on>
+    </sys_script_include>
+</record_update>

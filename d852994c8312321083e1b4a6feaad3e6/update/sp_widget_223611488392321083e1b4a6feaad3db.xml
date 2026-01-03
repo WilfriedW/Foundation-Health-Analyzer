@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[function($scope, spUtil) {
+    var c = this;
+
+    c.selectedConfig = null;
+    c.loading = false;
+    c.result = null;
+
+    c.runAnalysis = function() {
+        if (!c.selectedConfig) return;
+
+        c.loading = true;
+        c.result = null;
+
+        c.server.get({
+            action: 'run_analysis',
+            configSysId: c.selectedConfig
+        }).then(function(response) {
+            c.result = response.data.runResult;
+            c.loading = false;
+        });
+    };
+
+    // Charger un résultat existant
+    c.loadResult = function(analysisId) {
+        c.loading = true;
+        c.server.get({
+            action: 'get_result',
+            analysisId: analysisId
+        }).then(function(response) {
+            c.result = response.data.analysisResult;
+            c.loading = false;
+        });
+    };
+}
+]]></client_script>
+        <controller_as>c</controller_as>
+        <css/>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>fha_dashboard</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]></link>
+        <name>FHA Dashboard</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function() {
+
+    return {
+        data: {}
+    };
+})();
+]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 19:41:08</sys_created_on>
+        <sys_id>223611488392321083e1b4a6feaad3db</sys_id>
+        <sys_mod_count>24</sys_mod_count>
+        <sys_name>FHA Dashboard</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_widget_223611488392321083e1b4a6feaad3db</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 07:53:42</sys_updated_on>
+        <template><![CDATA[<div class="panel panel-default">
+  <div class="panel-heading">
+    <h4>Foundation Health Analyzer</h4>
+  </div>
+
+  <div class="panel-body">
+
+    <!-- Sélection de la table -->
+    <div class="form-group">
+      <label>Table à analyser</label>
+      <select class="form-control"
+              ng-model="c.selectedConfig"
+              ng-options="t.config_sys_id as t.display_name for t in c.tables">
+        <option value="">-- Sélectionner une table --</option>
+      </select>
+    </div>
+
+    <!-- Bouton pour lancer l'analyse -->
+    <button class="btn btn-primary"
+            ng-click="c.runAnalysis()"
+            ng-disabled="!c.selectedConfig || c.loading">
+      Lancer l’analyse
+    </button>
+
+    <!-- Indicateur de chargement -->
+    <span ng-if="c.loading" class="text-info">
+      Analyse en cours...
+    </span>
+
+    <!-- Affichage des erreurs -->
+    <div ng-if="c.error" class="alert alert-danger" style="margin-top: 15px;">
+      {{c.error}}
+    </div>
+
+    <!-- Affichage des résultats -->
+    <div ng-if="c.result" class="margin-top">
+      <h4>Résultat</h4>
+
+      <p>
+        <strong>Table :</strong> {{c.result.summary.table}}<br/>
+        <strong>Durée :</strong> {{c.result.summary.duration_ms / 1000 | number:2}} sec<br/>
+        <strong>Problèmes détectés :</strong> {{c.result.summary.issues_found}}
+      </p>
+
+      <!-- Affichage des problèmes détectés -->
+      <div ng-if="c.result.issues && c.result.issues.length > 0">
+        <h5>Problèmes détectés</h5>
+        <ul>
+          <li ng-repeat="issue in c.result.issues">
+            <strong>{{issue.severity | uppercase}}</strong>
+            — {{issue.code}} : {{issue.message}}
+          </li>
+        </ul>
+      </div>
+
+      <!-- Affichage si aucun problème détecté -->
+      <div ng-if="c.result.issues && c.result.issues.length === 0">
+        <p class="text-success">
+          ✅ Aucun problème détecté
+        </p>
+      </div>
+
+      <!-- Lien pour partager le résultat -->
+      <div class="margin-top">
+        <a href="#/fha-analysis-results/{{c.analysisId}}"
+           class="btn btn-info btn-sm">
+          <i class="fa fa-external-link"></i> Voir les détails
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+]]></template>
+    </sp_widget>
+</record_update>

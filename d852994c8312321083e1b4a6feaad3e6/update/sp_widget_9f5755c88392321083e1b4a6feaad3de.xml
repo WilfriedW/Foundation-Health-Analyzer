@@ -1,0 +1,459 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[api.controller=function($scope, spUtil, $location, $timeout, $window) {
+  var c = this;
+    
+    c.apiBase = '/api/x_1310794_founda_0/';
+    c.analysisId = c.data.analysisId || '';
+    
+    if (c.analysisId) {
+        loadAnalysis();
+    }
+    
+    function loadAnalysis() {
+        c.isLoading = true;
+        
+        c.server.get({
+            action: 'loadAnalysis',
+            analysisId: c.analysisId
+        }).then(function(response) {
+            c.isLoading = false;
+            c.analysis = response.analysis;
+            c.findings = response.findings;
+            c.recommendations = response.recommendations;
+        });
+    }
+}
+]]></client_script>
+        <controller_as>c</controller_as>
+        <css>/* Analysis Results Specific Styles */&#13;
+.fha-health-score {&#13;
+  font-size: 48px;&#13;
+  font-weight: bold;&#13;
+  padding: 20px;&#13;
+  border-radius: 10px;&#13;
+  margin: 10px 0;&#13;
+}&#13;
+&#13;
+.fha-health-score-good {&#13;
+  color: #28A745;&#13;
+  background-color: rgba(40, 167, 69, 0.1);&#13;
+}&#13;
+&#13;
+.fha-health-score-medium {&#13;
+  color: #FFC107;&#13;
+  background-color: rgba(255, 193, 7, 0.1);&#13;
+}&#13;
+&#13;
+.fha-health-score-poor {&#13;
+  color: #DC3545;&#13;
+  background-color: rgba(220, 53, 69, 0.1);&#13;
+}&#13;
+&#13;
+.fha-stat-item {&#13;
+  text-align: center;&#13;
+  padding: 15px;&#13;
+  border: 1px solid #dee2e6;&#13;
+  border-radius: 5px;&#13;
+  margin-bottom: 15px;&#13;
+}&#13;
+&#13;
+.fha-stat-item h4 {&#13;
+  font-size: 28px;&#13;
+  color: #0378BE;&#13;
+  margin: 0 0 5px 0;&#13;
+}&#13;
+&#13;
+.fha-stat-item p {&#13;
+  color: #6C757D;&#13;
+  font-size: 14px;&#13;
+  margin: 0;&#13;
+}&#13;
+&#13;
+.fha-tabs {&#13;
+  display: flex;&#13;
+  border-bottom: 2px solid #dee2e6;&#13;
+  margin-bottom: 20px;&#13;
+}&#13;
+&#13;
+.fha-tab {&#13;
+  padding: 12px 20px;&#13;
+  cursor: pointer;&#13;
+  border-bottom: 3px solid transparent;&#13;
+  margin-bottom: -2px;&#13;
+  font-weight: 500;&#13;
+  color: #6C757D;&#13;
+  transition: all 0.3s;&#13;
+}&#13;
+&#13;
+.fha-tab:hover {&#13;
+  color: #0378BE;&#13;
+}&#13;
+&#13;
+.fha-tab.active {&#13;
+  color: #0378BE;&#13;
+  border-bottom-color: #0378BE;&#13;
+  font-weight: 600;&#13;
+}&#13;
+&#13;
+.fha-tab-badge {&#13;
+  background-color: #0378BE;&#13;
+  color: white;&#13;
+  border-radius: 10px;&#13;
+  padding: 2px 8px;&#13;
+  font-size: 12px;&#13;
+  margin-left: 5px;&#13;
+}&#13;
+&#13;
+.fha-summary-box {&#13;
+  background-color: #f8f9fa;&#13;
+  border-left: 4px solid #0378BE;&#13;
+  padding: 15px;&#13;
+  margin-top: 20px;&#13;
+  border-radius: 0 5px 5px 0;&#13;
+}&#13;
+&#13;
+.fha-recommendation {&#13;
+  border: 1px solid #dee2e6;&#13;
+  border-radius: 5px;&#13;
+  margin-bottom: 15px;&#13;
+  overflow: hidden;&#13;
+}&#13;
+&#13;
+.fha-recommendation-header {&#13;
+  background-color: #f8f9fa;&#13;
+  padding: 15px;&#13;
+  border-bottom: 1px solid #dee2e6;&#13;
+}&#13;
+&#13;
+.fha-recommendation-body {&#13;
+  padding: 15px;&#13;
+}&#13;
+&#13;
+.fha-recommendation-actions {&#13;
+  margin-top: 15px;&#13;
+  padding-top: 15px;&#13;
+  border-top: 1px dashed #dee2e6;&#13;
+}&#13;
+</css>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>fha_analysis_results</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]></link>
+        <name>FHA Analysis results</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function() {
+    if (input && input.action === 'loadAnalysis') {
+        var analyzer = new FHAnalyzer();
+        var analysis = analyzer.getAnalysis(input.analysisId);
+        
+        if (analysis) {
+            data.analysis = analysis;
+            data.findings = JSON.parse(analysis.findings || '{}');
+            data.recommendations = data.findings.recommendations || [];
+        } else {
+            data.error = 'Analysis not found';
+        }
+    }
+})();
+]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 19:45:14</sys_created_on>
+        <sys_id>9f5755c88392321083e1b4a6feaad3de</sys_id>
+        <sys_mod_count>7</sys_mod_count>
+        <sys_name>FHA Analysis results</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_widget_9f5755c88392321083e1b4a6feaad3de</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-02 21:11:50</sys_updated_on>
+        <template><![CDATA[<div class="fha-container" ng-init="c.$onInit()">
+  
+  <!-- Page Header - CORRIGÉ -->
+  <div class="fha-page-title">
+    <h1>
+      <i class="fa fa-chart-bar"></i> 
+      ${Analysis Results}
+    </h1>
+    <p class="lead">
+      ${Detailed analysis of table:} <strong>{{c.data.tableName || 'Unknown table'}}</strong>
+    </p>
+  </div>
+
+  <!-- Error Message -->
+  <div class="row" ng-if="c.data.error">
+    <div class="col-xs-12">
+      <div class="alert alert-danger">
+        <i class="fa fa-exclamation-triangle"></i> {{c.data.error}}
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="row" ng-if="c.data.loading && !c.data.error">
+    <div class="col-xs-12">
+      <div class="text-center" style="padding: 50px;">
+        <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
+        <h3 style="margin-top: 20px;">${Loading analysis results...}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content (when results are loaded) -->
+  <div class="row" ng-if="c.data.analysisResults && !c.data.loading">
+    
+    <!-- Health Score Card - CORRIGÉ -->
+    <div class="col-md-4">
+      <div class="fha-card text-center">
+        <div class="fha-card-header">
+          <h3 class="fha-card-title">${Health Score}</h3>
+        </div>
+        <div class="fha-card-body">
+          <div class="fha-health-score" ng-class="{
+            'fha-health-score-good': c.data.healthScore >= 70,
+            'fha-health-score-medium': c.data.healthScore >= 40 && c.data.healthScore < 70,
+            'fha-health-score-poor': c.data.healthScore < 40
+          }">
+            {{c.data.healthScore}}/100
+          </div>
+          <p class="text-muted">
+            ${Based on} {{c.data.totalFindings}} ${findings}
+          </p>
+          <div class="small text-muted">
+            <i class="fa fa-calendar"></i> ${Analyzed on:} {{c.data.started_at | date:'medium'}}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Quick Actions -->
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h3 class="fha-card-title"><i class="fa fa-bolt"></i> ${Quick Actions}</h3>
+        </div>
+        <div class="fha-card-body">
+          <button class="fha-btn-primary btn-block" ng-click="c.generateWordReport()" ng-disabled="c.data.generatingWord">
+            <i class="fa" ng-class="c.data.generatingWord ? 'fa-spinner fa-spin' : 'fa-file-word-o'"></i>
+            ${Generate Word Report}
+          </button>
+          
+          <button class="fha-btn-success btn-block" style="margin-top: 10px;" 
+                  ng-click="c.generatePowerPoint()" ng-disabled="c.data.generatingPPT">
+            <i class="fa" ng-class="c.data.generatingPPT ? 'fa-spinner fa-spin' : 'fa-file-powerpoint-o'"></i>
+            ${Generate Presentation}
+          </button>
+          
+          <button class="fha-btn-secondary btn-block" style="margin-top: 10px;" 
+                  ng-click="c.goBack()">
+            <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Main Statistics - CORRIGÉ -->
+    <div class="col-md-8">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h3 class="fha-card-title">${Analysis Overview}</h3>
+        </div>
+        <div class="fha-card-body">
+          <div class="row">
+            <div class="col-md-6" ng-repeat="stat in c.data.stats">
+              <div class="fha-stat-item">
+                <h4>{{stat.value}}</h4>
+                <p>{{stat.label}}</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Analysis Summary -->
+          <div class="fha-summary-box">
+            <h4><i class="fa fa-file-text-o"></i> ${Summary}</h4>
+            <p>{{c.data.analysisResults.summary || '${No summary available}'}}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs Navigation - CORRIGÉ -->
+  <div class="row" ng-if="c.data.analysisResults && !c.data.loading">
+    <div class="col-xs-12">
+      <div class="fha-tabs">
+        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'findings'}" 
+             ng-click="c.setActiveTab('findings')">
+          <i class="fa fa-search"></i> ${Findings}
+          <span class="fha-tab-badge" ng-if="c.data.totalFindings">{{c.data.totalFindings}}</span>
+        </div>
+        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'recommendations'}" 
+             ng-click="c.setActiveTab('recommendations')">
+          <i class="fa fa-lightbulb-o"></i> ${Recommendations}
+          <span class="fha-tab-badge" ng-if="c.data.recommendations">{{c.data.recommendations.length}}</span>
+        </div>
+        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'details'}" 
+             ng-click="c.setActiveTab('details')">
+          <i class="fa fa-info-circle"></i> ${Technical Details}
+        </div>
+        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'export'}" 
+             ng-click="c.setActiveTab('export')">
+          <i class="fa fa-download"></i> ${Export}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Findings Tab Content - CORRIGÉ -->
+  <div class="row" ng-if="c.data.activeTab === 'findings' && c.data.findings && c.data.findings.length > 0">
+    <div class="col-xs-12">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <div class="pull-right">
+            <span class="label label-danger" style="margin-right: 10px;">
+              ${High:} {{c.data.severityCounts.high || 0}}
+            </span>
+            <span class="label label-warning" style="margin-right: 10px;">
+              ${Medium:} {{c.data.severityCounts.medium || 0}}
+            </span>
+            <span class="label label-primary">
+              ${Low:} {{c.data.severityCounts.low || 0}}
+            </span>
+          </div>
+          <h3 class="fha-card-title">${Findings Details}</h3>
+        </div>
+        <div class="fha-card-body">
+          <table class="fha-table table-hover">
+            <thead>
+              <tr>
+                <th width="30">#</th>
+                <th width="150">${Category}</th>
+                <th width="100">${Severity}</th>
+                <th width="80">${Impact}</th>
+                <th>${Description}</th>
+                <th width="100">${Actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="finding in c.data.findings">
+                <td>{{$index + 1}}</td>
+                <td>
+                  <span class="fha-badge fha-badge-primary">{{finding.category}}</span>
+                </td>
+                <td>
+                  <span class="label" ng-class="{
+                    'label-danger': finding.severity === 'High',
+                    'label-warning': finding.severity === 'Medium',
+                    'label-primary': finding.severity === 'Low'
+                  }">
+                    {{finding.severity}}
+                  </span>
+                </td>
+                <td>
+                  <i class="fa fa-circle" ng-style="{
+                    'color': finding.impact === 'High' ? '#DC3545' : 
+                            (finding.impact === 'Medium' ? '#FFC107' : '#17A2B8')
+                  }"></i> {{finding.impact}}
+                </td>
+                <td>{{finding.description}}</td>
+                <td>
+                  <button class="btn btn-xs btn-default" title="${View details}">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                  <button class="btn btn-xs btn-success" title="${Mark as fixed}" style="margin-left: 5px;">
+                    <i class="fa fa-check"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommendations Tab Content - CORRIGÉ -->
+  <div class="row" ng-if="c.data.activeTab === 'recommendations' && c.data.recommendations && c.data.recommendations.length > 0">
+    <div class="col-xs-12">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <div class="pull-right">
+            <button class="btn btn-sm btn-success">
+              <i class="fa fa-download"></i> ${Export All}
+            </button>
+          </div>
+          <h3 class="fha-card-title">${Actionable Recommendations}</h3>
+        </div>
+        <div class="fha-card-body">
+          <div class="fha-recommendation" ng-repeat="rec in c.data.recommendations">
+            <div class="fha-recommendation-header">
+              <h4>
+                <i class="fa" ng-class="{
+                  'fa-exclamation-triangle text-danger': rec.priority === 'High',
+                  'fa-exclamation-circle text-warning': rec.priority === 'Medium',
+                  'fa-info-circle text-primary': rec.priority === 'Low'
+                }"></i>
+                {{rec.title}}
+                <small class="pull-right">
+                  <span class="label" ng-class="{
+                    'label-danger': rec.priority === 'High',
+                    'label-warning': rec.priority === 'Medium',
+                    'label-primary': rec.priority === 'Low'
+                  }">
+                    {{rec.priority}} ${Priority}
+                  </span>
+                  <span class="label label-default" style="margin-left: 5px;">
+                    <i class="fa fa-clock-o"></i> {{rec.effort}}
+                  </span>
+                </small>
+              </h4>
+            </div>
+            <div class="fha-recommendation-body">
+              <p>{{rec.description}}</p>
+              <div class="fha-recommendation-actions">
+                <button class="btn btn-sm btn-primary">
+                  <i class="fa fa-check"></i> ${Mark as Completed}
+                </button>
+                <button class="btn btn-sm btn-default" style="margin-left: 5px;">
+                  <i class="fa fa-calendar"></i> ${Schedule}
+                </button>
+                <button class="btn btn-sm btn-info" style="margin-left: 5px;">
+                  <i class="fa fa-info-circle"></i> ${More Info}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Data Messages - CORRIGÉ -->
+  <div class="row" ng-if="!c.data.analysisResults && !c.data.loading && !c.data.error">
+    <div class="col-xs-12">
+      <div class="text-center" style="padding: 50px;">
+        <i class="fa fa-exclamation-circle fa-3x" style="color: #6C757D;"></i>
+        <h3 style="margin-top: 20px;">${No Analysis Results Found}</h3>
+        <p>${Please run an analysis from the dashboard or provide a valid analysis ID.}</p>
+        <button class="fha-btn-primary" ng-click="c.goBack()" style="margin-top: 20px;">
+          <i class="fa fa-arrow-left"></i> ${Go to Dashboard}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+]]></template>
+    </sp_widget>
+</record_update>
