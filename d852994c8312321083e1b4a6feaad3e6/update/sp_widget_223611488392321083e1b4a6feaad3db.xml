@@ -26,7 +26,7 @@
         }).then(function(response) {
             c.loading = false;
             if (response.data.success) {
-                c.result = response.data.runResult;
+            c.result = response.data.runResult;
                 c.analysisId = response.data.analysisId;
                 // Refresh recent analyses
                 c.refreshRecentAnalyses();
@@ -158,7 +158,7 @@
         return icons[category] || 'fa-exclamation-circle';
     };
 
-    // Navigate to record
+    // Navigate to single record
     c.goToRecord = function(issue) {
         if (issue.record_sys_id && issue.record_table) {
             // Direct link to record
@@ -171,9 +171,32 @@
         }
     };
 
+    // Navigate to list of all records (filtered)
+    c.goToList = function(issue) {
+        if (issue.record_table) {
+            var url = '/' + issue.record_table + '_list.do';
+            if (issue.record_filter) {
+                url += '?sysparm_query=' + encodeURIComponent(issue.record_filter);
+            }
+            window.open(url, '_blank');
+        }
+    };
+
     // Check if issue has a link
     c.hasRecordLink = function(issue) {
         return (issue.record_sys_id && issue.record_table) || (issue.record_filter && issue.record_table);
+    };
+
+    // Check if issue has a list link (for "View All")
+    c.hasListLink = function(issue) {
+        return issue.record_table && issue.record_filter;
+    };
+
+    // Get record count from message (extract number from message like "Table has 41 inactive...")
+    c.getRecordCount = function(issue) {
+        if (!issue.message) return '';
+        var match = issue.message.match(/(\d+)/);
+        return match ? match[1] : '';
     };
 
     // Get issues by severity
@@ -494,8 +517,14 @@
   background: #e9f5ff;
 }
 
-.fha-issue-link {
+.fha-issue-actions {
+  display: flex;
+  gap: 8px;
   margin-left: auto;
+  flex-shrink: 0;
+}
+
+.fha-issue-link {
   padding: 6px 12px;
   background: #0378BE;
   color: white;
@@ -506,6 +535,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  white-space: nowrap;
 }
 
 .fha-issue-link:hover {
@@ -513,6 +543,15 @@
   color: white;
   text-decoration: none;
   transform: translateY(-1px);
+}
+
+.fha-issue-link-list {
+  background: #28A745;
+}
+
+.fha-issue-link-list:hover {
+  background: #1e7e34;
+  color: white;
 }
 
 /* Severity summary badges */
@@ -747,11 +786,11 @@
               ${Select a configuration to analyze}
             </label>
             <select class="fha-select"
-                    ng-model="c.selectedConfig"
+              ng-model="c.selectedConfig"
                     ng-options="t.config_sys_id as (t.display_name + ' (' + t.table_name + ')') for t in c.tables">
               <option value="">-- ${Choose a table} --</option>
-            </select>
-          </div>
+      </select>
+    </div>
 
           <!-- Selected Config Description -->
           <div ng-if="c.selectedConfig" style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px;">
@@ -763,11 +802,11 @@
 
           <!-- Run Button -->
           <button class="fha-btn-primary"
-                  ng-click="c.runAnalysis()"
-                  ng-disabled="!c.selectedConfig || c.loading">
+            ng-click="c.runAnalysis()"
+            ng-disabled="!c.selectedConfig || c.loading">
             <i class="fa" ng-class="c.loading ? 'fa-spinner fa-spin' : 'fa-search'"></i>
             {{c.loading ? '${Analysis in progress...}' : '${Run Analysis}'}}
-          </button>
+    </button>
 
           <!-- Error Message -->
           <div ng-if="c.error" class="alert alert-danger" style="margin-top: 20px;">
@@ -790,7 +829,7 @@
                 <span class="fha-score-badge" 
                       ng-class="'fha-score-' + c.getHealthScoreClass(c.calculateHealthScore())">
                   {{c.calculateHealthScore()}}/100
-                </span>
+    </span>
               </div>
               <div class="fha-stat-label">${Health Score}</div>
             </div>
@@ -802,7 +841,7 @@
               <div class="fha-stat-value">{{c.result.metrics.duration_ms || 0}}ms</div>
               <div class="fha-stat-label">${Analysis Duration}</div>
             </div>
-          </div>
+    </div>
 
           <!-- Issues List -->
           <div ng-if="c.result.issues && c.result.issues.length > 0">
@@ -847,15 +886,24 @@
                       <div class="fha-issue-code">{{issue.code}}</div>
                       <div class="fha-issue-message">{{issue.message}}</div>
                     </div>
-                    <a class="fha-issue-link" 
-                       ng-if="c.hasRecordLink(issue)"
-                       ng-click="$event.stopPropagation(); c.goToRecord(issue)"
-                       title="${View Record}">
-                      <i class="fa fa-external-link-alt"></i>
-                      ${View}
-                    </a>
-                  </li>
-                </ul>
+                    <div class="fha-issue-actions" ng-if="c.hasRecordLink(issue) || c.hasListLink(issue)">
+                      <a class="fha-issue-link" 
+                         ng-if="c.hasRecordLink(issue) && !c.hasListLink(issue)"
+                         ng-click="$event.stopPropagation(); c.goToRecord(issue)"
+                         title="${View Record}">
+                        <i class="fa fa-external-link-alt"></i>
+                        ${View}
+                      </a>
+                      <a class="fha-issue-link fha-issue-link-list" 
+                         ng-if="c.hasListLink(issue)"
+                         ng-click="$event.stopPropagation(); c.goToList(issue)"
+                         title="${View all records}">
+                        <i class="fa fa-list"></i>
+                        {{c.getRecordCount(issue)}} ${records}
+                      </a>
+                    </div>
+          </li>
+        </ul>
               </div>
             </div>
           </div>
@@ -875,7 +923,7 @@
           </div>
         </div>
       </div>
-    </div>
+      </div>
 
     <!-- Sidebar -->
     <div class="col-md-4">
