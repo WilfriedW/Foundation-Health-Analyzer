@@ -1,142 +1,571 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[api.controller=function($scope, spUtil, $location, $timeout, $window) {
+        <client_script><![CDATA[function($scope, spUtil, $location, $window) {
   var c = this;
     
-    c.apiBase = '/api/x_1310794_founda_0/';
-    c.analysisId = c.data.analysisId || '';
+    // Get analysis ID from URL parameter
+    c.analysisId = $location.search().sys_id || c.data.analysisId || '';
+    c.loading = !c.data.result;
+    c.error = c.data.error || null;
+    c.result = c.data.result || null;
+    c.activeTab = 'overview';
     
-    if (c.analysisId) {
-        loadAnalysis();
-    }
-    
-    function loadAnalysis() {
-        c.isLoading = true;
+    // Expanded sections
+    c.expandedSections = {
+        fields: false,
+        business_rules: false,
+        automation: false,
+        integration: false
+    };
+
+    // Toggle section
+    c.toggleSection = function(section) {
+        c.expandedSections[section] = !c.expandedSections[section];
+    };
+
+    // Get health score class
+    c.getHealthScoreClass = function(score) {
+        if (score >= 70) return 'good';
+        if (score >= 40) return 'medium';
+        return 'poor';
+    };
+
+    // Get severity class
+    c.getSeverityClass = function(severity) {
+        switch(severity) {
+            case 'high': return 'danger';
+            case 'medium': return 'warning';
+            case 'low': return 'info';
+            default: return 'default';
+        }
+    };
+
+    // Count issues by severity
+    c.countBySeverity = function(severity) {
+        if (!c.result || !c.result.issues) return 0;
+        return c.result.issues.filter(function(i) { return i.severity === severity; }).length;
+    };
+
+    // Get issues by category
+    c.getIssuesByCategory = function(category) {
+        if (!c.result || !c.result.issues) return [];
+        return c.result.issues.filter(function(i) { return i.category === category; });
+    };
+
+    // Get metrics
+    c.getMetrics = function() {
+        return (c.result && c.result.metrics) ? c.result.metrics : {};
+    };
+
+    // Get custom fields
+    c.getCustomFields = function() {
+        var metrics = c.getMetrics();
+        return metrics.custom_fields || [];
+    };
+
+    // Get business rules
+    c.getBusinessRules = function() {
+        var metrics = c.getMetrics();
+        return metrics.business_rules || [];
+    };
+
+    // Get all automation items
+    c.getAutomationItems = function() {
+        var metrics = c.getMetrics();
+        var items = [];
         
-        c.server.get({
-            action: 'loadAnalysis',
-            analysisId: c.analysisId
-        }).then(function(response) {
-            c.isLoading = false;
-            c.analysis = response.analysis;
-            c.findings = response.findings;
-            c.recommendations = response.recommendations;
-        });
-    }
+        if (metrics.scheduled_jobs) {
+            metrics.scheduled_jobs.forEach(function(job) {
+                items.push({ type: 'Scheduled Job', name: job.name, active: job.active, sys_id: job.sys_id, table: 'sysauto_script' });
+            });
+        }
+        if (metrics.flows) {
+            metrics.flows.forEach(function(flow) {
+                items.push({ type: 'Flow', name: flow.name, active: flow.active, sys_id: flow.sys_id, table: 'sys_hub_flow' });
+            });
+        }
+        if (metrics.workflows) {
+            metrics.workflows.forEach(function(wf) {
+                items.push({ type: 'Workflow', name: wf.name, active: wf.active, sys_id: wf.sys_id, table: 'wf_workflow' });
+            });
+        }
+        if (metrics.notifications) {
+            metrics.notifications.forEach(function(n) {
+                items.push({ type: 'Notification', name: n.name, active: n.active, sys_id: n.sys_id, table: 'sysevent_email_action' });
+            });
+        }
+        if (metrics.ui_actions) {
+            metrics.ui_actions.forEach(function(a) {
+                items.push({ type: 'UI Action', name: a.name, active: true, sys_id: a.sys_id, table: 'sys_ui_action' });
+            });
+        }
+        
+        return items;
+    };
+
+    // Get integration items
+    c.getIntegrationItems = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.data_sources) {
+            metrics.data_sources.forEach(function(ds) {
+                items.push({ type: 'Data Source', name: ds.name, active: ds.active, sys_id: ds.sys_id, table: 'sys_data_source' });
+            });
+        }
+        if (metrics.transform_maps) {
+            metrics.transform_maps.forEach(function(tm) {
+                items.push({ type: 'Transform Map', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map' });
+            });
+        }
+        
+        return items;
+    };
+
+    // Open record
+    c.openRecord = function(table, sysId) {
+        if (table && sysId) {
+            $window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
+        }
+    };
+
+    // Open list with filter
+    c.openList = function(table, filter) {
+        var url = '/' + table + '_list.do';
+        if (filter) {
+            url += '?sysparm_query=' + encodeURIComponent(filter);
+        }
+        $window.open(url, '_blank');
+    };
+
+    // Go back to dashboard
+    c.goBack = function() {
+        $location.path('/fha');
+    };
+
+    // Set active tab
+    c.setActiveTab = function(tab) {
+        c.activeTab = tab;
+    };
+
+    // Export to JSON
+    c.exportJSON = function() {
+        if (!c.result) return;
+        var dataStr = JSON.stringify(c.result, null, 2);
+        var dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+        var exportName = 'fha_analysis_' + c.analysisId + '.json';
+        var linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportName);
+        linkElement.click();
+    };
 }
 ]]></client_script>
         <controller_as>c</controller_as>
-        <css>/* Analysis Results Specific Styles */&#13;
-.fha-health-score {&#13;
-  font-size: 48px;&#13;
-  font-weight: bold;&#13;
-  padding: 20px;&#13;
-  border-radius: 10px;&#13;
-  margin: 10px 0;&#13;
-}&#13;
-&#13;
-.fha-health-score-good {&#13;
-  color: #28A745;&#13;
-  background-color: rgba(40, 167, 69, 0.1);&#13;
-}&#13;
-&#13;
-.fha-health-score-medium {&#13;
-  color: #FFC107;&#13;
-  background-color: rgba(255, 193, 7, 0.1);&#13;
-}&#13;
-&#13;
-.fha-health-score-poor {&#13;
-  color: #DC3545;&#13;
-  background-color: rgba(220, 53, 69, 0.1);&#13;
-}&#13;
-&#13;
-.fha-stat-item {&#13;
-  text-align: center;&#13;
-  padding: 15px;&#13;
-  border: 1px solid #dee2e6;&#13;
-  border-radius: 5px;&#13;
-  margin-bottom: 15px;&#13;
-}&#13;
-&#13;
-.fha-stat-item h4 {&#13;
-  font-size: 28px;&#13;
-  color: #0378BE;&#13;
-  margin: 0 0 5px 0;&#13;
-}&#13;
-&#13;
-.fha-stat-item p {&#13;
-  color: #6C757D;&#13;
-  font-size: 14px;&#13;
-  margin: 0;&#13;
-}&#13;
-&#13;
-.fha-tabs {&#13;
-  display: flex;&#13;
-  border-bottom: 2px solid #dee2e6;&#13;
-  margin-bottom: 20px;&#13;
-}&#13;
-&#13;
-.fha-tab {&#13;
-  padding: 12px 20px;&#13;
-  cursor: pointer;&#13;
-  border-bottom: 3px solid transparent;&#13;
-  margin-bottom: -2px;&#13;
-  font-weight: 500;&#13;
-  color: #6C757D;&#13;
-  transition: all 0.3s;&#13;
-}&#13;
-&#13;
-.fha-tab:hover {&#13;
-  color: #0378BE;&#13;
-}&#13;
-&#13;
-.fha-tab.active {&#13;
-  color: #0378BE;&#13;
-  border-bottom-color: #0378BE;&#13;
-  font-weight: 600;&#13;
-}&#13;
-&#13;
-.fha-tab-badge {&#13;
-  background-color: #0378BE;&#13;
-  color: white;&#13;
-  border-radius: 10px;&#13;
-  padding: 2px 8px;&#13;
-  font-size: 12px;&#13;
-  margin-left: 5px;&#13;
-}&#13;
-&#13;
-.fha-summary-box {&#13;
-  background-color: #f8f9fa;&#13;
-  border-left: 4px solid #0378BE;&#13;
-  padding: 15px;&#13;
-  margin-top: 20px;&#13;
-  border-radius: 0 5px 5px 0;&#13;
-}&#13;
-&#13;
-.fha-recommendation {&#13;
-  border: 1px solid #dee2e6;&#13;
-  border-radius: 5px;&#13;
-  margin-bottom: 15px;&#13;
-  overflow: hidden;&#13;
-}&#13;
-&#13;
-.fha-recommendation-header {&#13;
-  background-color: #f8f9fa;&#13;
-  padding: 15px;&#13;
-  border-bottom: 1px solid #dee2e6;&#13;
-}&#13;
-&#13;
-.fha-recommendation-body {&#13;
-  padding: 15px;&#13;
-}&#13;
-&#13;
-.fha-recommendation-actions {&#13;
-  margin-top: 15px;&#13;
-  padding-top: 15px;&#13;
-  border-top: 1px dashed #dee2e6;&#13;
-}&#13;
-</css>
+        <css><![CDATA[/* FHA Analysis Results Page Styles */
+.fha-results-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.fha-results-header {
+  background: linear-gradient(135deg, #0378BE 0%, #035B8E 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+}
+
+.fha-results-header h1 {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.fha-results-header .fha-breadcrumb {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.fha-results-header .fha-breadcrumb a {
+  color: white;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Stats Row */
+.fha-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.fha-stat-card {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+.fha-stat-card.highlight {
+  border: 2px solid #0378BE;
+}
+
+.fha-stat-value {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.fha-stat-value.good { color: #28A745; }
+.fha-stat-value.medium { color: #FFC107; }
+.fha-stat-value.poor { color: #DC3545; }
+
+.fha-stat-label {
+  color: #666;
+  font-size: 14px;
+}
+
+/* Health Score Circle */
+.fha-health-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.fha-health-circle.good {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28A745;
+  border: 4px solid #28A745;
+}
+
+.fha-health-circle.medium {
+  background: rgba(255, 193, 7, 0.15);
+  color: #856404;
+  border: 4px solid #FFC107;
+}
+
+.fha-health-circle.poor {
+  background: rgba(220, 53, 69, 0.15);
+  color: #DC3545;
+  border: 4px solid #DC3545;
+}
+
+/* Tabs */
+.fha-tabs-nav {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 25px;
+  gap: 5px;
+}
+
+.fha-tab-btn {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  color: #666;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.fha-tab-btn:hover {
+  color: #0378BE;
+  background: #f8f9fa;
+}
+
+.fha-tab-btn.active {
+  color: #0378BE;
+  border-bottom-color: #0378BE;
+  font-weight: 600;
+}
+
+.fha-tab-btn .badge {
+  margin-left: 8px;
+  background: #0378BE;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+/* Cards */
+.fha-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.fha-card-header {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fha-card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.fha-card-body {
+  padding: 20px;
+}
+
+/* Section styles */
+.fha-section {
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.fha-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  cursor: pointer;
+}
+
+.fha-section-header:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+}
+
+.fha-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-section-title i {
+  color: #0378BE;
+  font-size: 18px;
+}
+
+.fha-section-title h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fha-section-count {
+  background: #6c757d;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.fha-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Issues */
+.fha-issue-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.fha-issue-item:last-child {
+  border-bottom: none;
+}
+
+.fha-issue-severity {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 12px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.fha-severity-high { background: #DC3545; color: white; }
+.fha-severity-medium { background: #FFC107; color: #333; }
+.fha-severity-low { background: #17A2B8; color: white; }
+
+.fha-issue-content { flex: 1; }
+.fha-issue-code { font-weight: 600; color: #333; }
+.fha-issue-message { color: #666; margin-top: 4px; font-size: 14px; }
+
+/* Tables */
+.fha-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fha-data-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.fha-data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fha-data-table tr:hover {
+  background: #f8f9fa;
+}
+
+.fha-data-table code {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+/* Status badges */
+.fha-status-badge {
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fha-status-badge.active { background: rgba(40, 167, 69, 0.15); color: #28A745; }
+.fha-status-badge.inactive { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+
+.fha-type-badge {
+  background: #e9ecef;
+  color: #495057;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* Fill rate */
+.fha-fill-rate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-fill-bar {
+  height: 8px;
+  border-radius: 4px;
+  min-width: 5px;
+  max-width: 100px;
+}
+
+.fha-fill-bar.good { background: #28A745; }
+.fha-fill-bar.warning { background: #FFC107; }
+.fha-fill-bar.danger { background: #DC3545; }
+
+/* Buttons */
+.fha-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fha-btn-primary {
+  background: #0378BE;
+  color: white;
+}
+
+.fha-btn-primary:hover {
+  background: #035B8E;
+}
+
+.fha-btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.fha-btn-secondary:hover {
+  background: #545b62;
+}
+
+.fha-btn-success {
+  background: #28A745;
+  color: white;
+}
+
+.fha-btn-success:hover {
+  background: #1e7e34;
+}
+
+/* Link */
+.fha-link {
+  color: #0378BE;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.fha-link:hover {
+  text-decoration: underline;
+}
+
+/* Metadata */
+.fha-metadata {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: #666;
+  margin-top: 10px;
+}
+
+.fha-metadata i {
+  margin-right: 5px;
+}
+
+/* Actions panel */
+.fha-actions-panel {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .fha-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .fha-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+]]></css>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -153,17 +582,76 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function() {
-    if (input && input.action === 'loadAnalysis') {
-        var analyzer = new FHAnalyzer();
-        var analysis = analyzer.getAnalysis(input.analysisId);
-        
-        if (analysis) {
-            data.analysis = analysis;
-            data.findings = JSON.parse(analysis.findings || '{}');
-            data.recommendations = data.findings.recommendations || [];
+    // Get analysis ID from URL path parameter
+    // URL format: /fha_analysis_results/{analysis_id}
+    var analysisId = $sp.getParameter('sys_id') || '';
+    
+    // Also check URL path for ID
+    if (!analysisId) {
+        var path = $sp.getParameter('id');
+        // Try to extract from page route
+    }
+    
+    data.analysisId = analysisId;
+    data.result = null;
+    data.error = null;
+    
+    if (analysisId) {
+        try {
+            var analyzer = new x_1310794_founda_0.FHAnalyzer();
+            var result = analyzer.getAnalysisResult(analysisId);
+            
+            if (result && result.success) {
+                // Get the analysis record details
+                var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+                if (gr.get(analysisId)) {
+                    // Get table name from reference
+                    var tableName = '';
+                    var tableLabel = '';
+                    if (gr.table_name && !gr.table_name.nil()) {
+                        var tableRef = gr.table_name.getRefRecord();
+                        if (tableRef) {
+                            tableName = tableRef.getValue('name') || '';
+                            tableLabel = tableRef.getValue('label') || tableName;
+                        }
+                    }
+                    
+                    // Parse detail_json for full metrics
+                    var detailJson = {};
+                    try {
+                        var detailStr = gr.getValue('detail_json');
+                        if (detailStr) {
+                            detailJson = JSON.parse(detailStr);
+                        }
+                    } catch(e) {
+                        // Ignore parse errors
+                    }
+                    
+                    data.result = {
+                        sys_id: gr.getUniqueValue(),
+                        number: gr.getValue('number'),
+                        table_name: tableName,
+                        table_label: tableLabel,
+                        health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                        issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                        status: gr.getValue('status'),
+                        created_on: gr.getValue('sys_created_on'),
+                        created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : '',
+                        issues: detailJson.issues || [],
+                        metrics: detailJson.metrics || {},
+                        duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
+                    };
+                } else {
+                    data.error = 'Analysis record not found';
+                }
         } else {
-            data.error = 'Analysis not found';
+                data.error = result ? result.error : 'Failed to load analysis';
+            }
+        } catch(e) {
+            data.error = 'Error loading analysis: ' + e.message;
         }
+    } else {
+        data.error = 'No analysis ID provided. Please access this page from the dashboard.';
     }
 })();
 ]]></script>
@@ -180,279 +668,350 @@
         <sys_update_name>sp_widget_9f5755c88392321083e1b4a6feaad3de</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
         <sys_updated_on>2026-01-02 21:11:50</sys_updated_on>
-        <template><![CDATA[<div class="fha-container" ng-init="c.$onInit()">
+        <template><![CDATA[<div class="fha-results-page">
   
-  <!-- Page Header - CORRIGÉ -->
-  <div class="fha-page-title">
-    <h1>
-      <i class="fa fa-chart-bar"></i> 
-      ${Analysis Results}
-    </h1>
-    <p class="lead">
-      ${Detailed analysis of table:} <strong>{{c.data.tableName || 'Unknown table'}}</strong>
+  <!-- Page Header -->
+  <div class="fha-results-header">
+    <div class="fha-breadcrumb">
+      <a ng-click="c.goBack()"><i class="fa fa-home"></i> ${Dashboard}</a> / ${Analysis Results}
+    </div>
+    <h1><i class="fa fa-chart-bar"></i> ${Analysis Results}</h1>
+    <p ng-if="c.result">
+      ${Detailed analysis of table:} <strong>{{c.result.table_label || c.result.table_name}}</strong>
+      <span style="opacity: 0.8;">({{c.result.table_name}})</span>
     </p>
+    <div class="fha-metadata" ng-if="c.result">
+      <span><i class="fa fa-hashtag"></i> {{c.result.number}}</span>
+      <span><i class="fa fa-calendar"></i> {{c.result.created_on}}</span>
+      <span><i class="fa fa-user"></i> {{c.result.created_by}}</span>
+      <span><i class="fa fa-clock-o"></i> {{c.result.duration_ms}}ms</span>
+    </div>
   </div>
 
   <!-- Error Message -->
-  <div class="row" ng-if="c.data.error">
-    <div class="col-xs-12">
-      <div class="alert alert-danger">
-        <i class="fa fa-exclamation-triangle"></i> {{c.data.error}}
-      </div>
-    </div>
+  <div class="alert alert-danger" ng-if="c.error" style="margin-bottom: 20px;">
+    <i class="fa fa-exclamation-triangle"></i> {{c.error}}
+    <button class="fha-btn fha-btn-secondary" ng-click="c.goBack()" style="margin-left: 20px;">
+      <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
+    </button>
   </div>
 
   <!-- Loading State -->
-  <div class="row" ng-if="c.data.loading && !c.data.error">
-    <div class="col-xs-12">
-      <div class="text-center" style="padding: 50px;">
-        <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
-        <h3 style="margin-top: 20px;">${Loading analysis results...}</h3>
-      </div>
-    </div>
+  <div ng-if="c.loading && !c.error" style="text-align: center; padding: 80px;">
+    <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
+    <h3 style="margin-top: 20px; color: #666;">${Loading analysis results...}</h3>
   </div>
 
-  <!-- Main Content (when results are loaded) -->
-  <div class="row" ng-if="c.data.analysisResults && !c.data.loading">
+  <!-- Main Content -->
+  <div ng-if="c.result && !c.loading">
     
-    <!-- Health Score Card - CORRIGÉ -->
-    <div class="col-md-4">
-      <div class="fha-card text-center">
-        <div class="fha-card-header">
-          <h3 class="fha-card-title">${Health Score}</h3>
+    <!-- Stats Grid -->
+    <div class="fha-stats-grid">
+      <div class="fha-stat-card highlight">
+        <div class="fha-health-circle" ng-class="c.getHealthScoreClass(c.result.health_score)">
+          {{c.result.health_score}}
         </div>
-        <div class="fha-card-body">
-          <div class="fha-health-score" ng-class="{
-            'fha-health-score-good': c.data.healthScore >= 70,
-            'fha-health-score-medium': c.data.healthScore >= 40 && c.data.healthScore < 70,
-            'fha-health-score-poor': c.data.healthScore < 40
-          }">
-            {{c.data.healthScore}}/100
-          </div>
-          <p class="text-muted">
-            ${Based on} {{c.data.totalFindings}} ${findings}
-          </p>
-          <div class="small text-muted">
-            <i class="fa fa-calendar"></i> ${Analyzed on:} {{c.data.started_at | date:'medium'}}
-          </div>
-        </div>
+        <div class="fha-stat-label">${Health Score}</div>
       </div>
-      
-      <!-- Quick Actions -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 class="fha-card-title"><i class="fa fa-bolt"></i> ${Quick Actions}</h3>
+      <div class="fha-stat-card">
+        <div class="fha-stat-value" ng-class="c.countBySeverity('high') > 0 ? 'poor' : 'good'">
+          {{c.countBySeverity('high')}}
         </div>
-        <div class="fha-card-body">
-          <button class="fha-btn-primary btn-block" ng-click="c.generateWordReport()" ng-disabled="c.data.generatingWord">
-            <i class="fa" ng-class="c.data.generatingWord ? 'fa-spinner fa-spin' : 'fa-file-word-o'"></i>
-            ${Generate Word Report}
-          </button>
-          
-          <button class="fha-btn-success btn-block" style="margin-top: 10px;" 
-                  ng-click="c.generatePowerPoint()" ng-disabled="c.data.generatingPPT">
-            <i class="fa" ng-class="c.data.generatingPPT ? 'fa-spinner fa-spin' : 'fa-file-powerpoint-o'"></i>
-            ${Generate Presentation}
-          </button>
-          
-          <button class="fha-btn-secondary btn-block" style="margin-top: 10px;" 
-                  ng-click="c.goBack()">
+        <div class="fha-stat-label">${High Severity Issues}</div>
+      </div>
+      <div class="fha-stat-card">
+        <div class="fha-stat-value medium">{{c.countBySeverity('medium')}}</div>
+        <div class="fha-stat-label">${Medium Severity Issues}</div>
+      </div>
+      <div class="fha-stat-card">
+        <div class="fha-stat-value" style="color: #17A2B8;">{{c.countBySeverity('low')}}</div>
+        <div class="fha-stat-label">${Low Severity Issues}</div>
+      </div>
+    </div>
+
+    <!-- Actions Bar -->
+    <div class="fha-card">
+      <div class="fha-card-body">
+        <div class="fha-actions-panel">
+          <button class="fha-btn fha-btn-secondary" ng-click="c.goBack()">
             <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
           </button>
+          <button class="fha-btn fha-btn-primary" ng-click="c.exportJSON()">
+            <i class="fa fa-download"></i> ${Export JSON}
+          </button>
         </div>
       </div>
     </div>
-    
-    <!-- Main Statistics - CORRIGÉ -->
-    <div class="col-md-8">
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 class="fha-card-title">${Analysis Overview}</h3>
-        </div>
-        <div class="fha-card-body">
-          <div class="row">
-            <div class="col-md-6" ng-repeat="stat in c.data.stats">
-              <div class="fha-stat-item">
-                <h4>{{stat.value}}</h4>
-                <p>{{stat.label}}</p>
-              </div>
+
+    <!-- Tabs Navigation -->
+    <div class="fha-tabs-nav">
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'overview'}" ng-click="c.setActiveTab('overview')">
+        <i class="fa fa-th-large"></i> ${Overview}
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'issues'}" ng-click="c.setActiveTab('issues')">
+        <i class="fa fa-exclamation-circle"></i> ${Issues}
+        <span class="badge">{{c.result.issues.length}}</span>
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'fields'}" ng-click="c.setActiveTab('fields')">
+        <i class="fa fa-columns"></i> ${Fields}
+        <span class="badge">{{c.getCustomFields().length}}</span>
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'automation'}" ng-click="c.setActiveTab('automation')">
+        <i class="fa fa-cogs"></i> ${Automation}
+        <span class="badge">{{c.getAutomationItems().length}}</span>
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'integration'}" ng-click="c.setActiveTab('integration')">
+        <i class="fa fa-exchange"></i> ${Integrations}
+        <span class="badge">{{c.getIntegrationItems().length}}</span>
+      </button>
+    </div>
+
+    <!-- ==================== OVERVIEW TAB ==================== -->
+    <div ng-if="c.activeTab === 'overview'">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="fha-card">
+            <div class="fha-card-header">
+              <h4><i class="fa fa-table"></i> ${Table Information}</h4>
+            </div>
+            <div class="fha-card-body">
+              <table class="fha-data-table">
+                <tr>
+                  <td><strong>${Table Name}</strong></td>
+                  <td><code>{{c.result.table_name}}</code></td>
+                </tr>
+                <tr>
+                  <td><strong>${Table Label}</strong></td>
+                  <td>{{c.result.table_label}}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Record Count}</strong></td>
+                  <td>{{c.getMetrics().record_count || 'N/A'}}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Custom Fields}</strong></td>
+                  <td>{{c.getMetrics().custom_field_count || 0}}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Business Rules}</strong></td>
+                  <td>{{(c.getMetrics().active_br_count || 0) + (c.getMetrics().inactive_br_count || 0)}} ({{c.getMetrics().active_br_count || 0}} ${active})</td>
+                </tr>
+              </table>
             </div>
           </div>
-          
-          <!-- Analysis Summary -->
-          <div class="fha-summary-box">
-            <h4><i class="fa fa-file-text-o"></i> ${Summary}</h4>
-            <p>{{c.data.analysisResults.summary || '${No summary available}'}}</p>
+        </div>
+        <div class="col-md-6">
+          <div class="fha-card">
+            <div class="fha-card-header">
+              <h4><i class="fa fa-pie-chart"></i> ${Issues Summary}</h4>
+            </div>
+            <div class="fha-card-body">
+              <table class="fha-data-table">
+                <tr>
+                  <td><strong>${Total Issues}</strong></td>
+                  <td>{{c.result.issues.length}}</td>
+                </tr>
+                <tr>
+                  <td><span class="fha-issue-severity fha-severity-high">HIGH</span></td>
+                  <td>{{c.countBySeverity('high')}}</td>
+                </tr>
+                <tr>
+                  <td><span class="fha-issue-severity fha-severity-medium">MEDIUM</span></td>
+                  <td>{{c.countBySeverity('medium')}}</td>
+                </tr>
+                <tr>
+                  <td><span class="fha-issue-severity fha-severity-low">LOW</span></td>
+                  <td>{{c.countBySeverity('low')}}</td>
+                </tr>
+              </table>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Tabs Navigation - CORRIGÉ -->
-  <div class="row" ng-if="c.data.analysisResults && !c.data.loading">
-    <div class="col-xs-12">
-      <div class="fha-tabs">
-        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'findings'}" 
-             ng-click="c.setActiveTab('findings')">
-          <i class="fa fa-search"></i> ${Findings}
-          <span class="fha-tab-badge" ng-if="c.data.totalFindings">{{c.data.totalFindings}}</span>
-        </div>
-        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'recommendations'}" 
-             ng-click="c.setActiveTab('recommendations')">
-          <i class="fa fa-lightbulb-o"></i> ${Recommendations}
-          <span class="fha-tab-badge" ng-if="c.data.recommendations">{{c.data.recommendations.length}}</span>
-        </div>
-        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'details'}" 
-             ng-click="c.setActiveTab('details')">
-          <i class="fa fa-info-circle"></i> ${Technical Details}
-        </div>
-        <div class="fha-tab" ng-class="{'active': c.data.activeTab === 'export'}" 
-             ng-click="c.setActiveTab('export')">
-          <i class="fa fa-download"></i> ${Export}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Findings Tab Content - CORRIGÉ -->
-  <div class="row" ng-if="c.data.activeTab === 'findings' && c.data.findings && c.data.findings.length > 0">
-    <div class="col-xs-12">
-      <div class="fha-card">
+    <!-- ==================== ISSUES TAB ==================== -->
+    <div ng-if="c.activeTab === 'issues'">
+      <div class="fha-card" ng-if="c.result.issues.length > 0">
         <div class="fha-card-header">
-          <div class="pull-right">
-            <span class="label label-danger" style="margin-right: 10px;">
-              ${High:} {{c.data.severityCounts.high || 0}}
-            </span>
-            <span class="label label-warning" style="margin-right: 10px;">
-              ${Medium:} {{c.data.severityCounts.medium || 0}}
-            </span>
-            <span class="label label-primary">
-              ${Low:} {{c.data.severityCounts.low || 0}}
-            </span>
-          </div>
-          <h3 class="fha-card-title">${Findings Details}</h3>
+          <h4><i class="fa fa-exclamation-circle"></i> ${All Issues} ({{c.result.issues.length}})</h4>
         </div>
-        <div class="fha-card-body">
-          <table class="fha-table table-hover">
+        <div class="fha-card-body" style="padding: 0;">
+          <table class="fha-data-table">
             <thead>
               <tr>
-                <th width="30">#</th>
-                <th width="150">${Category}</th>
                 <th width="100">${Severity}</th>
-                <th width="80">${Impact}</th>
-                <th>${Description}</th>
-                <th width="100">${Actions}</th>
+                <th width="150">${Category}</th>
+                <th width="200">${Code}</th>
+                <th>${Message}</th>
+                <th width="80">${Action}</th>
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="finding in c.data.findings">
-                <td>{{$index + 1}}</td>
+              <tr ng-repeat="issue in c.result.issues | orderBy:['-severity']">
                 <td>
-                  <span class="fha-badge fha-badge-primary">{{finding.category}}</span>
-                </td>
-                <td>
-                  <span class="label" ng-class="{
-                    'label-danger': finding.severity === 'High',
-                    'label-warning': finding.severity === 'Medium',
-                    'label-primary': finding.severity === 'Low'
-                  }">
-                    {{finding.severity}}
+                  <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">
+                    {{issue.severity}}
                   </span>
                 </td>
+                <td><span class="fha-type-badge">{{issue.category || 'general'}}</span></td>
+                <td><strong>{{issue.code}}</strong></td>
+                <td>{{issue.message}}</td>
                 <td>
-                  <i class="fa fa-circle" ng-style="{
-                    'color': finding.impact === 'High' ? '#DC3545' : 
-                            (finding.impact === 'Medium' ? '#FFC107' : '#17A2B8')
-                  }"></i> {{finding.impact}}
-                </td>
-                <td>{{finding.description}}</td>
-                <td>
-                  <button class="btn btn-xs btn-default" title="${View details}">
-                    <i class="fa fa-eye"></i>
-                  </button>
-                  <button class="btn btn-xs btn-success" title="${Mark as fixed}" style="margin-left: 5px;">
-                    <i class="fa fa-check"></i>
-                  </button>
+                  <a class="fha-link" ng-if="issue.record_sys_id" 
+                     ng-click="c.openRecord(issue.record_table, issue.record_sys_id)">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                  <a class="fha-link" ng-if="issue.record_filter && !issue.record_sys_id" 
+                     ng-click="c.openList(issue.record_table, issue.record_filter)">
+                    <i class="fa fa-list"></i>
+                  </a>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
+      <div class="fha-card" ng-if="c.result.issues.length === 0">
+        <div class="fha-card-body" style="text-align: center; padding: 50px;">
+          <i class="fa fa-check-circle fa-3x" style="color: #28A745;"></i>
+          <h3 style="margin-top: 15px; color: #28A745;">${No Issues Found!}</h3>
+          <p style="color: #666;">${This table is in excellent health.}</p>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <!-- Recommendations Tab Content - CORRIGÉ -->
-  <div class="row" ng-if="c.data.activeTab === 'recommendations' && c.data.recommendations && c.data.recommendations.length > 0">
-    <div class="col-xs-12">
+    <!-- ==================== FIELDS TAB ==================== -->
+    <div ng-if="c.activeTab === 'fields'">
       <div class="fha-card">
         <div class="fha-card-header">
-          <div class="pull-right">
-            <button class="btn btn-sm btn-success">
-              <i class="fa fa-download"></i> ${Export All}
-            </button>
-          </div>
-          <h3 class="fha-card-title">${Actionable Recommendations}</h3>
+          <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>
         </div>
-        <div class="fha-card-body">
-          <div class="fha-recommendation" ng-repeat="rec in c.data.recommendations">
-            <div class="fha-recommendation-header">
-              <h4>
-                <i class="fa" ng-class="{
-                  'fa-exclamation-triangle text-danger': rec.priority === 'High',
-                  'fa-exclamation-circle text-warning': rec.priority === 'Medium',
-                  'fa-info-circle text-primary': rec.priority === 'Low'
-                }"></i>
-                {{rec.title}}
-                <small class="pull-right">
-                  <span class="label" ng-class="{
-                    'label-danger': rec.priority === 'High',
-                    'label-warning': rec.priority === 'Medium',
-                    'label-primary': rec.priority === 'Low'
-                  }">
-                    {{rec.priority}} ${Priority}
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getCustomFields().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${Field Name}</th>
+                <th>${Label}</th>
+                <th>${Type}</th>
+                <th>${Fill Rate}</th>
+                <th>${Mandatory}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="field in c.getCustomFields()" 
+                  ng-class="{'fha-row-warning': field.fill_rate < 10 && field.fill_rate > 0, 'fha-row-danger': field.fill_rate === 0}">
+                <td><code>{{field.name}}</code></td>
+                <td>{{field.label}}</td>
+                <td><span class="fha-type-badge">{{field.type}}</span></td>
+                <td>
+                  <div class="fha-fill-rate">
+                    <div class="fha-fill-bar" 
+                         ng-style="{'width': (field.fill_rate || 0) + 'px'}"
+                         ng-class="{'danger': field.fill_rate === 0, 'warning': field.fill_rate > 0 && field.fill_rate < 10, 'good': field.fill_rate >= 10}">
+                    </div>
+                    <span>{{field.fill_rate}}%</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="fha-status-badge" ng-class="field.mandatory ? 'active' : 'inactive'">
+                    {{field.mandatory ? '${Yes}' : '${No}'}}
                   </span>
-                  <span class="label label-default" style="margin-left: 5px;">
-                    <i class="fa fa-clock-o"></i> {{rec.effort}}
-                  </span>
-                </small>
-              </h4>
-            </div>
-            <div class="fha-recommendation-body">
-              <p>{{rec.description}}</p>
-              <div class="fha-recommendation-actions">
-                <button class="btn btn-sm btn-primary">
-                  <i class="fa fa-check"></i> ${Mark as Completed}
-                </button>
-                <button class="btn btn-sm btn-default" style="margin-left: 5px;">
-                  <i class="fa fa-calendar"></i> ${Schedule}
-                </button>
-                <button class="btn btn-sm btn-info" style="margin-left: 5px;">
-                  <i class="fa fa-info-circle"></i> ${More Info}
-                </button>
-              </div>
-            </div>
-          </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="c.getCustomFields().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No custom fields found on this table.}</p>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- No Data Messages - CORRIGÉ -->
-  <div class="row" ng-if="!c.data.analysisResults && !c.data.loading && !c.data.error">
-    <div class="col-xs-12">
-      <div class="text-center" style="padding: 50px;">
-        <i class="fa fa-exclamation-circle fa-3x" style="color: #6C757D;"></i>
-        <h3 style="margin-top: 20px;">${No Analysis Results Found}</h3>
-        <p>${Please run an analysis from the dashboard or provide a valid analysis ID.}</p>
-        <button class="fha-btn-primary" ng-click="c.goBack()" style="margin-top: 20px;">
-          <i class="fa fa-arrow-left"></i> ${Go to Dashboard}
-        </button>
+    <!-- ==================== AUTOMATION TAB ==================== -->
+    <div ng-if="c.activeTab === 'automation'">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-cogs"></i> ${Automation Items} ({{c.getAutomationItems().length}})</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getAutomationItems().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="150">${Type}</th>
+                <th>${Name}</th>
+                <th width="100">${Status}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="item in c.getAutomationItems()" ng-class="{'fha-row-inactive': !item.active}">
+                <td><span class="fha-type-badge">{{item.type}}</span></td>
+                <td>{{item.name}}</td>
+                <td>
+                  <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
+                    {{item.active ? '${Active}' : '${Inactive}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="c.getAutomationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No automation items found for this table.}</p>
+        </div>
       </div>
     </div>
-  </div>
 
+    <!-- ==================== INTEGRATIONS TAB ==================== -->
+    <div ng-if="c.activeTab === 'integration'">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-exchange"></i> ${Integration Items} ({{c.getIntegrationItems().length}})</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getIntegrationItems().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="150">${Type}</th>
+                <th>${Name}</th>
+                <th width="100">${Status}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="item in c.getIntegrationItems()" ng-class="{'fha-row-inactive': !item.active}">
+                <td><span class="fha-type-badge">{{item.type}}</span></td>
+                <td>{{item.name}}</td>
+                <td>
+                  <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
+                    {{item.active ? '${Active}' : '${Inactive}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="c.getIntegrationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No integration items found for this table.}</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
 ]]></template>
     </sp_widget>
