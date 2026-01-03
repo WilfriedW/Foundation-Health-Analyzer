@@ -11,7 +11,6 @@
     
     try {
         var config_sys_id = request.pathParams.config_sys_id;
-        var user = gs.getUserName();
         
         if (!config_sys_id) {
             return sendError(response, 400, 'Missing config_sys_id parameter');
@@ -24,51 +23,58 @@
         }
         
         // Check if active
-        if (grConfig.getValue('active') !== '1') {
+        var activeVal = grConfig.getValue('active');
+        var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+        if (!isActive) {
             return sendError(response, 400, 'Configuration is not active');
         }
         
-        // Create analysis instance
-        var analyzer = new FHAnalyzer();
+        // Create analysis instance with scoped name
+        var analyzer = new x_1310794_founda_0.FHAnalyzer();
         
         // Prepare parameters
         var params = {
             deep_scan: true,
-            user_sys_id: gs.getUserID(),
-            config_sys_id: config_sys_id
+            user_sys_id: gs.getUserID()
         };
         
         // Start analysis
         var startTime = new Date().getTime();
-        var result = analyzer.analyzeTable(config_sys_id, params);
+        var result = analyzer.runAnalysis(config_sys_id, params);
         var duration = Math.round((new Date().getTime() - startTime) / 1000);
         
-        // Update configuration with last analysis date
-        grConfig.setValue('last_analysis_date', new GlideDateTime());
-        grConfig.setValue('analysis_duration', duration);
-        grConfig.update();
+        // Update configuration with last analysis date if fields exist
+        try {
+            grConfig.setValue('last_analysis_date', new GlideDateTime());
+            grConfig.setValue('analysis_duration', duration);
+            grConfig.update();
+        } catch (updateErr) {
+            // Fields may not exist, continue
+        }
         
-        // Return result
-        var responseBody = {
-            success: result.success || false,
-            status: result.success ? 'COMPLETED' : 'FAILED',
-            analysis_id: result.analysis_id || null,
-            result_sys_id: result.result_sys_id || null,
-            config_sys_id: config_sys_id,
-            table_name: result.table_name || '',
-            issues_found: result.issues_found || 0,
-            total_fields_analyzed: result.total_fields || 0,
-            duration: result.duration || duration,
-            message: result.message || 'Analysis processed',
-            error: result.error || null,
-            timestamp: new GlideDateTime().getDisplayValue()
-        };
-        
-        return sendSuccess(response, responseBody);
+        if (result.success) {
+            // Return success result
+            var responseBody = {
+                success: true,
+                status: 'COMPLETED',
+                analysis_id: result.sys_id || null,
+                result_sys_id: result.sys_id || null,
+                config_sys_id: config_sys_id,
+                table_name: result.details ? result.details.table_name : '',
+                health_score: result.details ? result.details.health_score : 0,
+                issues_found: result.details && result.details.issues ? result.details.issues.length : 0,
+                duration: duration,
+                message: 'Analysis completed successfully',
+                timestamp: new GlideDateTime().getDisplayValue()
+            };
+            
+            return sendSuccess(response, responseBody);
+        } else {
+            return sendError(response, 500, result.error || 'Analysis failed');
+        }
         
     } catch (e) {
         gs.error('FHA API Error in analyze_by_config: ' + e);
-        gs.error('Stack: ' + e.stack);
         return sendError(response, 500, 'Server error: ' + e.toString());
     }
     
@@ -97,11 +103,35 @@ function sendError(response, statusCode, message) {
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/analyze_by_config/{config_sys_id}</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// Path Parameter: config_sys_id (required)
+// Example: /api/x_1310794_founda_0/fha/analyze_by_config/abc123def456
+
+// Success Response (200):
+{
+  "success": true,
+  "status": "COMPLETED",
+  "analysis_id": "xyz789...",
+  "result_sys_id": "xyz789...",
+  "config_sys_id": "abc123def456",
+  "table_name": "incident",
+  "issues_found": 8,
+  "total_fields_analyzed": 45,
+  "duration": 3,
+  "message": "Analysis processed",
+  "timestamp": "2026-01-03 10:30:00"
+}
+
+// Error Response (404):
+{
+  "success": false,
+  "error": "Configuration not found: abc123def456",
+  "statusCode": 404,
+  "timestamp": "2026-01-03 10:30:00"
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Run health analysis using a specific configuration sys_id</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 22:28:58</sys_created_on>

@@ -9,34 +9,131 @@
         <name>Report Word</name>
         <operation_script><![CDATA[(function process(request, response) {
     try {
-        var analysisId = request.pathParams.analysis_id;
+        var requestBody = request.body ? request.body.data : {};
+        var analysisSysId = requestBody.analysis_sys_id;
         
-        if (!analysisId) {
+        if (!analysisSysId) {
             response.setStatus(400);
             response.setBody({
                 success: false,
-                error: 'Analysis ID is required'
+                error: 'analysis_sys_id is required in request body'
             });
             return;
         }
         
-        var analyzer = new global.FHAnalyzer();
-        var result = analyzer.getAnalysisResult(analysisId);
-        
-        if (!result) {
+        // Get analysis result
+        var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+        if (!gr.get(analysisSysId)) {
             response.setStatus(404);
             response.setBody({
                 success: false,
-                error: 'Analysis not found'
+                error: 'Analysis not found: ' + analysisSysId
             });
             return;
         }
+        
+        // Parse detail_json
+        var detailJson = {};
+        var detailStr = gr.getValue('detail_json');
+        if (detailStr) {
+            try {
+                detailJson = JSON.parse(detailStr);
+            } catch (e) {
+                detailJson = {};
+            }
+        }
+        
+        // Get table info
+        var tableName = '';
+        var tableLabel = '';
+        if (gr.table_name && !gr.table_name.nil()) {
+            var tableRef = gr.table_name.getRefRecord();
+            if (tableRef) {
+                tableName = tableRef.getValue('name') || '';
+                tableLabel = tableRef.getValue('label') || tableName;
+            }
+        }
+        if (!tableName && detailJson.table_name) {
+            tableName = detailJson.table_name;
+            tableLabel = detailJson.table_label || detailJson.table_name;
+        }
+        
+        // Build report data structure
+        var reportData = {
+            meta: {
+                title: 'Foundation Health Analysis Report',
+                table_name: tableName,
+                table_label: tableLabel,
+                analysis_date: gr.getValue('sys_created_on'),
+                generated_on: new GlideDateTime().getDisplayValue(),
+                generated_by: gs.getUserDisplayName()
+            },
+            summary: {
+                health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                issues_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                status: gr.getValue('status') || 'unknown'
+            },
+            issues: detailJson.issues || [],
+            metrics: detailJson.metrics || {},
+            recommendations: []
+        };
+        
+        // Generate recommendations based on issues
+        var issues = reportData.issues;
+        var recommendations = [];
+        
+        // Analyze issues and create recommendations
+        var issuesByCategory = {};
+        for (var i = 0; i < issues.length; i++) {
+            var issue = issues[i];
+            var cat = issue.category || 'general';
+            if (!issuesByCategory[cat]) {
+                issuesByCategory[cat] = [];
+            }
+            issuesByCategory[cat].push(issue);
+        }
+        
+        // Add category-specific recommendations
+        if (issuesByCategory.field && issuesByCategory.field.length > 0) {
+            recommendations.push({
+                category: 'Fields',
+                priority: 'medium',
+                description: 'Review ' + issuesByCategory.field.length + ' field issue(s) - consider removing unused custom fields or improving data quality'
+            });
+        }
+        
+        if (issuesByCategory.business_rule && issuesByCategory.business_rule.length > 0) {
+            recommendations.push({
+                category: 'Business Rules',
+                priority: 'high',
+                description: 'Review ' + issuesByCategory.business_rule.length + ' business rule issue(s) - inactive rules may need cleanup or reactivation'
+            });
+        }
+        
+        if (issuesByCategory.automation && issuesByCategory.automation.length > 0) {
+            recommendations.push({
+                category: 'Automation',
+                priority: 'medium',
+                description: 'Review ' + issuesByCategory.automation.length + ' automation issue(s) - ensure scheduled jobs and flows are properly configured'
+            });
+        }
+        
+        if (issuesByCategory.integration && issuesByCategory.integration.length > 0) {
+            recommendations.push({
+                category: 'Integration',
+                priority: 'high',
+                description: 'Review ' + issuesByCategory.integration.length + ' integration issue(s) - data sources and transform maps require attention'
+            });
+        }
+        
+        reportData.recommendations = recommendations;
         
         response.setStatus(200);
         response.setBody({
             success: true,
-            analysis: result
+            report: reportData
         });
+        
     } catch (error) {
         response.setStatus(500);
         response.setBody({
@@ -44,17 +141,55 @@
             error: error.message
         });
     }
-})();
+})(request, response);
 ]]></operation_script>
         <operation_uri>/api/x_1310794_founda_0/fha/report/word</operation_uri>
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/report/word</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// Request Body (JSON):
+{
+  "analysis_sys_id": "abc123def456..."
+}
+
+// Success Response (200):
+{
+  "success": true,
+  "report": {
+    "meta": {
+      "title": "Foundation Health Analysis Report",
+      "table_name": "incident",
+      "table_label": "Incident",
+      "analysis_date": "2026-01-03 10:30:00",
+      "generated_on": "2026-01-03 11:00:00",
+      "generated_by": "System Administrator"
+    },
+    "summary": {
+      "health_score": 75,
+      "issues_count": 12,
+      "status": "completed"
+    },
+    "issues": [...],
+    "metrics": {...},
+    "recommendations": [
+      {
+        "category": "Fields",
+        "priority": "medium",
+        "description": "Review 5 field issue(s) - consider removing unused custom fields"
+      }
+    ]
+  }
+}
+
+// Error Response (404):
+{
+  "success": false,
+  "error": "Analysis not found: abc123def456"
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Generate a structured report for Word/PDF export from an analysis result</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:29:15</sys_created_on>

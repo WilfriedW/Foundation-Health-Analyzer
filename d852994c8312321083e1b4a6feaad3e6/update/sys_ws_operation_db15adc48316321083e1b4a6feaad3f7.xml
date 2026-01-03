@@ -80,11 +80,37 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/history</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// Query Parameters (all optional):
+// - limit: Number of records (default: 20, max: 100)
+// - offset: Pagination offset (default: 0)
+// - table_name: Filter by table name
+// - status: Filter by status (completed, failed)
+
+// Example: /api/x_1310794_founda_0/fha/history?limit=10&offset=0&status=completed
+
+// Success Response (200):
+{
+  "success": true,
+  "total": 42,
+  "limit": 10,
+  "offset": 0,
+  "history": [
+    {
+      "sys_id": "abc123...",
+      "number": "FHAR0001042",
+      "table_name": "Incident",
+      "health_score": 85,
+      "issues_count": 5,
+      "status": "completed",
+      "created_on": "2026-01-03 10:30:00",
+      "created_by": "admin"
+    }
+  ]
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Get paginated history of all analyses with optional filters</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:44:22</sys_created_on>

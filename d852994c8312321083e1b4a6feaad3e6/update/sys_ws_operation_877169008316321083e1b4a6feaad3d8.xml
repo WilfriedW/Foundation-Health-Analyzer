@@ -59,11 +59,44 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/analysis/{analysis_id}</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// Path Parameter: analysis_id (required) - The sys_id of the analysis result
+// Example: /api/x_1310794_founda_0/fha/analysis/abc123def456
+
+// Success Response (200):
+{
+  "success": true,
+  "analysis": {
+    "sys_id": "abc123def456",
+    "table_name": "incident",
+    "health_score": 75,
+    "issues_count": 12,
+    "status": "completed",
+    "created_on": "2026-01-03 10:30:00",
+    "issues": [
+      {
+        "code": "EMPTY_FIELD",
+        "message": "Custom field 'u_custom' has 0% fill rate",
+        "severity": "medium",
+        "category": "field"
+      }
+    ],
+    "metrics": {
+      "custom_field_count": 15,
+      "active_br_count": 8,
+      "inactive_br_count": 3
+    }
+  }
+}
+
+// Error Response (404):
+{
+  "success": false,
+  "error": "Analysis not found"
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Get detailed analysis results by analysis sys_id</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:28:50</sys_created_on>

@@ -256,32 +256,355 @@ ACLs are configured for both tables:
 https://<instance>.service-now.com/api/x_1310794_founda_0/fha
 ```
 
-### Endpoints
+### Authentication
+All endpoints require authentication and appropriate roles (`x_1310794_founda_0.admin` or `x_1310794_founda_0.user`).
 
-#### Get Available Tables
+---
+
+### 📋 GET /tables
+
+Get all available table configurations for analysis.
+
+**Request:**
 ```http
 GET /api/x_1310794_founda_0/fha/tables
+Authorization: Basic <credentials>
 ```
 
-#### Run Analysis by Config
+**Response (200):**
+```json
+{
+  "success": true,
+  "count": 3,
+  "tables": [
+    {
+      "config_sys_id": "abc123...",
+      "display_name": "Incident Analysis",
+      "table_name": "incident",
+      "table_label": "Incident",
+      "description": "Analysis configuration for incident table"
+    }
+  ]
+}
+```
+
+---
+
+### 🔬 POST /analyze/{table_name}
+
+Run health analysis on a table by its name. Requires an active configuration for the table.
+
+**Request:**
 ```http
-POST /api/x_1310794_founda_0/fha/analyze_by_config/{config_sys_id}
+POST /api/x_1310794_founda_0/fha/analyze/incident
+Content-Type: application/json
+Authorization: Basic <credentials>
+
+{
+  "deep_scan": true,
+  "include_children": false
+}
 ```
 
-#### Get Analysis Result
+**Response (200):**
+```json
+{
+  "success": true,
+  "analysis_id": "abc123def456...",
+  "health_score": 75,
+  "issues_count": 12,
+  "message": "Analysis completed",
+  "details_url": "/api/x_1310794_founda_0/fha/analysis/abc123def456..."
+}
+```
+
+**Response (404):**
+```json
+{
+  "success": false,
+  "error": "No active configuration found for table: my_table"
+}
+```
+
+---
+
+### 🔬 GET /analyze_by_config/{config_sys_id}
+
+Run health analysis using a specific configuration sys_id.
+
+**Request:**
 ```http
-GET /api/x_1310794_founda_0/fha/analysis/{sys_id}
+GET /api/x_1310794_founda_0/fha/analyze_by_config/abc123def456
+Authorization: Basic <credentials>
 ```
 
-#### Get Statistics
+**Response (200):**
+```json
+{
+  "success": true,
+  "status": "COMPLETED",
+  "analysis_id": "xyz789...",
+  "result_sys_id": "xyz789...",
+  "config_sys_id": "abc123def456",
+  "table_name": "incident",
+  "health_score": 75,
+  "issues_found": 8,
+  "duration": 3,
+  "message": "Analysis completed successfully",
+  "timestamp": "2026-01-03 10:30:00"
+}
+```
+
+**Response (404):**
+```json
+{
+  "success": false,
+  "error": "Configuration not found: abc123def456",
+  "statusCode": 404,
+  "timestamp": "2026-01-03 10:30:00"
+}
+```
+
+---
+
+### 📊 GET /analysis/{analysis_id}
+
+Get detailed analysis results by analysis sys_id.
+
+**Request:**
+```http
+GET /api/x_1310794_founda_0/fha/analysis/abc123def456
+Authorization: Basic <credentials>
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "analysis": {
+    "sys_id": "abc123def456",
+    "table_name": "incident",
+    "health_score": 75,
+    "issues_count": 12,
+    "status": "completed",
+    "created_on": "2026-01-03 10:30:00",
+    "issues": [
+      {
+        "code": "EMPTY_FIELD",
+        "message": "Custom field 'u_custom' has 0% fill rate",
+        "severity": "medium",
+        "category": "field"
+      }
+    ],
+    "metrics": {
+      "custom_field_count": 15,
+      "active_br_count": 8,
+      "inactive_br_count": 3
+    }
+  }
+}
+```
+
+---
+
+### 📈 GET /statistics
+
+Get global statistics about configurations and analyses.
+
+**Request:**
 ```http
 GET /api/x_1310794_founda_0/fha/statistics
+Authorization: Basic <credentials>
 ```
 
-#### Get History
-```http
-GET /api/x_1310794_founda_0/fha/history?limit=10&offset=0
+**Response (200):**
+```json
+{
+  "success": true,
+  "statistics": {
+    "configurations": {
+      "total": 5,
+      "active": 3
+    },
+    "analyses": {
+      "total": 42,
+      "completed": 40,
+      "failed": 2,
+      "average_health_score": 72
+    },
+    "recent_analyses": [
+      {
+        "sys_id": "abc123...",
+        "number": "FHAR0001042",
+        "table_name": "Incident",
+        "health_score": 85,
+        "issues_count": 5,
+        "created_on": "2026-01-03 10:30:00"
+      }
+    ]
+  }
+}
 ```
+
+---
+
+### 📜 GET /history
+
+Get paginated history of all analyses with optional filters.
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | Integer | 20 | Number of records (max: 100) |
+| `offset` | Integer | 0 | Pagination offset |
+| `table_name` | String | - | Filter by table name |
+| `status` | String | - | Filter by status (completed, failed) |
+
+**Request:**
+```http
+GET /api/x_1310794_founda_0/fha/history?limit=10&offset=0&status=completed
+Authorization: Basic <credentials>
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "total": 42,
+  "limit": 10,
+  "offset": 0,
+  "history": [
+    {
+      "sys_id": "abc123...",
+      "number": "FHAR0001042",
+      "table_name": "Incident",
+      "health_score": 85,
+      "issues_count": 5,
+      "status": "completed",
+      "created_on": "2026-01-03 10:30:00",
+      "created_by": "admin"
+    }
+  ]
+}
+```
+
+---
+
+### 🔍 GET /fields
+
+Get custom fields for a table with fill rate statistics.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `table_name` | String | Yes | The table name to analyze |
+
+**Request:**
+```http
+GET /api/x_1310794_founda_0/fha/fields?table_name=incident
+Authorization: Basic <credentials>
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "table_name": "incident",
+  "table_label": "Incident",
+  "count": 5,
+  "fields": [
+    {
+      "name": "u_custom_field",
+      "label": "Custom Field",
+      "type": "string",
+      "fill_rate": 85,
+      "filled_records": 850,
+      "total_records": 1000,
+      "sys_id": "abc123..."
+    }
+  ]
+}
+```
+
+**Response (404):**
+```json
+{
+  "success": false,
+  "error": "Table not found: my_table"
+}
+```
+
+---
+
+### 📄 POST /report/word
+
+Generate a structured report for Word/PDF export from an analysis result.
+
+**Request:**
+```http
+POST /api/x_1310794_founda_0/fha/report/word
+Content-Type: application/json
+Authorization: Basic <credentials>
+
+{
+  "analysis_sys_id": "abc123def456..."
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "report": {
+    "meta": {
+      "title": "Foundation Health Analysis Report",
+      "table_name": "incident",
+      "table_label": "Incident",
+      "analysis_date": "2026-01-03 10:30:00",
+      "generated_on": "2026-01-03 11:00:00",
+      "generated_by": "System Administrator"
+    },
+    "summary": {
+      "health_score": 75,
+      "issues_count": 12,
+      "status": "completed"
+    },
+    "issues": [...],
+    "metrics": {...},
+    "recommendations": [
+      {
+        "category": "Fields",
+        "priority": "medium",
+        "description": "Review 5 field issue(s) - consider removing unused custom fields"
+      },
+      {
+        "category": "Business Rules",
+        "priority": "high",
+        "description": "Review 3 business rule issue(s) - inactive rules may need cleanup"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Error Responses
+
+All endpoints return consistent error responses:
+
+```json
+{
+  "success": false,
+  "error": "Error message description"
+}
+```
+
+| Status Code | Description |
+|-------------|-------------|
+| 400 | Bad Request - Missing required parameters |
+| 404 | Not Found - Resource not found |
+| 500 | Internal Server Error |
 
 ---
 

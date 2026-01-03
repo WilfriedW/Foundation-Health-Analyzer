@@ -9,8 +9,8 @@
         <name>Tables</name>
         <operation_script><![CDATA[(function process(request, response) {
     try {
-        var analyzer = new FHAnalyzer();
-        var tables = analyzer.getAllTables();
+        var analyzer = new x_1310794_founda_0.FHAnalyzer();
+        var tables = analyzer.getAvailableAnalyses();
         
         response.setStatus(200);
         response.setBody({
@@ -25,17 +25,32 @@
             error: error.message
         });
     }
-})();
+})(request, response);
 ]]></operation_script>
         <operation_uri>/api/x_1310794_founda_0/fha/tables</operation_uri>
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/tables</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// No request body required for GET request
+
+// Example Response:
+{
+  "success": true,
+  "count": 3,
+  "tables": [
+    {
+      "config_sys_id": "abc123...",
+      "display_name": "Incident Analysis",
+      "table_name": "incident",
+      "table_label": "Incident",
+      "description": "Analysis configuration for incident table"
+    }
+  ]
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Get all available table configurations for analysis</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:26:40</sys_created_on>

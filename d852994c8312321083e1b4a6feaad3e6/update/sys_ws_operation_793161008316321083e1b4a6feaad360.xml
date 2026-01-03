@@ -74,11 +74,34 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/analyze/{table_name}</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// Path Parameter: table_name (required)
+// Example: /api/x_1310794_founda_0/fha/analyze/incident
+
+// Optional Request Body:
+{
+  "deep_scan": true,
+  "include_children": false
+}
+
+// Success Response (200):
+{
+  "success": true,
+  "analysis_id": "abc123def456...",
+  "health_score": 75,
+  "issues_count": 12,
+  "message": "Analysis completed",
+  "details_url": "/api/x_1310794_founda_0/fha/analysis/abc123def456..."
+}
+
+// Error Response (404):
+{
+  "success": false,
+  "error": "No active configuration found for table: my_table"
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Run health analysis on a table by its name. Requires an active configuration for the table.</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:27:09</sys_created_on>

@@ -7,53 +7,135 @@
         <enforce_acl/>
         <http_method>GET</http_method>
         <name>getFields</name>
-        <operation_script><![CDATA[(function() {
-    var FHAnalyzer = new FHFieldExplorer();
-    function getFields() {
-        var tableName = input.tableName;
-        gs.info("getFields called with tableName: " + tableName);
-
+        <operation_script><![CDATA[(function process(request, response) {
+    try {
+        var tableName = request.queryParams.table_name;
+        
         if (!tableName) {
-            return {
+            response.setStatus(400);
+            response.setBody({
                 success: false,
-                error: "tableName is required"
-            };
+                error: 'table_name query parameter is required'
+            });
+            return;
         }
-
-        try {
-            var fields = FHAnalyzer.getCustomFields(tableName);
-            return {
-                success: true,
-                data: fields
-            };
-        } catch (e) {
-            return {
+        
+        // Verify table exists
+        var tableGr = new GlideRecord('sys_db_object');
+        tableGr.addQuery('name', tableName);
+        tableGr.query();
+        
+        if (!tableGr.next()) {
+            response.setStatus(404);
+            response.setBody({
                 success: false,
-                error: e.message
-            };
+                error: 'Table not found: ' + tableName
+            });
+            return;
         }
+        
+        // Get custom fields (fields starting with u_ or in custom scope)
+        var fields = [];
+        var dictGr = new GlideRecord('sys_dictionary');
+        dictGr.addQuery('name', tableName);
+        dictGr.addQuery('element', 'STARTSWITH', 'u_');
+        dictGr.addQuery('internal_type', '!=', 'collection');
+        dictGr.orderBy('element');
+        dictGr.query();
+        
+        while (dictGr.next()) {
+            var fieldName = dictGr.getValue('element');
+            var fieldLabel = dictGr.getValue('column_label') || fieldName;
+            var fieldType = dictGr.getValue('internal_type');
+            
+            // Calculate fill rate
+            var totalRecords = 0;
+            var filledRecords = 0;
+            
+            var countGa = new GlideAggregate(tableName);
+            countGa.addAggregate('COUNT');
+            countGa.query();
+            if (countGa.next()) {
+                totalRecords = parseInt(countGa.getAggregate('COUNT'), 10) || 0;
+            }
+            
+            if (totalRecords > 0) {
+                var filledGa = new GlideAggregate(tableName);
+                filledGa.addNotNullQuery(fieldName);
+                filledGa.addQuery(fieldName, '!=', '');
+                filledGa.addAggregate('COUNT');
+                filledGa.query();
+                if (filledGa.next()) {
+                    filledRecords = parseInt(filledGa.getAggregate('COUNT'), 10) || 0;
+                }
+            }
+            
+            var fillRate = totalRecords > 0 ? Math.round((filledRecords / totalRecords) * 100) : 0;
+            
+            fields.push({
+                name: fieldName,
+                label: fieldLabel,
+                type: fieldType,
+                fill_rate: fillRate,
+                filled_records: filledRecords,
+                total_records: totalRecords,
+                sys_id: dictGr.getUniqueValue()
+            });
+        }
+        
+        response.setStatus(200);
+        response.setBody({
+            success: true,
+            table_name: tableName,
+            table_label: tableGr.getValue('label') || tableName,
+            count: fields.length,
+            fields: fields
+        });
+        
+    } catch (error) {
+        response.setStatus(500);
+        response.setBody({
+            success: false,
+            error: error.message
+        });
     }
-
-    switch(input.action) {
-        case 'getFields':
-            return getFields();
-        default:
-            return {
-                success: false,
-                error: "Unknown action"
-            };
-    }
-})();
+})(request, response);
 ]]></operation_script>
         <operation_uri>/api/x_1310794_founda_0/fha/fields</operation_uri>
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/fields</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// Query Parameter: table_name (required)
+// Example: /api/x_1310794_founda_0/fha/fields?table_name=incident
+
+// Success Response (200):
+{
+  "success": true,
+  "table_name": "incident",
+  "table_label": "Incident",
+  "count": 5,
+  "fields": [
+    {
+      "name": "u_custom_field",
+      "label": "Custom Field",
+      "type": "string",
+      "fill_rate": 85,
+      "filled_records": 850,
+      "total_records": 1000,
+      "sys_id": "abc123..."
+    }
+  ]
+}
+
+// Error Response (404):
+{
+  "success": false,
+  "error": "Table not found: my_table"
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Get custom fields for a table with fill rate statistics</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 07:59:10</sys_created_on>

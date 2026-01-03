@@ -100,11 +100,38 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/statistics</relative_path>
-        <request_example/>
+        <request_example><![CDATA[// No parameters required
+
+// Success Response (200):
+{
+  "success": true,
+  "statistics": {
+    "configurations": {
+      "total": 5,
+      "active": 3
+    },
+    "analyses": {
+      "total": 42,
+      "completed": 40,
+      "failed": 2,
+      "average_health_score": 72
+    },
+    "recent_analyses": [
+      {
+        "sys_id": "abc123...",
+        "number": "FHAR0001042",
+        "table_name": "Incident",
+        "health_score": 85,
+        "issues_count": 5,
+        "created_on": "2026-01-03 10:30:00"
+      }
+    ]
+  }
+}]]></request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description/>
+        <short_description>Get global statistics about configurations and analyses</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:44:36</sys_created_on>
