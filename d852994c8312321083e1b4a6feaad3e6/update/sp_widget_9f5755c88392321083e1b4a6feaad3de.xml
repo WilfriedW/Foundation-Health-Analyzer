@@ -123,6 +123,124 @@
         return items;
     };
 
+    // Filters for automation tab
+    c.automationFilter = {
+        type: 'all',
+        status: 'all',
+        search: ''
+    };
+
+    // Filters for integration tab
+    c.integrationFilter = {
+        type: 'all',
+        status: 'all',
+        search: ''
+    };
+
+    // Get unique automation types
+    c.getAutomationTypes = function() {
+        var items = c.getAutomationItems();
+        var types = {};
+        items.forEach(function(item) {
+            types[item.type] = true;
+        });
+        return Object.keys(types);
+    };
+
+    // Get unique integration types
+    c.getIntegrationTypes = function() {
+        var items = c.getIntegrationItems();
+        var types = {};
+        items.forEach(function(item) {
+            types[item.type] = true;
+        });
+        return Object.keys(types);
+    };
+
+    // Get filtered automation items
+    c.getFilteredAutomationItems = function() {
+        var items = c.getAutomationItems();
+        
+        // Filter by type
+        if (c.automationFilter.type !== 'all') {
+            items = items.filter(function(item) {
+                return item.type === c.automationFilter.type;
+            });
+        }
+        
+        // Filter by status
+        if (c.automationFilter.status !== 'all') {
+            var isActive = c.automationFilter.status === 'active';
+            items = items.filter(function(item) {
+                return item.active === isActive;
+            });
+        }
+        
+        // Filter by search
+        if (c.automationFilter.search) {
+            var search = c.automationFilter.search.toLowerCase();
+            items = items.filter(function(item) {
+                return item.name.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return items;
+    };
+
+    // Get filtered integration items
+    c.getFilteredIntegrationItems = function() {
+        var items = c.getIntegrationItems();
+        
+        // Filter by type
+        if (c.integrationFilter.type !== 'all') {
+            items = items.filter(function(item) {
+                return item.type === c.integrationFilter.type;
+            });
+        }
+        
+        // Filter by status
+        if (c.integrationFilter.status !== 'all') {
+            var isActive = c.integrationFilter.status === 'active';
+            items = items.filter(function(item) {
+                return item.active === isActive;
+            });
+        }
+        
+        // Filter by search
+        if (c.integrationFilter.search) {
+            var search = c.integrationFilter.search.toLowerCase();
+            items = items.filter(function(item) {
+                return item.name.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return items;
+    };
+
+    // Get type badge class (color coding)
+    c.getTypeBadgeClass = function(type) {
+        var classes = {
+            'Scheduled Job': 'type-scheduled-job',
+            'Flow': 'type-flow',
+            'Workflow': 'type-workflow',
+            'Notification': 'type-notification',
+            'UI Action': 'type-ui-action',
+            'Data Source': 'type-data-source',
+            'Transform Map': 'type-transform-map'
+        };
+        return classes[type] || 'type-default';
+    };
+
+    // Reset automation filter
+    c.resetAutomationFilter = function() {
+        c.automationFilter = { type: 'all', status: 'all', search: '' };
+    };
+
+    // Reset integration filter
+    c.resetIntegrationFilter = function() {
+        c.integrationFilter = { type: 'all', status: 'all', search: '' };
+    };
+
     // Open record
     c.openRecord = function(table, sysId) {
         if (table && sysId) {
@@ -562,12 +680,26 @@
 .fha-status-badge.inactive { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
 
 .fha-type-badge {
-  background: #e9ecef;
-  color: #495057;
-  padding: 3px 8px;
-  border-radius: 3px;
+  padding: 4px 10px;
+  border-radius: 4px;
   font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
 }
+
+/* Type-specific colors for Automation */
+.fha-type-badge.type-scheduled-job { background: #6f42c1; color: white; }
+.fha-type-badge.type-flow { background: #0d6efd; color: white; }
+.fha-type-badge.type-workflow { background: #0dcaf0; color: #000; }
+.fha-type-badge.type-notification { background: #fd7e14; color: white; }
+.fha-type-badge.type-ui-action { background: #20c997; color: white; }
+
+/* Type-specific colors for Integration */
+.fha-type-badge.type-data-source { background: #198754; color: white; }
+.fha-type-badge.type-transform-map { background: #6610f2; color: white; }
+
+/* Default type badge */
+.fha-type-badge.type-default { background: #6c757d; color: white; }
 
 /* Fill rate */
 .fha-fill-rate {
@@ -659,6 +791,77 @@
   flex-wrap: wrap;
 }
 
+/* Filter bar */
+.fha-filter-bar {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fha-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fha-filter-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+.fha-filter-group select,
+.fha-filter-group input {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 120px;
+}
+
+.fha-filter-group select:focus,
+.fha-filter-group input:focus {
+  outline: none;
+  border-color: #0378BE;
+  box-shadow: 0 0 0 2px rgba(3, 120, 190, 0.15);
+}
+
+.fha-filter-search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.fha-filter-search input {
+  width: 100%;
+}
+
+.fha-filter-reset {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #6c757d;
+  color: #6c757d;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-filter-reset:hover {
+  background: #6c757d;
+  color: white;
+}
+
+.fha-filter-count {
+  font-size: 12px;
+  color: #6c757d;
+  margin-left: auto;
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .fha-stats-grid {
@@ -744,9 +947,9 @@
                     metrics: detailJson.metrics || {},
                     duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
                 };
-            } else {
+        } else {
                 data.error = 'Analysis record not found (sys_id: ' + sysId + ')';
-            }
+        }
         } catch(e) {
             data.error = 'Error loading analysis: ' + e.message;
         }
@@ -813,7 +1016,7 @@
       <div class="fha-stat-card">
         <div class="fha-stat-value" ng-class="c.countBySeverity('high') > 0 ? 'poor' : 'good'">
           {{c.countBySeverity('high')}}
-        </div>
+          </div>
         <div class="fha-stat-label">${High Severity Issues}</div>
       </div>
       <div class="fha-stat-card">
@@ -894,9 +1097,9 @@
                   <td>{{(c.getMetrics().active_br_count || 0) + (c.getMetrics().inactive_br_count || 0)}} ({{c.getMetrics().active_br_count || 0}} ${active})</td>
                 </tr>
               </table>
+              </div>
             </div>
           </div>
-        </div>
         <div class="col-md-6">
           <div class="fha-card">
             <div class="fha-card-header">
@@ -983,7 +1186,7 @@
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>
-        </div>
+          </div>
         <div class="fha-card-body" style="padding: 0;" ng-if="c.getCustomFields().length > 0">
           <table class="fha-data-table">
             <thead>
@@ -1022,16 +1225,46 @@
         <div class="fha-card-body" ng-if="c.getCustomFields().length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No custom fields found on this table.}</p>
-        </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== AUTOMATION TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'automation'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-cogs"></i> ${Automation Items} ({{c.getAutomationItems().length}})</h4>
+          </div>
+        
+        <!-- Filter Bar -->
+        <div class="fha-filter-bar" ng-if="c.getAutomationItems().length > 0">
+          <div class="fha-filter-group">
+            <label>${Type}:</label>
+            <select ng-model="c.automationFilter.type">
+              <option value="all">${All Types}</option>
+              <option ng-repeat="type in c.getAutomationTypes()" value="{{type}}">{{type}}</option>
+            </select>
         </div>
+          <div class="fha-filter-group">
+            <label>${Status}:</label>
+            <select ng-model="c.automationFilter.status">
+              <option value="all">${All}</option>
+              <option value="active">${Active}</option>
+              <option value="inactive">${Inactive}</option>
+            </select>
+            </div>
+          <div class="fha-filter-group fha-filter-search">
+            <label>${Search}:</label>
+            <input type="text" ng-model="c.automationFilter.search" placeholder="${Filter by name...}">
+          </div>
+          <button class="fha-filter-reset" ng-click="c.resetAutomationFilter()">
+            <i class="fa fa-refresh"></i> ${Reset}
+                </button>
+          <span class="fha-filter-count">
+            {{c.getFilteredAutomationItems().length}} / {{c.getAutomationItems().length}} ${items}
+                  </span>
+              </div>
+        
         <div class="fha-card-body" style="padding: 0;" ng-if="c.getAutomationItems().length > 0">
           <table class="fha-data-table">
             <thead>
@@ -1043,49 +1276,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="item in c.getAutomationItems()" ng-class="{'fha-row-inactive': !item.active}">
-                <td><span class="fha-type-badge">{{item.type}}</span></td>
-                <td>{{item.name}}</td>
-                <td>
-                  <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
-                    {{item.active ? '${Active}' : '${Inactive}'}}
-                  </span>
-                </td>
-                <td>
-                  <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
-                    <i class="fa fa-external-link"></i>
-                  </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="fha-card-body" ng-if="c.getAutomationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
-          <i class="fa fa-info-circle fa-2x"></i>
-          <p style="margin-top: 10px;">${No automation items found for this table.}</p>
-      </div>
-    </div>
-  </div>
-
-    <!-- ==================== INTEGRATIONS TAB ==================== -->
-    <div class="fha-tab-content" ng-show="c.activeTab === 'integration'">
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h4><i class="fa fa-exchange"></i> ${Integration Items} ({{c.getIntegrationItems().length}})</h4>
-        </div>
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getIntegrationItems().length > 0">
-          <table class="fha-data-table">
-            <thead>
-              <tr>
-                <th width="150">${Type}</th>
-                <th>${Name}</th>
-                <th width="100">${Status}</th>
-                <th width="80">${Action}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr ng-repeat="item in c.getIntegrationItems()" ng-class="{'fha-row-inactive': !item.active}">
-                <td><span class="fha-type-badge">{{item.type}}</span></td>
+              <tr ng-repeat="item in c.getFilteredAutomationItems()" ng-class="{'fha-row-inactive': !item.active}">
+                <td><span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)">{{item.type}}</span></td>
                 <td>{{item.name}}</td>
                 <td>
                   <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
@@ -1101,6 +1293,77 @@
             </tbody>
           </table>
             </div>
+        <div class="fha-card-body" ng-if="c.getAutomationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No automation items found for this table.}</p>
+              </div>
+            </div>
+          </div>
+
+    <!-- ==================== INTEGRATIONS TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'integration'">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-exchange"></i> ${Integration Items} ({{c.getIntegrationItems().length}})</h4>
+        </div>
+        
+        <!-- Filter Bar -->
+        <div class="fha-filter-bar" ng-if="c.getIntegrationItems().length > 0">
+          <div class="fha-filter-group">
+            <label>${Type}:</label>
+            <select ng-model="c.integrationFilter.type">
+              <option value="all">${All Types}</option>
+              <option ng-repeat="type in c.getIntegrationTypes()" value="{{type}}">{{type}}</option>
+            </select>
+      </div>
+          <div class="fha-filter-group">
+            <label>${Status}:</label>
+            <select ng-model="c.integrationFilter.status">
+              <option value="all">${All}</option>
+              <option value="active">${Active}</option>
+              <option value="inactive">${Inactive}</option>
+            </select>
+    </div>
+          <div class="fha-filter-group fha-filter-search">
+            <label>${Search}:</label>
+            <input type="text" ng-model="c.integrationFilter.search" placeholder="${Filter by name...}">
+  </div>
+          <button class="fha-filter-reset" ng-click="c.resetIntegrationFilter()">
+            <i class="fa fa-refresh"></i> ${Reset}
+        </button>
+          <span class="fha-filter-count">
+            {{c.getFilteredIntegrationItems().length}} / {{c.getIntegrationItems().length}} ${items}
+          </span>
+      </div>
+        
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getIntegrationItems().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="150">${Type}</th>
+                <th>${Name}</th>
+                <th width="100">${Status}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="item in c.getFilteredIntegrationItems()" ng-class="{'fha-row-inactive': !item.active}">
+                <td><span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)">{{item.type}}</span></td>
+                <td>{{item.name}}</td>
+                <td>
+                  <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
+                    {{item.active ? '${Active}' : '${Inactive}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+  </div>
         <div class="fha-card-body" ng-if="c.getIntegrationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No integration items found for this table.}</p>
@@ -1113,6 +1376,7 @@
 ]]></template>
     </sp_widget>
 </record_update>
+
 
 
 
