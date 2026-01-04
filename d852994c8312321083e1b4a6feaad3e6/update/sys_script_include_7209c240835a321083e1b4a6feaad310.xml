@@ -23,18 +23,6 @@ var FHCheckAutomation = Class.create();
 FHCheckAutomation.prototype = {
 
     /**
-     * Safe getValue - returns empty string if null
-     * @private
-     */
-    _safeGetValue: function(gr, field, ctx) {
-        if (ctx && ctx.safeGetValue) {
-            return ctx.safeGetValue(gr, field);
-        }
-        var val = gr.getValue(field);
-        return (val === null || val === undefined) ? '' : String(val);
-    },
-
-    /**
      * Execute the check
      * @param {Object} ctx - Analysis context (FHAnalysisContext)
      */
@@ -63,48 +51,6 @@ FHCheckAutomation.prototype = {
     },
 
     /**
-     * Check if script contains exact table reference (not partial match)
-     * Uses ctx.scriptContainsTable when available
-     * @private
-     * @param {String} script - Script content
-     * @param {String} tableName - Table name to search
-     * @param {Object} ctx - Analysis context (optional)
-     * @returns {Boolean} True if exact match found
-     */
-    _scriptContainsTable: function(script, tableName, ctx) {
-        // Use centralized method if available
-        if (ctx && ctx.scriptContainsTable) {
-            return ctx.scriptContainsTable(script, tableName);
-        }
-        if (!script || !tableName) return false;
-
-        // Patterns that indicate exact table usage:
-        // 1. GlideRecord('table_name') or GlideRecord("table_name")
-        // 2. new GlideAggregate('table_name')
-        // 3. table: 'table_name' or table: "table_name"
-        // 4. addQuery('table', 'table_name')
-
-        // Build regex patterns for exact table name match
-        var patterns = [
-            // GlideRecord/GlideAggregate with quotes
-            new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
-            new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
-            // Table property assignment
-            new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i"),
-            // setTableName
-            new RegExp("setTableName\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i")
-        ];
-
-        for (var i = 0; i < patterns.length; i++) {
-            if (patterns[i].test(script)) {
-                return true;
-            }
-        }
-
-        return false;
-    },
-
-    /**
      * Check scheduled jobs that reference this table
      * @private
      * @param {Object} ctx - Analysis context
@@ -113,7 +59,6 @@ FHCheckAutomation.prototype = {
     _checkScheduledJobs: function(ctx, configTables) {
         var tableName = ctx.getTableName();
         var scheduledJobs = [];
-        var self = this;
 
         // Query all scheduled jobs with scripts that might contain our tables
         var gr = new GlideRecord('sysauto_script');
@@ -121,12 +66,12 @@ FHCheckAutomation.prototype = {
         gr.query();
 
         while (gr.next()) {
-            var script = self._safeGetValue(gr, 'script', ctx);
+            var script = ctx.safeGetValue(gr, 'script');
 
             // Check if script contains exact reference to any of our tables
             var matchedTable = null;
             for (var i = 0; i < configTables.length; i++) {
-                if (self._scriptContainsTable(script, configTables[i], ctx)) {
+                if (ctx.scriptContainsTable(script, configTables[i])) {
                     matchedTable = configTables[i];
                     break;
                 }
@@ -134,7 +79,7 @@ FHCheckAutomation.prototype = {
 
             if (!matchedTable) continue;
 
-            var jobName = self._safeGetValue(gr, 'name', ctx) || 'Unnamed';
+            var jobName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
 
@@ -145,7 +90,7 @@ FHCheckAutomation.prototype = {
                 inherited: matchedTable !== tableName,
                 table: 'sysauto_script',
                 matched_table: matchedTable,
-                run_type: self._safeGetValue(gr, 'run_type', ctx),
+                run_type: ctx.safeGetValue(gr, 'run_type'),
             });
 
             if (!isActive) {
@@ -178,10 +123,6 @@ FHCheckAutomation.prototype = {
     _checkFlows: function(ctx, configTables) {
         var tableName = ctx.getTableName();
         var flows = [];
-        var self = this;
-
-        // Use context's table hierarchy
-        // var tablesToCheck = ctx.getTablesToCheck();
 
         try {
             configTables.forEach(function(tableToCheck) {
@@ -192,8 +133,8 @@ FHCheckAutomation.prototype = {
                     gr.query();
 
                     while (gr.next()) {
-                        var flowName = self._safeGetValue(gr, 'name', ctx) || 'Unnamed';
-                        var flowTable = self._safeGetValue(gr, 'trigger_table', ctx);
+                        var flowName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
+                        var flowTable = ctx.safeGetValue(gr, 'trigger_table');
                         var activeVal = gr.getValue('active');
                         var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
 
@@ -204,8 +145,8 @@ FHCheckAutomation.prototype = {
                             trigger_table: flowTable,
                             inherited: (flowTable !== tableName),
                             active: isActive,
-                            trigger_type: self._safeGetValue(gr, 'trigger_type', ctx),
-                            description: self._safeGetValue(gr, 'description', ctx)
+                            trigger_type: ctx.safeGetValue(gr, 'trigger_type'),
+                            description: ctx.safeGetValue(gr, 'description')
                         });
 
                         if (!isActive) {
@@ -251,16 +192,14 @@ FHCheckAutomation.prototype = {
     _checkWorkflows: function(ctx, configTables) {
         var tableName = ctx.getTableName();
         var workflows = [];
-        var self = this;
-       // var tablesToCheck = ctx.getTablesToCheck();
 
         var gr = new GlideRecord('wf_workflow');
         gr.addQuery('table', 'IN', configTables.join(','));
         gr.query();
 
         while (gr.next()) {
-            var wfName = self._safeGetValue(gr, 'name', ctx) || 'Unnamed';
-            var wfTable = self._safeGetValue(gr, 'table', ctx);
+            var wfName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
+            var wfTable = ctx.safeGetValue(gr, 'table');
             var activeVal = gr.getValue('active');
             var publishedVal = gr.getValue('published');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
@@ -317,27 +256,25 @@ FHCheckAutomation.prototype = {
     _checkNotifications: function(ctx, configTables) {
         var tableName = ctx.getTableName();
         var notifications = [];
-        var self = this;
-        //var tablesToCheck = ctx.getTablesToCheck();
 
         var gr = new GlideRecord('sysevent_email_action');
         gr.addQuery('collection', 'IN', configTables.join(','));
         gr.query();
 
         while (gr.next()) {
-            var notifTable = self._safeGetValue(gr, 'collection', ctx);
+            var notifTable = ctx.safeGetValue(gr, 'collection');
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
 
             notifications.push({
                 sys_id: gr.getUniqueValue(),
-                name: self._safeGetValue(gr, 'name', ctx) || 'Unnamed',
+                name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
                 table: 'sysevent_email_action',
                 trigger_table: notifTable,
                 inherited: (notifTable !== tableName),
                 active: isActive,
-                event_name: self._safeGetValue(gr, 'event_name', ctx),
-                send_self: self._safeGetValue(gr, 'send_self', ctx) === 'true'
+                event_name: ctx.safeGetValue(gr, 'event_name'),
+                send_self: ctx.safeGetValue(gr, 'send_self') === 'true'
             });
         }
 
@@ -371,27 +308,23 @@ FHCheckAutomation.prototype = {
      * @private
      * @param {Object} ctx - Analysis context
      */
-    _checkUIActions: function(ctx,configTables) {
-        var tableName = String(ctx.config.table_name);
+    _checkUIActions: function(ctx, configTables) {
+        var tableName = ctx.getTableName();
         var uiActions = [];
-        var self = this;
-
-        // Get all tables in hierarchy (current table + parent tables)
-        //var tablesToCheck = ctx.getTablesToCheck();
 
         var gr = new GlideRecord('sys_ui_action');
         gr.addQuery('table', 'IN', configTables.join(','));
         gr.query();
 
         while (gr.next()) {
-            var actionTable = self._safeGetValue(gr, 'table', ctx);
+            var actionTable = ctx.safeGetValue(gr, 'table');
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
 
             uiActions.push({
                 sys_id: gr.getUniqueValue(),
-                name: self._safeGetValue(gr, 'name', ctx) || 'Unnamed',
-                action_name: self._safeGetValue(gr, 'action_name', ctx),
+                name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
+                action_name: ctx.safeGetValue(gr, 'action_name'),
                 table: 'sys_ui_action',
                 trigger_table: actionTable,
                 inherited: (actionTable !== tableName),
@@ -435,11 +368,9 @@ FHCheckAutomation.prototype = {
      * Check UI Policies for this table
      * @private
      */
-    _checkUIPolicies: function(ctx,configTables) {
+    _checkUIPolicies: function(ctx, configTables) {
         var tableName = ctx.getTableName();
         var uiPolicies = [];
-        var self = this;
-        //var tablesToCheck = ctx.getTablesToCheck();
 
         var gr = new GlideRecord('sys_ui_policy');
         gr.addQuery('table', 'IN', configTables.join(','));
@@ -449,17 +380,17 @@ FHCheckAutomation.prototype = {
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
 
-            var policyTable = self._safeGetValue(gr, 'table', ctx);
+            var policyTable = ctx.safeGetValue(gr, 'table');
             uiPolicies.push({
                 sys_id: gr.getUniqueValue(),
-                name: self._safeGetValue(gr, 'short_description', ctx) || 'Unnamed',
+                name: ctx.safeGetValue(gr, 'short_description') || 'Unnamed',
                 table: 'sys_ui_policy',
                 trigger_table: policyTable,
                 inherited: (policyTable !== tableName),
                 active: isActive,
-                on_load: self._safeGetValue(gr, 'on_load', ctx) === 'true',
-                reverse_if_false: self._safeGetValue(gr, 'reverse_if_false', ctx) === 'true',
-                global: self._safeGetValue(gr, 'global', ctx) === 'true'
+                on_load: ctx.safeGetValue(gr, 'on_load') === 'true',
+                reverse_if_false: ctx.safeGetValue(gr, 'reverse_if_false') === 'true',
+                global: ctx.safeGetValue(gr, 'global') === 'true'
             });
         }
 
@@ -495,8 +426,6 @@ FHCheckAutomation.prototype = {
     _checkInboundEmailActions: function(ctx, configTables) {
         var tableName = ctx.getTableName();
         var inboundEmails = [];
-        var self = this;
-        //var tableToCheck = ctx.getTablesToCheck();
 
         // Check sysevent_in_email_action (Inbound Email Actions)
         try {
@@ -506,20 +435,20 @@ FHCheckAutomation.prototype = {
                 gr.query();
 
                 while (gr.next()) {
-                    var emailTable = self._safeGetValue(gr, 'table', ctx);
+                    var emailTable = ctx.safeGetValue(gr, 'table');
                     var activeVal = gr.getValue('active');
                     var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
 
                     inboundEmails.push({
                         sys_id: gr.getUniqueValue(),
-                        name: self._safeGetValue(gr, 'name', ctx) || 'Unnamed',
+                        name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
                         table: 'sysevent_in_email_action',
                         trigger_table: emailTable,
                         inherited: (emailTable !== tableName),
                         active: isActive,
-                        type: self._safeGetValue(gr, 'type', ctx),
-                        action_type: self._safeGetValue(gr, 'action_type', ctx),
-                        stop_processing: self._safeGetValue(gr, 'stop_processing', ctx) === 'true'
+                        type: ctx.safeGetValue(gr, 'type'),
+                        action_type: ctx.safeGetValue(gr, 'action_type'),
+                        stop_processing: ctx.safeGetValue(gr, 'stop_processing') === 'true'
                     });
 
                     if (!isActive) {
@@ -537,15 +466,15 @@ FHCheckAutomation.prototype = {
 
         // Check sys_hub_trigger_instance (Flow Triggers including email)
         try {
-            configTables.forEach(function(configTables) {
+            configTables.forEach(function(tableToCheck) {
                 var triggerGr = new GlideRecord('sys_hub_trigger_instance');
                 if (triggerGr.isValid()) {
                     triggerGr.addQuery('trigger_type', 'IS', 'email');
-                    triggerGr.addQuery('flow.label_cache', 'LIKE', configTables);
+                    triggerGr.addQuery('flow.label_cache', 'LIKE', tableToCheck);
                     triggerGr.query();
 
                     while (triggerGr.next()) {
-                        var triggerConfig = self._safeGetValue(triggerGr, 'trigger_config', ctx);
+                        var triggerConfig = ctx.safeGetValue(triggerGr, 'trigger_config');
                         var isRelated = false;
 
                         configTables.forEach(function(t) {
@@ -560,7 +489,7 @@ FHCheckAutomation.prototype = {
                             if (flowRef && !flowRef.nil()) {
                                 var flowGr = flowRef.getRefRecord();
                                 if (flowGr) {
-                                    flowName = self._safeGetValue(flowGr, 'name', ctx);
+                                    flowName = ctx.safeGetValue(flowGr, 'name');
                                 }
                             }
 
@@ -603,7 +532,7 @@ FHCheckAutomation.prototype = {
         if (inboundEmails.length > 10) {
             ctx.addIssue('MANY_INBOUND_EMAILS', 'Table has ' + inboundEmails.length + ' inbound email actions. Review for efficiency.', 'low', {
                 record_table: 'sysevent_in_email_action',
-                record_filter: 'target_tableIN' + allTables.join(','),
+                record_filter: 'target_tableIN' + configTables.join(','),
                 category: 'automation'
             });
         }
@@ -615,7 +544,6 @@ FHCheckAutomation.prototype = {
      * @param {Object} ctx - Analysis context
      */
     _deepScanAutomations: function(ctx) {
-        var tableName = String(ctx.config.table_name);
         var automationIssues = [];
         var self = this;
 
@@ -642,7 +570,7 @@ FHCheckAutomation.prototype = {
             var jobGr = new GlideRecord('sysauto_script');
             ctx.metrics.scheduled_jobs.forEach(function(job) {
                 if (jobGr.get(job.sys_id)) {
-                    var script = self._safeGetValue(jobGr, 'script');
+                    var script = ctx.safeGetValue(jobGr, 'script');
                     var issues = self._analyzeAutomationScript(script, job.name, 'Scheduled Job');
                     automationIssues = automationIssues.concat(issues);
                 }

@@ -24,19 +24,6 @@ var FHCheckTable = Class.create();
 FHCheckTable.prototype = {
 
     /**
-     * Safe getValue - returns empty string if null
-     * Uses ctx.safeGetValue when available, fallback for compatibility
-     * @private
-     */
-    _safeGetValue: function(gr, field, ctx) {
-        if (ctx && ctx.safeGetValue) {
-            return ctx.safeGetValue(gr, field);
-        }
-        var val = gr.getValue(field);
-        return (val === null || val === undefined) ? '' : String(val);
-    },
-
-    /**
      * Execute the check
      * @param {Object} ctx - Analysis context (FHAnalysisContext)
      */
@@ -50,21 +37,19 @@ FHCheckTable.prototype = {
         this._checkClientScripts(ctx);
 
         // Include children tables analysis if option is enabled
-        if (ctx.include_children_tables)
+        if (ctx.isIncludeChildrenEnabled()) {
             this._checkChildrenTables(ctx);
+        }
 
         // Analyze reference field data quality if option is enabled
-        if (ctx.options.analyze_references)
+        if (ctx.isAnalyzeReferencesEnabled()) {
             this._analyzeReferenceData(ctx);
+        }
 
         // Deep scan: analyze script quality if option is enabled
-        if (ctx.options.deep_scan)
+        if (ctx.isDeepScanEnabled()) {
             this._deepScanScripts(ctx);
-
-        // LDAP Analysis
-        if (ctx.options.include_ldap)
-            this._analyzeLdapConfiguration(ctx, tablesToCheck);
-
+        }
     },
 
     /**
@@ -88,7 +73,7 @@ FHCheckTable.prototype = {
             return;
         }
         ctx.metrics.table_exists = true;
-        ctx.metrics.table_label = this._safeGetValue(gr, 'label') || tableName;
+        ctx.metrics.table_label = ctx.safeGetValue(gr, 'label') || tableName;
     },
 
     /**
@@ -141,11 +126,11 @@ FHCheckTable.prototype = {
         gr.query();
 
         while (gr.next()) {
-            var fieldName = self._safeGetValue(gr, 'element');
+            var fieldName = ctx.safeGetValue(gr, 'element');
             if (!fieldName) continue;
 
-            var fieldLabel = self._safeGetValue(gr, 'column_label') || fieldName;
-            var fieldType = self._safeGetValue(gr, 'internal_type') || 'unknown';
+            var fieldLabel = ctx.safeGetValue(gr, 'column_label') || fieldName;
+            var fieldType = ctx.safeGetValue(gr, 'internal_type') || 'unknown';
 
             // Calculate fill rate
             var fillRate = this._calculateFillRate(tableName, fieldName, ctx.metrics.record_count);
@@ -155,7 +140,7 @@ FHCheckTable.prototype = {
                 label: fieldLabel,
                 type: fieldType,
                 fill_rate: fillRate,
-                mandatory: self._safeGetValue(gr, 'mandatory') === 'true'
+                mandatory: ctx.safeGetValue(gr, 'mandatory') === 'true'
             };
 
             customFields.push(fieldInfo);
@@ -199,10 +184,6 @@ FHCheckTable.prototype = {
             ctx.addIssue('TOO_MANY_CUSTOM_FIELDS', 'Table has ' + customFields.length + ' custom fields. Consider consolidation.', 'medium');
         }
 
-        // Deep scan: analyze script quality if option is enabled
-        if (ctx.isDeepScanEnabled()) {
-            this._deepScanScripts(ctx);
-        }
     },
 
     /**
@@ -212,8 +193,7 @@ FHCheckTable.prototype = {
      * @param {Array} customFields - List of custom fields
      */
     _analyzeFieldUpdaters: function(ctx, customFields) {
-        var tableName = String(ctx.config.table_name);
-        var self = this;
+        var tableName = ctx.getTableName();
         var fieldUpdaters = {};
 
         // Initialize field updaters map
@@ -232,12 +212,12 @@ FHCheckTable.prototype = {
         brGr.query();
 
         while (brGr.next()) {
-            var brScript = self._safeGetValue(brGr, 'script');
-            var brName = self._safeGetValue(brGr, 'name') || 'Unnamed';
+            var brScript = ctx.safeGetValue(brGr, 'script');
+            var brName = ctx.safeGetValue(brGr, 'name') || 'Unnamed';
             var brSysId = brGr.getUniqueValue();
 
             customFields.forEach(function(field) {
-                if (self._scriptUpdatesField(brScript, field.name)) {
+                if (ctx.scriptUpdatesField(brScript, field.name)) {
                     fieldUpdaters[field.name].updated_by.push({
                         type: 'Business Rule',
                         name: brName,
@@ -254,14 +234,14 @@ FHCheckTable.prototype = {
         jobGr.query();
 
         while (jobGr.next()) {
-            var jobScript = self._safeGetValue(jobGr, 'script');
-            var jobName = self._safeGetValue(jobGr, 'name') || 'Unnamed';
+            var jobScript = ctx.safeGetValue(jobGr, 'script');
+            var jobName = ctx.safeGetValue(jobGr, 'name') || 'Unnamed';
             var jobSysId = jobGr.getUniqueValue();
 
             // Check if job references our table AND updates our fields
-            if (self._scriptContainsTable(jobScript, tableName)) {
+            if (ctx.scriptContainsTable(jobScript, tableName)) {
                 customFields.forEach(function(field) {
-                    if (self._scriptUpdatesField(jobScript, field.name)) {
+                    if (ctx.scriptUpdatesField(jobScript, field.name)) {
                         fieldUpdaters[field.name].updated_by.push({
                             type: 'Scheduled Job',
                             name: jobName,
@@ -282,7 +262,7 @@ FHCheckTable.prototype = {
                 flowGr.query();
 
                 while (flowGr.next()) {
-                    var flowName = self._safeGetValue(flowGr, 'name') || 'Unnamed';
+                    var flowName = ctx.safeGetValue(flowGr, 'name') || 'Unnamed';
                     var flowSysId = flowGr.getUniqueValue();
 
                     // Check flow actions for field updates
@@ -291,7 +271,7 @@ FHCheckTable.prototype = {
                     actionGr.query();
 
                     while (actionGr.next()) {
-                        var actionInputs = self._safeGetValue(actionGr, 'inputs');
+                        var actionInputs = ctx.safeGetValue(actionGr, 'inputs');
                         customFields.forEach(function(field) {
                             if (actionInputs && actionInputs.indexOf(field.name) > -1) {
                                 // Check if not already added
@@ -322,7 +302,7 @@ FHCheckTable.prototype = {
         tmGr.query();
 
         while (tmGr.next()) {
-            var tmName = self._safeGetValue(tmGr, 'name') || 'Unnamed';
+            var tmName = ctx.safeGetValue(tmGr, 'name') || 'Unnamed';
             var tmSysId = tmGr.getUniqueValue();
 
             // Check field maps
@@ -331,7 +311,7 @@ FHCheckTable.prototype = {
             fmGr.query();
 
             while (fmGr.next()) {
-                var targetField = self._safeGetValue(fmGr, 'target_field');
+                var targetField = ctx.safeGetValue(fmGr, 'target_field');
                 if (fieldUpdaters[targetField]) {
                     fieldUpdaters[targetField].updated_by.push({
                         type: 'Transform Map',
@@ -351,57 +331,6 @@ FHCheckTable.prototype = {
 
         // Store summary
         ctx.metrics.field_updaters = fieldUpdaters;
-    },
-
-    /**
-     * Check if a script updates a specific field
-     * @private
-     * @param {String} script - Script content
-     * @param {String} fieldName - Field name to check
-     * @returns {Boolean} True if script updates the field
-     */
-    _scriptUpdatesField: function(script, fieldName) {
-        if (!script || !fieldName) return false;
-
-        // Patterns that indicate field update:
-        // current.field_name = 
-        // gr.field_name = 
-        // record.field_name = 
-        // setValue('field_name', ...)
-        var patterns = [
-            new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
-            new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i")
-        ];
-
-        for (var i = 0; i < patterns.length; i++) {
-            if (patterns[i].test(script)) {
-                return true;
-            }
-        }
-
-        return false;
-    },
-
-    /**
-     * Check if script contains exact table reference
-     * @private
-     */
-    _scriptContainsTable: function(script, tableName) {
-        if (!script || !tableName) return false;
-
-        var patterns = [
-            new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
-            new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
-            new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i")
-        ];
-
-        for (var i = 0; i < patterns.length; i++) {
-            if (patterns[i].test(script)) {
-                return true;
-            }
-        }
-
-        return false;
     },
 
     /**
@@ -453,9 +382,8 @@ FHCheckTable.prototype = {
     _checkReferenceFields: function(ctx) {
         if (!ctx.metrics.table_exists) return;
 
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var referenceFields = [];
-        var self = this;
 
         // Get all reference fields
         var gr = new GlideRecord('sys_dictionary');
@@ -464,8 +392,8 @@ FHCheckTable.prototype = {
         gr.query();
 
         while (gr.next()) {
-            var fieldName = self._safeGetValue(gr, 'element');
-            var refTable = self._safeGetValue(gr, 'reference');
+            var fieldName = ctx.safeGetValue(gr, 'element');
+            var refTable = ctx.safeGetValue(gr, 'reference');
 
             if (!fieldName || !refTable) continue;
 
@@ -497,11 +425,10 @@ FHCheckTable.prototype = {
     _checkBusinessRules: function(ctx) {
         if (!ctx.metrics.table_exists) return;
 
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var businessRules = [];
         var activeBRCount = 0;
         var inactiveBRCount = 0;
-        var self = this;
 
         // Query business rules - collection field stores the table name
         var gr = new GlideRecord('sys_script');
@@ -515,10 +442,10 @@ FHCheckTable.prototype = {
 
             var brInfo = {
                 sys_id: gr.getUniqueValue(),
-                name: self._safeGetValue(gr, 'name') || 'Unnamed',
+                name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
                 active: isActive,
-                when: self._safeGetValue(gr, 'when'),
-                order: self._safeGetValue(gr, 'order')
+                when: ctx.safeGetValue(gr, 'when'),
+                order: ctx.safeGetValue(gr, 'order')
             };
 
             businessRules.push(brInfo);
@@ -559,9 +486,8 @@ FHCheckTable.prototype = {
     _checkClientScripts: function(ctx) {
         if (!ctx.metrics.table_exists) return;
 
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var clientScripts = [];
-        var self = this;
 
         var gr = new GlideRecord('sys_script_client');
         gr.addQuery('table', tableName);
@@ -570,9 +496,9 @@ FHCheckTable.prototype = {
 
         while (gr.next()) {
             clientScripts.push({
-                name: self._safeGetValue(gr, 'name') || 'Unnamed',
-                type: self._safeGetValue(gr, 'type'),
-                ui_type: self._safeGetValue(gr, 'ui_type')
+                name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
+                type: ctx.safeGetValue(gr, 'type'),
+                ui_type: ctx.safeGetValue(gr, 'ui_type')
             });
         }
 
@@ -596,9 +522,8 @@ FHCheckTable.prototype = {
     _checkChildrenTables: function(ctx) {
         if (!ctx.metrics.table_exists) return;
 
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var childrenTables = [];
-        var self = this;
 
         // Get the sys_id of the parent table
         var parentGr = new GlideRecord('sys_db_object');
@@ -612,8 +537,8 @@ FHCheckTable.prototype = {
         gr.query();
 
         while (gr.next()) {
-            var childName = self._safeGetValue(gr, 'name');
-            var childLabel = self._safeGetValue(gr, 'label') || childName;
+            var childName = ctx.safeGetValue(gr, 'name');
+            var childLabel = ctx.safeGetValue(gr, 'label') || childName;
 
             // Get record count for child table
             var childCount = 0;
@@ -633,7 +558,7 @@ FHCheckTable.prototype = {
                 name: childName,
                 label: childLabel,
                 record_count: childCount,
-                scope: self._safeGetValue(gr, 'sys_scope')
+                scope: ctx.safeGetValue(gr, 'sys_scope')
             });
         }
 
@@ -658,10 +583,9 @@ FHCheckTable.prototype = {
         if (!ctx.metrics.table_exists) return;
         if (!ctx.metrics.reference_fields || ctx.metrics.reference_fields.length === 0) return;
 
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var totalRecords = ctx.metrics.record_count || 0;
         var referenceAnalysis = [];
-        var self = this;
 
         ctx.metrics.reference_fields.forEach(function(refField) {
             var fieldName = refField.name;
@@ -730,7 +654,7 @@ FHCheckTable.prototype = {
     _deepScanScripts: function(ctx) {
         if (!ctx.metrics.table_exists) return;
 
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var scriptIssues = [];
         var self = this;
 
@@ -741,8 +665,8 @@ FHCheckTable.prototype = {
         gr.query();
 
         while (gr.next()) {
-            var script = self._safeGetValue(gr, 'script');
-            var brName = self._safeGetValue(gr, 'name') || 'Unnamed';
+            var script = ctx.safeGetValue(gr, 'script');
+            var brName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
             var issues = self._analyzeScript(script, brName, 'Business Rule');
             scriptIssues = scriptIssues.concat(issues);
         }
@@ -754,8 +678,8 @@ FHCheckTable.prototype = {
         csGr.query();
 
         while (csGr.next()) {
-            var csScript = self._safeGetValue(csGr, 'script');
-            var csName = self._safeGetValue(csGr, 'name') || 'Unnamed';
+            var csScript = ctx.safeGetValue(csGr, 'script');
+            var csName = ctx.safeGetValue(csGr, 'name') || 'Unnamed';
             var csIssues = self._analyzeScript(csScript, csName, 'Client Script');
             scriptIssues = scriptIssues.concat(csIssues);
         }
@@ -842,207 +766,6 @@ FHCheckTable.prototype = {
         }
 
         return issues;
-    },
-
-	/**
-     * Analyze LDAP configuration for this table
-     * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
-     */
-    _analyzeLdapConfiguration: function(ctx, tablesToCheck) {
-        var tableName = String(ctx.config.table_name);
-        var self = this;
-        var ldapAnalysis = {
-            servers: [],
-            data_sources: [],
-            transform_maps: [],
-            field_maps: [],
-            attribute_mappings: [],
-            issues: []
-        };
-        
-        // 1. Find LDAP Data Sources for this table
-        var dsGr = new GlideRecord('sys_data_source');
-        dsGr.addQuery('type', 'LDAP');
-        dsGr.addQuery('ldap_target.table', 'IN', tablesToCheck.join(','));
-        dsGr.query();
-
-        while (dsGr.next()) {
-            var dsName = self._safeGetValue(dsGr, 'name');
-            var dsSysId = dsGr.getUniqueValue();
-            var activeVal = dsGr.getValue('active');
-            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-            
-            var dsInfo = {
-                sys_id: dsSysId,
-                name: dsName,
-                active: isActive,
-                import_set_table: self._safeGetValue(dsGr, 'import_set_table_name'),
-                connection_url: self._safeGetValue(dsGr, 'connection_url'),
-                ldap_target: self._safeGetValue(dsGr, 'ldap_target'),
-                last_run: self._safeGetValue(dsGr, 'last_run_on'),
-                last_run_result: self._safeGetValue(dsGr, 'last_run_result')
-            };
-            ldapAnalysis.data_sources.push(dsInfo);
-            
-            if (!isActive) {
-                ldapAnalysis.issues.push({
-                    code: 'INACTIVE_LDAP_DATASOURCE',
-                    message: 'LDAP Data Source "' + dsName + '" is inactive',
-                    severity: 'low',
-                    record_table: 'sys_data_source',
-                    record_sys_id: dsSysId
-                });
-            }
-            
-            // Get associated Transform Maps
-            var tmGr = new GlideRecord('sys_transform_map');
-            tmGr.addQuery('source_table', dsInfo.import_set_table);
-            tmGr.addQuery('target_table', 'IN', tablesToCheck.join(','));
-            tmGr.query();
-            
-            while (tmGr.next()) {
-                var tmName = self._safeGetValue(tmGr, 'name');
-                var tmSysId = tmGr.getUniqueValue();
-                var tmActiveVal = tmGr.getValue('active');
-                var tmIsActive = (tmActiveVal === 'true' || tmActiveVal === '1' || tmActiveVal === true);
-                
-                var tmInfo = {
-                    sys_id: tmSysId,
-                    name: tmName,
-                    active: tmIsActive,
-                    source_table: self._safeGetValue(tmGr, 'source_table'),
-                    target_table: self._safeGetValue(tmGr, 'target_table'),
-                    data_source: dsName,
-                    coalesce_field: self._safeGetValue(tmGr, 'coalesce_field'),
-                    field_maps: []
-                };
-                
-                // Get Field Maps for this Transform Map
-                var fmGr = new GlideRecord('sys_transform_entry');
-                fmGr.addQuery('map', tmSysId);
-                fmGr.orderBy('order');
-                fmGr.query();
-                
-                while (fmGr.next()) {
-                    var sourceField = self._safeGetValue(fmGr, 'source_field');
-                    var targetField = self._safeGetValue(fmGr, 'target_field');
-                    var coalesce = self._safeGetValue(fmGr, 'coalesce') === 'true';
-                    var useSourceScript = self._safeGetValue(fmGr, 'use_source_script') === 'true';
-                    
-                    var fmInfo = {
-                        sys_id: fmGr.getUniqueValue(),
-                        source_field: sourceField,
-                        target_field: targetField,
-                        coalesce: coalesce,
-                        use_script: useSourceScript,
-                        source_script: useSourceScript ? self._safeGetValue(fmGr, 'source_script') : null,
-                        order: parseInt(self._safeGetValue(fmGr, 'order'), 10) || 0
-                    };
-                    tmInfo.field_maps.push(fmInfo);
-                    ldapAnalysis.field_maps.push(fmInfo);
-                    
-                    // Track attribute mapping
-                    if (sourceField) {
-                        ldapAnalysis.attribute_mappings.push({
-                            ldap_attribute: sourceField,
-                            servicenow_field: targetField,
-                            transform_map: tmName,
-                            coalesce: coalesce,
-                            uses_script: useSourceScript
-                        });
-                    }
-                }
-                
-                ldapAnalysis.transform_maps.push(tmInfo);
-                
-                // Check for issues
-                if (!tmIsActive) {
-                    ldapAnalysis.issues.push({
-                        code: 'INACTIVE_LDAP_TRANSFORM',
-                        message: 'LDAP Transform Map "' + tmName + '" is inactive',
-                        severity: 'low',
-                        record_table: 'sys_transform_map',
-                        record_sys_id: tmSysId
-                    });
-                }
-                
-                if (tmInfo.field_maps.length === 0) {
-                    ldapAnalysis.issues.push({
-                        code: 'NO_LDAP_FIELD_MAPS',
-                        message: 'LDAP Transform Map "' + tmName + '" has no field mappings',
-                        severity: 'medium',
-                        record_table: 'sys_transform_map',
-                        record_sys_id: tmSysId
-                    });
-                }
-                
-                if (!tmInfo.coalesce_field) {
-                    ldapAnalysis.issues.push({
-                        code: 'NO_LDAP_COALESCE',
-                        message: 'LDAP Transform Map "' + tmName + '" has no coalesce field (may create duplicates)',
-                        severity: 'medium',
-                        record_table: 'sys_transform_map',
-                        record_sys_id: tmSysId
-                    });
-                }
-            }
-        }
-        
-        // 2. Check for LDAP Servers
-        try {
-            var serverGr = new GlideRecord('ldap_server_config');
-            if (serverGr.isValid()) {
-                serverGr.addQuery('active', true);
-                serverGr.query();
-                
-                while (serverGr.next()) {
-                    ldapAnalysis.servers.push({
-                        sys_id: serverGr.getUniqueValue(),
-                        name: self._safeGetValue(serverGr, 'name'),
-                        server_url: self._safeGetValue(serverGr, 'server_url'),
-                        active: true
-                    });
-                }
-            }
-        } catch (e) {
-            // LDAP tables might not be accessible
-        }
-        
-        // 3. Summary metrics
-        ctx.metrics.ldap_analysis = ldapAnalysis;
-        ctx.metrics.ldap_data_source_count = ldapAnalysis.data_sources.length;
-        ctx.metrics.ldap_transform_map_count = ldapAnalysis.transform_maps.length;
-        ctx.metrics.ldap_field_map_count = ldapAnalysis.field_maps.length;
-        ctx.metrics.ldap_attribute_count = ldapAnalysis.attribute_mappings.length;
-        ctx.metrics.ldap_server_count = ldapAnalysis.servers.length;
-        
-        // Add issues to context
-        ldapAnalysis.issues.forEach(function(issue) {
-            ctx.addIssue(issue.code, issue.message, issue.severity, {
-                record_table: issue.record_table,
-                record_sys_id: issue.record_sys_id,
-                category: 'ldap'
-            });
-        });
-        
-        // Summary issues
-        if (ldapAnalysis.data_sources.length === 0 && ldapAnalysis.transform_maps.length === 0) {
-            ctx.addIssue('NO_LDAP_CONFIG', 'No LDAP configuration found for table "' + tableName + '"', 'low', {
-                category: 'ldap'
-            });
-        }
-        
-        // Check for unmapped LDAP attributes (common attributes that should be mapped)
-        var commonLdapAttributes = ['cn', 'sn', 'givenName', 'mail', 'telephoneNumber', 'department', 'title', 'manager', 'memberOf'];
-        var mappedAttributes = ldapAnalysis.attribute_mappings.map(function(m) { return m.ldap_attribute.toLowerCase(); });
-        
-        commonLdapAttributes.forEach(function(attr) {
-            if (mappedAttributes.indexOf(attr.toLowerCase()) === -1 && ldapAnalysis.transform_maps.length > 0) {
-                // Only add as info, not an issue - it's optional
-            }
-        });
     },
 
     type: 'FHCheckTable'

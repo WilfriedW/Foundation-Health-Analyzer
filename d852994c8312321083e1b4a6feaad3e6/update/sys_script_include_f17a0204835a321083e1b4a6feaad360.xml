@@ -402,7 +402,7 @@ FHAnalysisContext.prototype = {
             table: this.config.table_name,
             metrics: this.metrics,
             issues: this.issues,
-            categorieeeeees: this.categories,
+            categories: this.categories,
             hasBlockingIssues: function() {
                 return self.issues.some(function(issue) {
                     return issue.severity === 'high';
