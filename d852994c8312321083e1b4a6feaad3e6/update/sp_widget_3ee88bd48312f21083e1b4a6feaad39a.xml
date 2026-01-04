@@ -70,60 +70,10 @@
         return metrics.business_rules || [];
     };
 
-    // ==================== CATEGORY-BASED METHODS ====================
+    // ==================== AUTOMATION ITEMS ====================
     
-    // Get all categories
-    c.getCategories = function() {
-        return (c.result && c.result.categories) ? c.result.categories : {};
-    };
-
-    // Get a specific category
-    c.getCategory = function(categoryId) {
-        var categories = c.getCategories();
-        return categories[categoryId] || null;
-    };
-
-    // Get items from a category (flattened)
-    c.getCategoryItems = function(categoryId) {
-        var category = c.getCategory(categoryId);
-        if (!category || !category.items) return [];
-        
-        var items = [];
-        category.items.forEach(function(itemType) {
-            if (itemType.records) {
-                itemType.records.forEach(function(record) {
-                    items.push({
-                        type: itemType.label,
-                        type_id: itemType.type,
-                        icon: itemType.icon,
-                        color: itemType.color,
-                        table: itemType.table,
-                        name: record.name,
-                        active: record.active,
-                        inherited: record.inherited,
-                        sys_id: record.sys_id
-                    });
-                });
-            }
-        });
-        return items;
-    };
-
-    // Get category item types (for summary display)
-    c.getCategoryItemTypes = function(categoryId) {
-        var category = c.getCategory(categoryId);
-        return (category && category.items) ? category.items : [];
-    };
-
-    // Get all automation items (uses categories if available, fallback to metrics)
+    // Get all automation items from metrics
     c.getAutomationItems = function() {
-        // Try categories first (new structure)
-        var categoryItems = c.getCategoryItems('automation');
-        if (categoryItems.length > 0) {
-            return categoryItems;
-        }
-        
-        // Fallback to metrics (backward compatibility with old results)
         var metrics = c.getMetrics();
         var items = [];
         
@@ -166,15 +116,10 @@
         return items;
     };
 
-    // Get integration items (uses categories if available, fallback to metrics)
+    // ==================== INTEGRATION ITEMS ====================
+    
+    // Get all integration items from metrics
     c.getIntegrationItems = function() {
-        // Try categories first (new structure)
-        var categoryItems = c.getCategoryItems('integration');
-        if (categoryItems.length > 0) {
-            return categoryItems;
-        }
-        
-        // Fallback to metrics (backward compatibility with old results)
         var metrics = c.getMetrics();
         var items = [];
         
@@ -193,9 +138,9 @@
                 items.push({ type: 'ACLs', name: acl.name, active: acl.active !== false, sys_id: acl.sys_id, table: 'sys_security_acl', icon: 'fa-lock', color: '#dc3545' });
             });
         }
-        if (metrics.rest_messages) {
-            metrics.rest_messages.forEach(function(rm) {
-                items.push({ type: 'REST Messages', name: rm.name, active: true, sys_id: rm.sys_id, table: 'sys_rest_message', icon: 'fa-plug', color: '#28a745' });
+        if (metrics.rest_apis) {
+            metrics.rest_apis.forEach(function(api) {
+                items.push({ type: 'REST APIs', name: api.name, active: api.active !== false, sys_id: api.sys_id, table: 'sys_ws_operation', icon: 'fa-plug', color: '#28a745' });
             });
         }
         
