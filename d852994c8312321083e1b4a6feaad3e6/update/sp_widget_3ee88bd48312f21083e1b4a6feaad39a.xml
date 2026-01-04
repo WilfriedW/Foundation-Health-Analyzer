@@ -356,14 +356,31 @@
 
     // Get type badge class (color coding)
     c.getTypeBadgeClass = function(type) {
+        if (!type) return 'type-default';
+        
         var classes = {
+            // Old format (singular)
             'Scheduled Job': 'type-scheduled-job',
             'Flow': 'type-flow',
             'Workflow': 'type-workflow',
             'Notification': 'type-notification',
             'UI Action': 'type-ui-action',
+            'UI Policy': 'type-ui-policy',
+            'Inbound Email': 'type-inbound-email',
             'Data Source': 'type-data-source',
-            'Transform Map': 'type-transform-map'
+            'Transform Map': 'type-transform-map',
+            'ACL': 'type-acl',
+            // New format (plural - from categories)
+            'Scheduled Jobs': 'type-scheduled-job',
+            'Flows': 'type-flow',
+            'Workflows': 'type-workflow',
+            'Notifications': 'type-notification',
+            'UI Actions': 'type-ui-action',
+            'UI Policies': 'type-ui-policy',
+            'Inbound Email Actions': 'type-inbound-email',
+            'Data Sources': 'type-data-source',
+            'Transform Maps': 'type-transform-map',
+            'ACLs': 'type-acl'
         };
         return classes[type] || 'type-default';
     };
@@ -862,14 +879,17 @@
 
 /* Type-specific colors for Automation */
 .fha-type-badge.type-scheduled-job { background: #6f42c1; color: white; }
-.fha-type-badge.type-flow { background: #0d6efd; color: white; }
-.fha-type-badge.type-workflow { background: #0dcaf0; color: #000; }
-.fha-type-badge.type-notification { background: #fd7e14; color: white; }
-.fha-type-badge.type-ui-action { background: #20c997; color: white; }
+.fha-type-badge.type-flow { background: #17a2b8; color: white; }
+.fha-type-badge.type-workflow { background: #fd7e14; color: white; }
+.fha-type-badge.type-notification { background: #28a745; color: white; }
+.fha-type-badge.type-ui-action { background: #dc3545; color: white; }
+.fha-type-badge.type-ui-policy { background: #20c997; color: white; }
+.fha-type-badge.type-inbound-email { background: #e83e8c; color: white; }
 
 /* Type-specific colors for Integration */
-.fha-type-badge.type-data-source { background: #198754; color: white; }
-.fha-type-badge.type-transform-map { background: #6610f2; color: white; }
+.fha-type-badge.type-data-source { background: #6f42c1; color: white; }
+.fha-type-badge.type-transform-map { background: #17a2b8; color: white; }
+.fha-type-badge.type-acl { background: #dc3545; color: white; }
 
 /* Default type badge */
 .fha-type-badge.type-default { background: #6c757d; color: white; }
