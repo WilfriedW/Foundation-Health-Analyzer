@@ -53,125 +53,133 @@
         return c.result.issues.filter(function(i) { return i.category === category; });
     };
 
-    // Get metrics
-    c.getMetrics = function() {
-        return (c.result && c.result.metrics) ? c.result.metrics : {};
+    // === Helpers basés sur categories ===
+    c.getCategories = function() {
+        return (c.result && c.result.categories) ? c.result.categories : {};
     };
 
-    // Get custom fields
+    c.getCategoryItems = function(categoryId) {
+        var cats = c.getCategories();
+        var cat = cats[categoryId];
+        if (!cat || !cat.items) return [];
+        var items = [];
+        cat.items.forEach(function(it) {
+            var records = it.records || [];
+            records.forEach(function(rec) {
+                items.push(angular.extend({
+                    item_type: it.type,
+                    item_label: it.label || it.itemLabel,
+                    item_icon: it.icon || it.itemIcon,
+                    item_color: it.color || it.itemColor
+                }, rec));
+            });
+        });
+        return items;
+    };
+
+    c.getTableSummary = function() {
+        var cats = c.getCategories();
+        var cat = cats.table;
+        if (!cat || !cat.items) return null;
+        for (var i = 0; i < cat.items.length; i++) {
+            var it = cat.items[i];
+            if (it.type === 'table_summary' && it.records && it.records.length > 0) {
+                return it.records[0];
+            }
+        }
+        return null;
+    };
+
+    // Get custom fields (non exposé pour l’instant)
     c.getCustomFields = function() {
-        var metrics = c.getMetrics();
-        return metrics.custom_fields || [];
+        return [];
     };
 
     // Get business rules
     c.getBusinessRules = function() {
-        var metrics = c.getMetrics();
-        return metrics.business_rules || [];
+        return c.getCategoryItems('automation').filter(function(r) {
+            return r.item_type === 'business_rules';
+        });
+    };
+
+    c.getBusinessRuleCount = function() {
+        return c.getBusinessRules().length;
+    };
+
+    c.getActiveBusinessRuleCount = function() {
+        return c.getBusinessRules().filter(function(r) { return r.active !== false; }).length;
     };
 
     // ==================== AUTOMATION ITEMS ====================
     
-    // Get all automation items from metrics
+    // Get all automation items from categories
     c.getAutomationItems = function() {
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        if (metrics.scheduled_jobs) {
-            metrics.scheduled_jobs.forEach(function(job) {
-                items.push({ type: 'Scheduled Jobs', name: job.name, active: job.active, sys_id: job.sys_id, table: 'sysauto_script', icon: 'fa-clock', color: '#6f42c1' });
-            });
-        }
-        if (metrics.flows) {
-            metrics.flows.forEach(function(flow) {
-                items.push({ type: 'Flows', name: flow.name, active: flow.active, sys_id: flow.sys_id, table: 'sys_hub_flow', icon: 'fa-project-diagram', color: '#17a2b8' });
-            });
-        }
-        if (metrics.workflows) {
-            metrics.workflows.forEach(function(wf) {
-                items.push({ type: 'Workflows', name: wf.name, active: wf.active, sys_id: wf.sys_id, table: 'wf_workflow', icon: 'fa-sitemap', color: '#fd7e14' });
-            });
-        }
-        if (metrics.notifications) {
-            metrics.notifications.forEach(function(n) {
-                items.push({ type: 'Notifications', name: n.name, active: n.active, sys_id: n.sys_id, table: 'sysevent_email_action', icon: 'fa-envelope', color: '#28a745' });
-            });
-        }
-        if (metrics.ui_actions) {
-            metrics.ui_actions.forEach(function(a) {
-                items.push({ type: 'UI Actions', name: a.name, active: a.active !== false, sys_id: a.sys_id, table: 'sys_ui_action', icon: 'fa-mouse-pointer', color: '#dc3545' });
-            });
-        }
-        if (metrics.ui_policies) {
-            metrics.ui_policies.forEach(function(p) {
-                items.push({ type: 'UI Policies', name: p.name, active: true, sys_id: p.sys_id, table: 'sys_ui_policy', icon: 'fa-shield-alt', color: '#20c997' });
-            });
-        }
-        if (metrics.inbound_email_actions) {
-            metrics.inbound_email_actions.forEach(function(e) {
-                items.push({ type: 'Inbound Email Actions', name: e.name, active: e.active, sys_id: e.sys_id, table: 'sysevent_in_email_action', icon: 'fa-inbox', color: '#e83e8c' });
-            });
-        }
-        
-        return items;
+        var labels = {
+            scheduled_job: { type: 'Scheduled Jobs', icon: 'fa-clock', color: '#6f42c1' },
+            flow: { type: 'Flows', icon: 'fa-project-diagram', color: '#17a2b8' },
+            workflow: { type: 'Workflows', icon: 'fa-sitemap', color: '#fd7e14' },
+            notification: { type: 'Notifications', icon: 'fa-envelope', color: '#28a745' },
+            ui_action: { type: 'UI Actions', icon: 'fa-mouse-pointer', color: '#dc3545' },
+            ui_policy: { type: 'UI Policies', icon: 'fa-shield-alt', color: '#20c997' },
+            inbound_email: { type: 'Inbound Email Actions', icon: 'fa-inbox', color: '#e83e8c' },
+            client_scripts: { type: 'Client Scripts', icon: 'fa-code', color: '#6c757d' },
+            business_rules: { type: 'Business Rules', icon: 'fa-cogs', color: '#6c757d' }
+        };
+        return c.getCategoryItems('automation').filter(function(r) {
+            return labels.hasOwnProperty(r.item_type);
+        }).map(function(r) {
+            var meta = labels[r.item_type];
+            return angular.extend({
+                type: meta.type,
+                icon: meta.icon,
+                color: meta.color,
+                active: r.active !== false
+            }, r);
+        });
     };
 
     // ==================== INTEGRATION ITEMS ====================
     
-    // Get all integration items from metrics
+    // Get all integration items from categories
     c.getIntegrationItems = function() {
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        if (metrics.data_sources) {
-            metrics.data_sources.forEach(function(ds) {
-                items.push({ type: 'Data Sources', name: ds.name, active: ds.active, sys_id: ds.sys_id, table: 'sys_data_source', icon: 'fa-database', color: '#6f42c1' });
-            });
-        }
-        if (metrics.transform_maps) {
-            metrics.transform_maps.forEach(function(tm) {
-                items.push({ type: 'Transform Maps', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map', icon: 'fa-exchange-alt', color: '#17a2b8' });
-            });
-        }
-        if (metrics.rest_apis) {
-            metrics.rest_apis.forEach(function(api) {
-                items.push({ type: 'REST APIs', name: api.name, active: api.active !== false, sys_id: api.sys_id, table: 'sys_ws_operation', icon: 'fa-plug', color: '#28a745' });
-            });
-        }
-        
-        return items;
+        var labels = {
+            data_source: { type: 'Data Sources', icon: 'fa-database', color: '#6f42c1' },
+            transform_map: { type: 'Transform Maps', icon: 'fa-exchange-alt', color: '#17a2b8' },
+            import_sets: { type: 'Import Sets', icon: 'fa-download', color: '#17a2b8' },
+            rest_apis: { type: 'REST APIs', icon: 'fa-plug', color: '#28a745' }
+        };
+        return c.getCategoryItems('integration').filter(function(r) {
+            return labels.hasOwnProperty(r.item_type);
+        }).map(function(r) {
+            var meta = labels[r.item_type];
+            return angular.extend({
+                type: meta.type,
+                icon: meta.icon,
+                color: meta.color,
+                active: r.active !== false
+            }, r);
+        });
     };
 
     // ==================== SECURITY ITEMS ====================
     
-    // Get all security items from metrics (ACLs)
+    // Get all security items from categories (ACLs)
     c.getSecurityItems = function() {
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        if (metrics.acls) {
-            metrics.acls.forEach(function(acl) {
-                items.push({ 
-                    type: 'ACL', 
-                    name: acl.name, 
-                    active: true, // ACLs queried are always active
-                    sys_id: acl.sys_id, 
-                    table: 'sys_security_acl', 
-                    icon: 'fa-lock', 
-                    color: '#dc3545',
-                    operation: acl.operation,
-                    inherited: acl.inherited
-                });
-            });
-        }
-        
-        return items;
+        return c.getCategoryItems('security').filter(function(r) {
+            return r.item_type === 'acl';
+        }).map(function(r) {
+            return angular.extend({
+                type: 'ACL',
+                active: true,
+                icon: 'fa-lock',
+                color: '#dc3545'
+            }, r);
+        });
     };
 
-    // Get LDAP analysis data
+    // Get LDAP analysis data (non exposé dans la nouvelle structure)
     c.getLdapAnalysis = function() {
-        var metrics = c.getMetrics();
-        return metrics.ldap_analysis || null;
+        return null;
     };
 
     // Check if LDAP analysis is available
@@ -1302,15 +1310,15 @@
                 </tr>
                 <tr>
                   <td><strong>${Record Count}</strong></td>
-                  <td>{{c.getMetrics().record_count || 'N/A'}}</td>
+                  <td>{{(c.getTableSummary() && c.getTableSummary().record_count) || 'N/A'}}</td>
                 </tr>
                 <tr>
                   <td><strong>${Custom Fields}</strong></td>
-                  <td>{{c.getMetrics().custom_field_count || 0}}</td>
+                  <td>{{c.getCustomFields().length || 0}}</td>
                 </tr>
                 <tr>
                   <td><strong>${Business Rules}</strong></td>
-                  <td>{{(c.getMetrics().active_br_count || 0) + (c.getMetrics().inactive_br_count || 0)}} ({{c.getMetrics().active_br_count || 0}} ${active})</td>
+                  <td>{{c.getBusinessRuleCount()}} ({{c.getActiveBusinessRuleCount()}} ${active})</td>
                 </tr>
               </table>
               </div>

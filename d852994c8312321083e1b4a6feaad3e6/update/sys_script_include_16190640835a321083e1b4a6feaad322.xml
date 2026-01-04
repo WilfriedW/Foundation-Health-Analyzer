@@ -64,7 +64,7 @@ FHCheckIntegration.prototype = {
             }
         }
 
-        ctx.addCategoryItems('integration', 'data_source', 'Data Sources', dataSources, {
+        this.utils.addCategoryAndMetrics(ctx, 'integration', 'data_source', 'Data Sources', dataSources, {
             table: 'sys_data_source',
             icon: 'fa-database',
             color: '#6f42c1'
@@ -109,7 +109,7 @@ FHCheckIntegration.prototype = {
         }
         
         if (importSets.length > 0) {
-            ctx.addCategoryItems('integration', 'import_sets', 'Import Sets', importSets, {
+            this.utils.addCategoryAndMetrics(ctx, 'integration', 'import_sets', 'Import Sets', importSets, {
                 table: 'sys_import_set_run',
                 icon: 'fa-download',
                 color: '#17a2b8'
@@ -144,7 +144,7 @@ FHCheckIntegration.prototype = {
             }
         }
 
-        ctx.addCategoryItems('integration', 'transform_map', 'Transform Maps', transformMaps, {
+        this.utils.addCategoryAndMetrics(ctx, 'integration', 'transform_map', 'Transform Maps', transformMaps, {
             table: 'sys_transform_map',
             icon: 'fa-exchange-alt',
             color: '#17a2b8'

@@ -26,7 +26,7 @@ FHCheckAutomation.prototype = {
     run: function(ctx) {
         if (!ctx || !ctx.isTableExists || !ctx.isTableExists()) return;
 
-        // Register the automation category once
+        // Register the automation category once (addCategoryAndMetrics auto-registers too)
         ctx.registerCategory('automation', 'Automation', 'fa-cogs');
 
         // Get tables to check from centralized context logic
@@ -108,7 +108,7 @@ FHCheckAutomation.prototype = {
             }
         }
 
-        ctx.addCategoryItems('automation', 'scheduled_job', 'Scheduled Jobs', scheduledJobs, {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', 'scheduled_job', 'Scheduled Jobs', scheduledJobs, {
             table: 'sysauto_script',
             icon: 'fa-clock',
             color: '#6f42c1'
@@ -154,7 +154,7 @@ FHCheckAutomation.prototype = {
             gs.error('FHCheckAutomation.checkFlows error: ' + (e && e.message));
         }
 
-        ctx.addCategoryItems('automation', 'flow', 'Flows', flows, {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', 'flow', 'Flows', flows, {
             table: 'sys_hub_flow',
             icon: 'fa-project-diagram',
             color: '#17a2b8'
@@ -211,7 +211,7 @@ FHCheckAutomation.prototype = {
             gs.error('FHCheckAutomation.checkWorkflows error: ' + (e && e.message));
         }
 
-        ctx.addCategoryItems('automation', 'workflow', 'Workflows', workflows, {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', 'workflow', 'Workflows', workflows, {
             table: 'wf_workflow',
             icon: 'fa-project-diagram',
             color: '#6610f2'
@@ -270,7 +270,7 @@ FHCheckAutomation.prototype = {
             gs.error('FHCheckAutomation.checkNotifications error: ' + (e && e.message));
         }
 
-        ctx.addCategoryItems('automation', 'notification', 'Notifications', notifications, {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', 'notification', 'Notifications', notifications, {
             table: 'sysevent_email_action',
             icon: 'fa-bell',
             color: '#ffc107'
@@ -316,7 +316,7 @@ FHCheckAutomation.prototype = {
             gs.error('FHCheckAutomation.checkUIActions error: ' + (e && e.message));
         }
 
-        ctx.addCategoryItems('automation', 'ui_action', 'UI Actions', uiActions, {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', 'ui_action', 'UI Actions', uiActions, {
             table: 'sys_ui_action',
             icon: 'fa-mouse-pointer',
             color: '#007bff'
@@ -363,7 +363,7 @@ FHCheckAutomation.prototype = {
             gs.error('FHCheckAutomation.checkUIPolicies error: ' + (e && e.message));
         }
 
-        ctx.addCategoryItems('automation', 'ui_policy', 'UI Policies', uiPolicies, {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', 'ui_policy', 'UI Policies', uiPolicies, {
             table: 'sys_ui_policy',
             icon: 'fa-shield-alt',
             color: '#20c997'
@@ -466,7 +466,7 @@ FHCheckAutomation.prototype = {
             gs.error('FHCheckAutomation.checkInboundEmailActions (trigger instances) error: ' + (e && e.message));
         }
 
-        ctx.addCategoryItems('automation', 'inbound_email', 'Inbound Email Actions', inboundEmails, {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', 'inbound_email', 'Inbound Email Actions', inboundEmails, {
             table: 'sysevent_in_email_action',
             icon: 'fa-inbox',
             color: '#e83e8c'

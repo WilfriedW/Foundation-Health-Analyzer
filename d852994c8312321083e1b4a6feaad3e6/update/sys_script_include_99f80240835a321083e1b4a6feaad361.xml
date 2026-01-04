@@ -179,13 +179,13 @@ FHCheckTable.prototype = {
                     ctx.addIssue('INACTIVE_BUSINESS_RULE', 'Inactive business rule: "' + brName + '"', 'low', {
                         record_table: 'sys_script',
                         record_sys_id: gr.getUniqueValue(),
-                        category: 'business_rule'
+                        category: 'automation'
                     });
                 }
             }
 
-            ctx.registerCategory('business_rule', 'Business Rules', 'fa-cogs');
-            ctx.addCategoryItems('business_rule', 'business_rule', 'Business Rules', businessRules, {
+            // Consigne: regrouper dans la catégorie automation
+            this.utils.addCategoryAndMetrics(ctx, 'automation', 'business_rules', 'Business Rules', businessRules, {
                 table: 'sys_script',
                 icon: 'fa-cogs',
                 color: '#6c757d'
@@ -196,7 +196,7 @@ FHCheckTable.prototype = {
                 ctx.addIssue('MANY_BUSINESS_RULES', 'Table has ' + businessRules.length + ' business rules, ' + activeCount + ' active. This may impact performance.', 'medium', {
                     record_table: 'sys_script',
                     record_filter: 'collection=' + tableName + '^active=true',
-                    category: 'business_rule'
+                    category: 'automation'
                 });
             }
         } catch (e) {
@@ -229,17 +229,17 @@ FHCheckTable.prototype = {
                 });
             }
 
-            ctx.addCategoryItems('table', 'client_scripts', 'Client Scripts', clientScripts, {
-                table: 'sys_script_client',
-                icon: 'fa-desktop',
-                color: '#6c757d'
-            });
+                this.utils.addCategoryAndMetrics(ctx, 'automation', 'client_scripts', 'Client Scripts', clientScripts, {
+                    table: 'sys_script_client',
+                    icon: 'fa-desktop',
+                    color: '#6c757d'
+                });
 
             if (clientScripts.length > 15) {
                 ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
                     record_table: 'sys_script_client',
                     record_filter: 'table=' + tableName + '^active=true',
-                    category: 'client_script'
+                    category: 'automation'
                 });
             }
         } catch (e) {

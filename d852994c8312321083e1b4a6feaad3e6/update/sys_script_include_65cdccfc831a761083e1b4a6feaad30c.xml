@@ -83,8 +83,8 @@ FHCheckSecurity.prototype = {
             }
         }
 
-        // Add to security category using addCategoryItems
-        ctx.addCategoryItems('security', 'acl', 'ACLs', acls, {
+        // Ajout via utilitaire pour homogénéiser le JSON
+        this.utils.addCategoryAndMetrics(ctx, 'security', 'acl', 'ACLs', acls, {
             table: 'sys_security_acl',
             icon: 'fa-lock',
             color: '#dc3545'

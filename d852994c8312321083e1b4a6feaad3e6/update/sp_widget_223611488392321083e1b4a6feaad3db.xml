@@ -226,148 +226,91 @@
         return c.expandedSections[section] === true;
     };
 
-    // Get metrics safely
-    c.getMetrics = function() {
-        return (c.result && c.result.metrics) ? c.result.metrics : {};
+    // === Helpers basés sur categories ===
+    c.getCategories = function() {
+        return (c.result && c.result.categories) ? c.result.categories : {};
     };
 
-    // Get custom fields from metrics
+    c.getCategoryItems = function(categoryId) {
+        var cats = c.getCategories();
+        var cat = cats[categoryId];
+        if (!cat || !cat.items) return [];
+        var items = [];
+        cat.items.forEach(function(it) {
+            var records = it.records || [];
+            records.forEach(function(rec) {
+                // enrichir chaque record avec le type d'item et le label
+                items.push(angular.extend({
+                    item_type: it.type,
+                    item_label: it.label || it.itemLabel,
+                    item_icon: it.icon || it.itemIcon,
+                    item_color: it.color || it.itemColor
+                }, rec));
+            });
+        });
+        return items;
+    };
+
     c.getCustomFields = function() {
-        var metrics = c.getMetrics();
-        return metrics.custom_fields || [];
+        // Pas encore exposé dans categories -> retourne vide
+        return [];
     };
 
-    // Get business rules from metrics
     c.getBusinessRules = function() {
-        var metrics = c.getMetrics();
-        return metrics.business_rules || [];
+        return c.getCategoryItems('automation').filter(function(r) {
+            return r.item_type === 'business_rules';
+        });
     };
 
-    // Get all automation items
+    // Vue Automation (flatten)
     c.getAutomationOverview = function() {
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        // Scheduled Jobs
-        if (metrics.scheduled_jobs) {
-            metrics.scheduled_jobs.forEach(function(job) {
-                items.push({
-                    type: 'Scheduled Job',
-                    name: job.name,
-                    active: job.active,
-                    sys_id: job.sys_id,
-                    table: 'sysauto_script'
-                });
-            });
-        }
-        
-        // Flows
-        if (metrics.flows) {
-            metrics.flows.forEach(function(flow) {
-                items.push({
-                    type: 'Flow',
-                    name: flow.name,
-                    active: flow.active,
-                    sys_id: flow.sys_id,
-                    table: 'sys_hub_flow'
-                });
-            });
-        }
-        
-        // Workflows
-        if (metrics.workflows) {
-            metrics.workflows.forEach(function(wf) {
-                items.push({
-                    type: 'Workflow',
-                    name: wf.name,
-                    active: wf.active,
-                    sys_id: wf.sys_id,
-                    table: 'wf_workflow'
-                });
-            });
-        }
-        
-        // Notifications
-        if (metrics.notifications) {
-            metrics.notifications.forEach(function(notif) {
-                items.push({
-                    type: 'Notification',
-                    name: notif.name,
-                    active: notif.active,
-                    sys_id: notif.sys_id,
-                    table: 'sysevent_email_action'
-                });
-            });
-        }
-        
-        // UI Actions
-        if (metrics.ui_actions) {
-            metrics.ui_actions.forEach(function(action) {
-                items.push({
-                    type: 'UI Action',
-                    name: action.name,
-                    active: true,
-                    sys_id: action.sys_id,
-                    table: 'sys_ui_action'
-                });
-            });
-        }
-        
-        return items;
+        var allowed = {
+            scheduled_job: 'Scheduled Job',
+            flow: 'Flow',
+            workflow: 'Workflow',
+            notification: 'Notification',
+            ui_action: 'UI Action',
+            ui_policy: 'UI Policy',
+            inbound_email: 'Inbound Email',
+            client_scripts: 'Client Script',
+            business_rules: 'Business Rule'
+        };
+        return c.getCategoryItems('automation').filter(function(r) {
+            return allowed.hasOwnProperty(r.item_type);
+        }).map(function(r) {
+            return angular.extend({
+                type: allowed[r.item_type] || r.item_type
+            }, r);
+        });
     };
 
-    // Get integrations overview
+    // Vue Intégrations (flatten)
     c.getIntegrationsOverview = function() {
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        if (metrics.data_sources) {
-            metrics.data_sources.forEach(function(ds) {
-                items.push({
-                    type: 'Data Source',
-                    name: ds.name,
-                    active: ds.active,
-                    sys_id: ds.sys_id,
-                    table: 'sys_data_source'
-                });
-            });
-        }
-        
-        if (metrics.transform_maps) {
-            metrics.transform_maps.forEach(function(tm) {
-                items.push({
-                    type: 'Transform Map',
-                    name: tm.name,
-                    active: tm.active,
-                    sys_id: tm.sys_id,
-                    table: 'sys_transform_map'
-                });
-            });
-        }
-        
-        return items;
+        var allowed = {
+            data_source: 'Data Source',
+            transform_map: 'Transform Map',
+            import_sets: 'Import Sets',
+            rest_apis: 'REST API'
+        };
+        return c.getCategoryItems('integration').filter(function(r) {
+            return allowed.hasOwnProperty(r.item_type);
+        }).map(function(r) {
+            return angular.extend({
+                type: allowed[r.item_type] || r.item_type
+            }, r);
+        });
     };
 
-    // Get security overview (ACLs)
+    // Vue Sécurité (ACLs)
     c.getSecurityOverview = function() {
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        if (metrics.acls) {
-            metrics.acls.forEach(function(acl) {
-                items.push({
-                    type: 'ACL',
-                    name: acl.name,
-                    active: true, // ACLs are always active if queried
-                    sys_id: acl.sys_id,
-                    table: 'sys_security_acl',
-                    operation: acl.operation,
-                    inherited: acl.inherited
-                });
-            });
-        }
-        
-        return items;
+        return c.getCategoryItems('security').filter(function(r) {
+            return r.item_type === 'acl';
+        }).map(function(r) {
+            return angular.extend({
+                type: 'ACL',
+                active: true
+            }, r);
+        });
     };
 
     // Open record from overview
@@ -403,28 +346,14 @@
         }
     };
 
-    // Get category total count from metrics
-    c.getCategoryTotalCount = function(category) {
-        var metrics = c.getMetrics();
-        
-        switch(category) {
-            case 'business_rule':
-                return (metrics.active_br_count || 0) + (metrics.inactive_br_count || 0);
-            case 'client_script':
-                return metrics.client_script_count || 0;
-            case 'field':
-                return metrics.custom_field_count || 0;
-            case 'automation':
-                return (metrics.scheduled_job_count || 0) + (metrics.flow_count || 0) + 
-                       (metrics.workflow_count || 0) + (metrics.notification_count || 0) +
-                       (metrics.ui_action_count || 0);
-            case 'integration':
-                return (metrics.data_source_count || 0) + (metrics.transform_map_count || 0);
-            case 'security':
-                return metrics.acl_count || 0;
-            default:
-                return 0;
-        }
+    // Compte total par catégorie (somme des items)
+    c.getCategoryTotalCount = function(categoryId) {
+        var cats = c.getCategories();
+        var cat = cats[categoryId];
+        if (!cat || !cat.items) return 0;
+        return cat.items.reduce(function(acc, it) {
+            return acc + (it.count || (it.records ? it.records.length : 0) || 0);
+        }, 0);
     };
 }
 ]]></client_script>
