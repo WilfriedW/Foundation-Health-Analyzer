@@ -159,7 +159,7 @@
         }
         if (metrics.inbound_email_actions) {
             metrics.inbound_email_actions.forEach(function(e) {
-                items.push({ type: 'Inbound Email', name: e.name, active: e.active, sys_id: e.sys_id, table: 'sysevent_in_email_action', icon: 'fa-inbox', color: '#e83e8c' });
+                items.push({ type: 'Inbound Email', name: e.name, active: e.active, sys_id: e.sys_id, table: 'sysevent_in_email_action', icon: 'fa-inbox', color: '#e83e8c' ,trigger_table:e.trigger_table});
             });
         }
         
@@ -356,31 +356,14 @@
 
     // Get type badge class (color coding)
     c.getTypeBadgeClass = function(type) {
-        if (!type) return 'type-default';
-        
         var classes = {
-            // Old format (singular)
             'Scheduled Job': 'type-scheduled-job',
             'Flow': 'type-flow',
             'Workflow': 'type-workflow',
             'Notification': 'type-notification',
             'UI Action': 'type-ui-action',
-            'UI Policy': 'type-ui-policy',
-            'Inbound Email': 'type-inbound-email',
             'Data Source': 'type-data-source',
-            'Transform Map': 'type-transform-map',
-            'ACL': 'type-acl',
-            // New format (plural - from categories)
-            'Scheduled Jobs': 'type-scheduled-job',
-            'Flows': 'type-flow',
-            'Workflows': 'type-workflow',
-            'Notifications': 'type-notification',
-            'UI Actions': 'type-ui-action',
-            'UI Policies': 'type-ui-policy',
-            'Inbound Email Actions': 'type-inbound-email',
-            'Data Sources': 'type-data-source',
-            'Transform Maps': 'type-transform-map',
-            'ACLs': 'type-acl'
+            'Transform Map': 'type-transform-map'
         };
         return classes[type] || 'type-default';
     };
@@ -879,17 +862,14 @@
 
 /* Type-specific colors for Automation */
 .fha-type-badge.type-scheduled-job { background: #6f42c1; color: white; }
-.fha-type-badge.type-flow { background: #17a2b8; color: white; }
-.fha-type-badge.type-workflow { background: #fd7e14; color: white; }
-.fha-type-badge.type-notification { background: #28a745; color: white; }
-.fha-type-badge.type-ui-action { background: #dc3545; color: white; }
-.fha-type-badge.type-ui-policy { background: #20c997; color: white; }
-.fha-type-badge.type-inbound-email { background: #e83e8c; color: white; }
+.fha-type-badge.type-flow { background: #0d6efd; color: white; }
+.fha-type-badge.type-workflow { background: #0dcaf0; color: #000; }
+.fha-type-badge.type-notification { background: #fd7e14; color: white; }
+.fha-type-badge.type-ui-action { background: #20c997; color: white; }
 
 /* Type-specific colors for Integration */
-.fha-type-badge.type-data-source { background: #6f42c1; color: white; }
-.fha-type-badge.type-transform-map { background: #17a2b8; color: white; }
-.fha-type-badge.type-acl { background: #dc3545; color: white; }
+.fha-type-badge.type-data-source { background: #198754; color: white; }
+.fha-type-badge.type-transform-map { background: #6610f2; color: white; }
 
 /* Default type badge */
 .fha-type-badge.type-default { background: #6c757d; color: white; }
@@ -1159,14 +1139,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>2</sys_mod_count>
+        <sys_mod_count>6</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 01:21:14</sys_updated_on>
+        <sys_updated_on>2026-01-04 03:21:56</sys_updated_on>
         <template><![CDATA[<div class="fha-results-page">
   
   <!-- Page Header -->
@@ -1472,6 +1452,8 @@
                 <th width="150">${Type}</th>
                 <th>${Name}</th>
                 <th width="100">${Status}</th>
+                <th width="100">${Target Table}</th>
+
                 <th width="80">${Action}</th>
               </tr>
             </thead>
@@ -1484,6 +1466,8 @@
                     {{item.active ? '${Active}' : '${Inactive}'}}
                   </span>
                 </td>
+                                <td>{{item.trigger_table}}</td>
+
                 <td>
                   <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
                     <i class="fa fa-external-link"></i>

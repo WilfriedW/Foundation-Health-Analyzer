@@ -187,7 +187,7 @@ FHCheckAutomation.prototype = {
         try {
             var gr = new GlideRecord('sys_hub_flow');
             if (gr.isValid()) {
-                gr.addQuery('trigger_table', 'IN', tablesToCheck.join(','));
+                gr.addQuery('label_cache', 'LIKE', tablesToCheck.join(','));
                 gr.query();
                 
                 while (gr.next()) {
@@ -492,7 +492,7 @@ FHCheckAutomation.prototype = {
                 gr.query();
                 
                 while (gr.next()) {
-                    var emailTable = self._safeGetValue(gr, 'target_table', ctx);
+                    var emailTable = self._safeGetValue(gr, 'table', ctx);
                     var activeVal = gr.getValue('active');
                     var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
                     
@@ -705,13 +705,13 @@ FHCheckAutomation.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:21:10</sys_created_on>
         <sys_id>7209c240835a321083e1b4a6feaad310</sys_id>
-        <sys_mod_count>2</sys_mod_count>
+        <sys_mod_count>3</sys_mod_count>
         <sys_name>FHCheckAutomation</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_7209c240835a321083e1b4a6feaad310</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 02:15:36</sys_updated_on>
+        <sys_updated_on>2026-01-04 03:18:50</sys_updated_on>
     </sys_script_include>
 </record_update>
