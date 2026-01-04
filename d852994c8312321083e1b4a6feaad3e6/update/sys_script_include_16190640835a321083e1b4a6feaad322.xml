@@ -43,6 +43,9 @@ FHCheckIntegration.prototype = {
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
         
+        // Register the integration category
+        ctx.registerCategory('integration', 'Integrations', 'fa-plug');
+        
         // Get tables to check from context (uses centralized logic)
         var tablesToCheck = ctx.getTablesToCheck();
         ctx.metrics.integration_tables_checked = tablesToCheck;
@@ -114,6 +117,13 @@ FHCheckIntegration.prototype = {
                 });
             }
         }
+        
+        // Add to category
+        ctx.addCategoryItems('integration', 'data_source', 'Data Sources', dataSources, {
+            table: 'sys_data_source',
+            icon: 'fa-database',
+            color: '#6f42c1'
+        });
         
         ctx.metrics.data_sources = dataSources;
         ctx.metrics.data_source_count = dataSources.length;
@@ -221,6 +231,13 @@ FHCheckIntegration.prototype = {
             }
         }
         
+        // Add to category
+        ctx.addCategoryItems('integration', 'transform_map', 'Transform Maps', transformMaps, {
+            table: 'sys_transform_map',
+            icon: 'fa-exchange-alt',
+            color: '#17a2b8'
+        });
+        
         ctx.metrics.transform_maps = transformMaps;
         ctx.metrics.transform_map_count = transformMaps.length;
         ctx.metrics.active_transform_map_count = activeCount;
@@ -320,6 +337,13 @@ FHCheckIntegration.prototype = {
             }
         }
         
+        // Add to category
+        ctx.addCategoryItems('integration', 'acl', 'ACLs', acls, {
+            table: 'sys_security_acl',
+            icon: 'fa-lock',
+            color: '#dc3545'
+        });
+        
         ctx.metrics.acls = acls;
         ctx.metrics.acl_count = acls.length;
         ctx.metrics.acl_direct_count = acls.filter(function(a) { return !a.inherited; }).length;
@@ -374,6 +398,13 @@ FHCheckIntegration.prototype = {
                 active: self._safeGetValue(gr, 'active') === 'true'
             });
         }
+        
+        // Add to category
+        ctx.addCategoryItems('integration', 'rest_api', 'REST APIs', restApis, {
+            table: 'sys_ws_operation',
+            icon: 'fa-plug',
+            color: '#28a745'
+        });
         
         ctx.metrics.rest_apis = restApis;
         ctx.metrics.rest_api_count = restApis.length;
