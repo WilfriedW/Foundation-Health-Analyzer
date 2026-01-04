@@ -1054,7 +1054,8 @@
             // Include options
             deep_scan: isTrue(configGr.getValue('deep_scan')),
             include_children_tables: isTrue(configGr.getValue('include_children_tables')),
-            analyze_references: isTrue(configGr.getValue('analyze_references'))
+            analyze_references: isTrue(configGr.getValue('analyze_references')),
+            include_ldap: isTrue(configGr.getValue('include_ldap'))
         });
     }
     
@@ -1255,6 +1256,12 @@
                        ng-class="t.analyze_references ? 'fha-option-enabled' : 'fha-option-disabled'">
                     <i class="fa" ng-class="t.analyze_references ? 'fa-check-circle' : 'fa-times-circle'"></i>
                     ${Analyze References}
+                  </div>
+                  <!-- Include LDAP -->
+                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px;"
+                       ng-class="t.include_ldap ? 'fha-option-enabled' : 'fha-option-disabled'">
+                    <i class="fa" ng-class="t.include_ldap ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    ${Include LDAP}
                   </div>
                 </div>
               </div>

@@ -207,6 +207,210 @@ FHCheckTable.prototype = {
         if (customFields.length > 50) {
             ctx.addIssue('TOO_MANY_CUSTOM_FIELDS', 'Table has ' + customFields.length + ' custom fields. Consider consolidation.', 'medium');
         }
+        
+        // Deep scan: Check which scripts update custom fields
+        if (this._getOption(ctx, 'deep_scan', false)) {
+            this._analyzeFieldUpdaters(ctx, customFields);
+        }
+    },
+
+    /**
+     * Analyze which scripts update custom fields
+     * @private
+     * @param {Object} ctx - Analysis context
+     * @param {Array} customFields - List of custom fields
+     */
+    _analyzeFieldUpdaters: function(ctx, customFields) {
+        var tableName = String(ctx.config.table_name);
+        var self = this;
+        var fieldUpdaters = {};
+        
+        // Initialize field updaters map
+        customFields.forEach(function(field) {
+            fieldUpdaters[field.name] = {
+                field_name: field.name,
+                field_label: field.label,
+                updated_by: []
+            };
+        });
+        
+        // Check Business Rules
+        var brGr = new GlideRecord('sys_script');
+        brGr.addQuery('collection', tableName);
+        brGr.addQuery('active', true);
+        brGr.query();
+        
+        while (brGr.next()) {
+            var brScript = self._safeGetValue(brGr, 'script');
+            var brName = self._safeGetValue(brGr, 'name') || 'Unnamed';
+            var brSysId = brGr.getUniqueValue();
+            
+            customFields.forEach(function(field) {
+                if (self._scriptUpdatesField(brScript, field.name)) {
+                    fieldUpdaters[field.name].updated_by.push({
+                        type: 'Business Rule',
+                        name: brName,
+                        sys_id: brSysId,
+                        table: 'sys_script'
+                    });
+                }
+            });
+        }
+        
+        // Check Scheduled Jobs
+        var jobGr = new GlideRecord('sysauto_script');
+        jobGr.addQuery('active', true);
+        jobGr.query();
+        
+        while (jobGr.next()) {
+            var jobScript = self._safeGetValue(jobGr, 'script');
+            var jobName = self._safeGetValue(jobGr, 'name') || 'Unnamed';
+            var jobSysId = jobGr.getUniqueValue();
+            
+            // Check if job references our table AND updates our fields
+            if (self._scriptContainsTable(jobScript, tableName)) {
+                customFields.forEach(function(field) {
+                    if (self._scriptUpdatesField(jobScript, field.name)) {
+                        fieldUpdaters[field.name].updated_by.push({
+                            type: 'Scheduled Job',
+                            name: jobName,
+                            sys_id: jobSysId,
+                            table: 'sysauto_script'
+                        });
+                    }
+                });
+            }
+        }
+        
+        // Check Flows (script actions)
+        try {
+            var flowGr = new GlideRecord('sys_hub_flow');
+            if (flowGr.isValid()) {
+                flowGr.addQuery('trigger_table', tableName);
+                flowGr.addQuery('active', true);
+                flowGr.query();
+                
+                while (flowGr.next()) {
+                    var flowName = self._safeGetValue(flowGr, 'name') || 'Unnamed';
+                    var flowSysId = flowGr.getUniqueValue();
+                    
+                    // Check flow actions for field updates
+                    var actionGr = new GlideRecord('sys_hub_action_instance');
+                    actionGr.addQuery('flow', flowSysId);
+                    actionGr.query();
+                    
+                    while (actionGr.next()) {
+                        var actionInputs = self._safeGetValue(actionGr, 'inputs');
+                        customFields.forEach(function(field) {
+                            if (actionInputs && actionInputs.indexOf(field.name) > -1) {
+                                // Check if not already added
+                                var alreadyAdded = fieldUpdaters[field.name].updated_by.some(function(u) {
+                                    return u.type === 'Flow' && u.sys_id === flowSysId;
+                                });
+                                if (!alreadyAdded) {
+                                    fieldUpdaters[field.name].updated_by.push({
+                                        type: 'Flow',
+                                        name: flowName,
+                                        sys_id: flowSysId,
+                                        table: 'sys_hub_flow'
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            // Flow Designer might not exist
+        }
+        
+        // Check Transform Maps
+        var tmGr = new GlideRecord('sys_transform_map');
+        tmGr.addQuery('target_table', tableName);
+        tmGr.addQuery('active', true);
+        tmGr.query();
+        
+        while (tmGr.next()) {
+            var tmName = self._safeGetValue(tmGr, 'name') || 'Unnamed';
+            var tmSysId = tmGr.getUniqueValue();
+            
+            // Check field maps
+            var fmGr = new GlideRecord('sys_transform_entry');
+            fmGr.addQuery('map', tmSysId);
+            fmGr.query();
+            
+            while (fmGr.next()) {
+                var targetField = self._safeGetValue(fmGr, 'target_field');
+                if (fieldUpdaters[targetField]) {
+                    fieldUpdaters[targetField].updated_by.push({
+                        type: 'Transform Map',
+                        name: tmName,
+                        sys_id: tmSysId,
+                        table: 'sys_transform_map'
+                    });
+                }
+            }
+        }
+        
+        // Update custom fields with updater info
+        ctx.metrics.custom_fields = ctx.metrics.custom_fields.map(function(field) {
+            field.updated_by = fieldUpdaters[field.name] ? fieldUpdaters[field.name].updated_by : [];
+            return field;
+        });
+        
+        // Store summary
+        ctx.metrics.field_updaters = fieldUpdaters;
+    },
+
+    /**
+     * Check if a script updates a specific field
+     * @private
+     * @param {String} script - Script content
+     * @param {String} fieldName - Field name to check
+     * @returns {Boolean} True if script updates the field
+     */
+    _scriptUpdatesField: function(script, fieldName) {
+        if (!script || !fieldName) return false;
+        
+        // Patterns that indicate field update:
+        // current.field_name = 
+        // gr.field_name = 
+        // record.field_name = 
+        // setValue('field_name', ...)
+        var patterns = [
+            new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
+            new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i")
+        ];
+        
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+        
+        return false;
+    },
+
+    /**
+     * Check if script contains exact table reference
+     * @private
+     */
+    _scriptContainsTable: function(script, tableName) {
+        if (!script || !tableName) return false;
+        
+        var patterns = [
+            new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i")
+        ];
+        
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+        
+        return false;
     },
 
     /**

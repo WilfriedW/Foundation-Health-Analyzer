@@ -61,6 +61,7 @@ FHCheckAutomation.prototype = {
         this._checkNotifications(ctx, tablesToCheck);
         this._checkUIActions(ctx);
         this._checkUIPolicies(ctx);
+        this._checkInboundEmailActions(ctx, tablesToCheck);
         
         // Deep scan: analyze automation scripts
         if (deepScan) {
@@ -536,6 +537,125 @@ FHCheckAutomation.prototype = {
                 record_table: 'sys_ui_policy',
                 record_filter: 'tableIN' + tablesToCheck.join(',') + '^active=true',
                 category: 'ui'
+            });
+        }
+    },
+
+    /**
+     * Check inbound email actions for this table
+     * @private
+     * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
+     */
+    _checkInboundEmailActions: function(ctx, tablesToCheck) {
+        var tableName = String(ctx.config.table_name);
+        var inboundEmails = [];
+        var self = this;
+        
+        // Get all tables in hierarchy (current table + parent tables)
+        var parentTables = self._getTableHierarchy(tableName);
+        
+        // Merge with config tables (children) and remove duplicates
+        var allTables = parentTables.slice();
+        tablesToCheck.forEach(function(t) {
+            if (allTables.indexOf(t) === -1) {
+                allTables.push(t);
+            }
+        });
+        
+        // Check sysevent_in_email_action (Inbound Email Actions)
+        try {
+            var gr = new GlideRecord('sysevent_in_email_action');
+            if (gr.isValid()) {
+                gr.addQuery('target_table', 'IN', allTables.join(','));
+                gr.query();
+                
+                while (gr.next()) {
+                    var emailTable = self._safeGetValue(gr, 'target_table');
+                    var activeVal = gr.getValue('active');
+                    var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+                    
+                    var emailInfo = {
+                        sys_id: gr.getUniqueValue(),
+                        name: self._safeGetValue(gr, 'name') || 'Unnamed',
+                        table: emailTable,
+                        inherited: (emailTable !== tableName),
+                        active: isActive,
+                        type: self._safeGetValue(gr, 'type'),
+                        action_type: self._safeGetValue(gr, 'action_type'),
+                        stop_processing: self._safeGetValue(gr, 'stop_processing') === 'true'
+                    };
+                    inboundEmails.push(emailInfo);
+                    
+                    if (!isActive) {
+                        ctx.addIssue('INACTIVE_INBOUND_EMAIL', 'Inactive inbound email action: "' + emailInfo.name + '"', 'low', {
+                            record_table: 'sysevent_in_email_action',
+                            record_sys_id: gr.getUniqueValue(),
+                            category: 'automation'
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            // Table might not be accessible
+        }
+        
+        // Check sys_hub_trigger_instance (Flow Triggers including email)
+        try {
+            var triggerGr = new GlideRecord('sys_hub_trigger_instance');
+            if (triggerGr.isValid()) {
+                // Email triggers
+                triggerGr.addQuery('trigger_type', 'CONTAINS', 'email');
+                triggerGr.query();
+                
+                while (triggerGr.next()) {
+                    // Check if trigger is related to our table
+                    var triggerConfig = self._safeGetValue(triggerGr, 'trigger_config');
+                    var isRelated = false;
+                    
+                    allTables.forEach(function(t) {
+                        if (triggerConfig && triggerConfig.indexOf(t) > -1) {
+                            isRelated = true;
+                        }
+                    });
+                    
+                    if (isRelated) {
+                        var flowRef = triggerGr.flow;
+                        var flowName = '';
+                        if (flowRef && !flowRef.nil()) {
+                            var flowGr = flowRef.getRefRecord();
+                            if (flowGr) {
+                                flowName = self._safeGetValue(flowGr, 'name');
+                            }
+                        }
+                        
+                        inboundEmails.push({
+                            sys_id: triggerGr.getUniqueValue(),
+                            name: flowName || 'Flow Trigger',
+                            table: tableName,
+                            inherited: false,
+                            active: true,
+                            type: 'flow_trigger',
+                            action_type: 'email',
+                            stop_processing: false
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            // Table might not exist
+        }
+        
+        ctx.metrics.inbound_email_actions = inboundEmails;
+        ctx.metrics.inbound_email_count = inboundEmails.length;
+        ctx.metrics.inbound_email_active_count = inboundEmails.filter(function(e) { return e.active; }).length;
+        ctx.metrics.inbound_email_direct_count = inboundEmails.filter(function(e) { return !e.inherited; }).length;
+        
+        if (inboundEmails.length > 10) {
+            ctx.addIssue('MANY_INBOUND_EMAILS', 'Table has ' + inboundEmails.length + ' inbound email actions. Review for efficiency.', 'low', {
+                record_table: 'sysevent_in_email_action',
+                record_filter: 'target_tableIN' + allTables.join(','),
+                category: 'automation'
             });
         }
     },

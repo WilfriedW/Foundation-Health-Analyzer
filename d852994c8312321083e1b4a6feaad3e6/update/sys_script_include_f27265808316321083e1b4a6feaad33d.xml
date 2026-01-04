@@ -98,7 +98,8 @@ FHAnalyzer.prototype = {
                 active: this._isTrue(gr.getValue('active')),
                 include_children_tables: this._isTrue(gr.getValue('include_children_tables')),
                 analyze_references: this._isTrue(gr.getValue('analyze_references')),
-                deep_scan: this._isTrue(gr.getValue('deep_scan'))
+                deep_scan: this._isTrue(gr.getValue('deep_scan')),
+                include_ldap: this._isTrue(gr.getValue('include_ldap'))
             };
         }
         return null;

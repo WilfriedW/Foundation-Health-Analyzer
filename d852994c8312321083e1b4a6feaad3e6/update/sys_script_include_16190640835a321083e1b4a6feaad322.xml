@@ -52,6 +52,7 @@ FHCheckIntegration.prototype = {
         var includeChildren = this._getOption(ctx, 'include_children_tables', false);
         var deepScan = this._getOption(ctx, 'deep_scan', false);
         var analyzeReferences = this._getOption(ctx, 'analyze_references', false);
+        var includeLdap = this._getOption(ctx, 'include_ldap', false);
         
         // Get tables to check
         var tablesToCheck = this._getTablesToCheck(ctx, includeChildren);
@@ -71,6 +72,11 @@ FHCheckIntegration.prototype = {
         // Analyze references: check integration dependencies
         if (analyzeReferences) {
             this._analyzeIntegrationDependencies(ctx);
+        }
+        
+        // LDAP Analysis
+        if (includeLdap) {
+            this._analyzeLdapConfiguration(ctx, tablesToCheck);
         }
     },
 
@@ -580,6 +586,208 @@ FHCheckIntegration.prototype = {
                 category: 'integration'
             });
         }
+    },
+
+    /**
+     * Analyze LDAP configuration for this table
+     * @private
+     * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
+     */
+    _analyzeLdapConfiguration: function(ctx, tablesToCheck) {
+        var tableName = String(ctx.config.table_name);
+        var self = this;
+        var ldapAnalysis = {
+            servers: [],
+            data_sources: [],
+            transform_maps: [],
+            field_maps: [],
+            attribute_mappings: [],
+            issues: []
+        };
+        
+        // 1. Find LDAP Data Sources for this table
+        var dsGr = new GlideRecord('sys_data_source');
+        dsGr.addQuery('type', 'LDAP');
+        dsGr.addQuery('import_set_table_name', 'IN', tablesToCheck.join(','));
+        dsGr.addEncodedQuery('import_set_table_nameLIKEldap^ORimport_set_table_nameLIKEu_ldap');
+        dsGr.query();
+        
+        while (dsGr.next()) {
+            var dsName = self._safeGetValue(dsGr, 'name');
+            var dsSysId = dsGr.getUniqueValue();
+            var activeVal = dsGr.getValue('active');
+            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+            
+            var dsInfo = {
+                sys_id: dsSysId,
+                name: dsName,
+                active: isActive,
+                import_set_table: self._safeGetValue(dsGr, 'import_set_table_name'),
+                connection_url: self._safeGetValue(dsGr, 'connection_url'),
+                ldap_target: self._safeGetValue(dsGr, 'ldap_target'),
+                last_run: self._safeGetValue(dsGr, 'last_run_on'),
+                last_run_result: self._safeGetValue(dsGr, 'last_run_result')
+            };
+            ldapAnalysis.data_sources.push(dsInfo);
+            
+            if (!isActive) {
+                ldapAnalysis.issues.push({
+                    code: 'INACTIVE_LDAP_DATASOURCE',
+                    message: 'LDAP Data Source "' + dsName + '" is inactive',
+                    severity: 'low',
+                    record_table: 'sys_data_source',
+                    record_sys_id: dsSysId
+                });
+            }
+            
+            // Get associated Transform Maps
+            var tmGr = new GlideRecord('sys_transform_map');
+            tmGr.addQuery('source_table', dsInfo.import_set_table);
+            tmGr.addQuery('target_table', 'IN', tablesToCheck.join(','));
+            tmGr.query();
+            
+            while (tmGr.next()) {
+                var tmName = self._safeGetValue(tmGr, 'name');
+                var tmSysId = tmGr.getUniqueValue();
+                var tmActiveVal = tmGr.getValue('active');
+                var tmIsActive = (tmActiveVal === 'true' || tmActiveVal === '1' || tmActiveVal === true);
+                
+                var tmInfo = {
+                    sys_id: tmSysId,
+                    name: tmName,
+                    active: tmIsActive,
+                    source_table: self._safeGetValue(tmGr, 'source_table'),
+                    target_table: self._safeGetValue(tmGr, 'target_table'),
+                    data_source: dsName,
+                    coalesce_field: self._safeGetValue(tmGr, 'coalesce_field'),
+                    field_maps: []
+                };
+                
+                // Get Field Maps for this Transform Map
+                var fmGr = new GlideRecord('sys_transform_entry');
+                fmGr.addQuery('map', tmSysId);
+                fmGr.orderBy('order');
+                fmGr.query();
+                
+                while (fmGr.next()) {
+                    var sourceField = self._safeGetValue(fmGr, 'source_field');
+                    var targetField = self._safeGetValue(fmGr, 'target_field');
+                    var coalesce = self._safeGetValue(fmGr, 'coalesce') === 'true';
+                    var useSourceScript = self._safeGetValue(fmGr, 'use_source_script') === 'true';
+                    
+                    var fmInfo = {
+                        sys_id: fmGr.getUniqueValue(),
+                        source_field: sourceField,
+                        target_field: targetField,
+                        coalesce: coalesce,
+                        use_script: useSourceScript,
+                        source_script: useSourceScript ? self._safeGetValue(fmGr, 'source_script') : null,
+                        order: parseInt(self._safeGetValue(fmGr, 'order'), 10) || 0
+                    };
+                    tmInfo.field_maps.push(fmInfo);
+                    ldapAnalysis.field_maps.push(fmInfo);
+                    
+                    // Track attribute mapping
+                    if (sourceField) {
+                        ldapAnalysis.attribute_mappings.push({
+                            ldap_attribute: sourceField,
+                            servicenow_field: targetField,
+                            transform_map: tmName,
+                            coalesce: coalesce,
+                            uses_script: useSourceScript
+                        });
+                    }
+                }
+                
+                ldapAnalysis.transform_maps.push(tmInfo);
+                
+                // Check for issues
+                if (!tmIsActive) {
+                    ldapAnalysis.issues.push({
+                        code: 'INACTIVE_LDAP_TRANSFORM',
+                        message: 'LDAP Transform Map "' + tmName + '" is inactive',
+                        severity: 'low',
+                        record_table: 'sys_transform_map',
+                        record_sys_id: tmSysId
+                    });
+                }
+                
+                if (tmInfo.field_maps.length === 0) {
+                    ldapAnalysis.issues.push({
+                        code: 'NO_LDAP_FIELD_MAPS',
+                        message: 'LDAP Transform Map "' + tmName + '" has no field mappings',
+                        severity: 'medium',
+                        record_table: 'sys_transform_map',
+                        record_sys_id: tmSysId
+                    });
+                }
+                
+                if (!tmInfo.coalesce_field) {
+                    ldapAnalysis.issues.push({
+                        code: 'NO_LDAP_COALESCE',
+                        message: 'LDAP Transform Map "' + tmName + '" has no coalesce field (may create duplicates)',
+                        severity: 'medium',
+                        record_table: 'sys_transform_map',
+                        record_sys_id: tmSysId
+                    });
+                }
+            }
+        }
+        
+        // 2. Check for LDAP Servers
+        try {
+            var serverGr = new GlideRecord('ldap_server_config');
+            if (serverGr.isValid()) {
+                serverGr.addQuery('active', true);
+                serverGr.query();
+                
+                while (serverGr.next()) {
+                    ldapAnalysis.servers.push({
+                        sys_id: serverGr.getUniqueValue(),
+                        name: self._safeGetValue(serverGr, 'name'),
+                        server_url: self._safeGetValue(serverGr, 'server_url'),
+                        active: true
+                    });
+                }
+            }
+        } catch (e) {
+            // LDAP tables might not be accessible
+        }
+        
+        // 3. Summary metrics
+        ctx.metrics.ldap_analysis = ldapAnalysis;
+        ctx.metrics.ldap_data_source_count = ldapAnalysis.data_sources.length;
+        ctx.metrics.ldap_transform_map_count = ldapAnalysis.transform_maps.length;
+        ctx.metrics.ldap_field_map_count = ldapAnalysis.field_maps.length;
+        ctx.metrics.ldap_attribute_count = ldapAnalysis.attribute_mappings.length;
+        ctx.metrics.ldap_server_count = ldapAnalysis.servers.length;
+        
+        // Add issues to context
+        ldapAnalysis.issues.forEach(function(issue) {
+            ctx.addIssue(issue.code, issue.message, issue.severity, {
+                record_table: issue.record_table,
+                record_sys_id: issue.record_sys_id,
+                category: 'ldap'
+            });
+        });
+        
+        // Summary issues
+        if (ldapAnalysis.data_sources.length === 0 && ldapAnalysis.transform_maps.length === 0) {
+            ctx.addIssue('NO_LDAP_CONFIG', 'No LDAP configuration found for table "' + tableName + '"', 'low', {
+                category: 'ldap'
+            });
+        }
+        
+        // Check for unmapped LDAP attributes (common attributes that should be mapped)
+        var commonLdapAttributes = ['cn', 'sn', 'givenName', 'mail', 'telephoneNumber', 'department', 'title', 'manager', 'memberOf'];
+        var mappedAttributes = ldapAnalysis.attribute_mappings.map(function(m) { return m.ldap_attribute.toLowerCase(); });
+        
+        commonLdapAttributes.forEach(function(attr) {
+            if (mappedAttributes.indexOf(attr.toLowerCase()) === -1 && ldapAnalysis.transform_maps.length > 0) {
+                // Only add as info, not an issue - it's optional
+            }
+        });
     },
 
     type: 'FHCheckIntegration'
