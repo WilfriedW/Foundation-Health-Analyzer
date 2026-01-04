@@ -226,16 +226,130 @@
     border-left-color: #059669;
 }
 
-.fha-architecture-diagram {
+/* Architecture Visual Diagram */
+.fha-arch-visual {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 12px;
+    padding: 30px;
+}
+
+.fha-arch-layer {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
     padding: 20px;
-    font-family: 'Monaco', 'Menlo', monospace;
+    text-align: center;
+}
+
+.fha-arch-layer-title {
+    font-weight: 700;
+    font-size: 16px;
+    color: #1a5a96;
+    margin-bottom: 10px;
+}
+
+.fha-arch-ui {
+    border-color: #60a5fa;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.fha-arch-entry {
+    border-color: #34d399;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.fha-arch-engine {
+    border-color: #fbbf24;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.fha-arch-context {
+    border-color: #a78bfa;
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+}
+
+.fha-arch-boxes {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.fha-arch-box {
+    background: white;
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    padding: 10px 15px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1e40af;
+}
+
+.fha-arch-methods {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.fha-arch-methods code {
+    background: rgba(0,0,0,0.05);
+    padding: 4px 10px;
+    border-radius: 4px;
     font-size: 12px;
-    overflow-x: auto;
-    white-space: pre;
-    line-height: 1.4;
+    color: #374151;
+}
+
+.fha-arch-desc {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.fha-arch-arrow {
+    text-align: center;
+    padding: 10px 0;
+    color: #9ca3af;
+    font-size: 20px;
+}
+
+.fha-arch-checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.fha-arch-check {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.fha-arch-check-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1a5a96;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.fha-arch-check-title i {
+    margin-right: 6px;
+}
+
+.fha-arch-check ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    color: #4b5563;
+}
+
+.fha-arch-check li {
+    margin-bottom: 4px;
 }
 
 .fha-option-card {
@@ -697,48 +811,83 @@ return max(0, score)</div>
         <p><span class="fha-code-inline">x_1310794_founda_0</span> - Foundation Health Analyzer</p>
 
         <h3>${Architecture Diagram}</h3>
-        <div class="fha-architecture-diagram">┌─────────────────────────────────────────────────────────────────┐
-│                     Service Portal (UI Layer)                    │
-│  ┌─────────────────┐  ┌──────────────────────────────────────┐  │
-│  │   FHA Dashboard │  │       FHA Analysis Results           │  │
-│  │     Widget      │  │            Widget                    │  │
-│  └────────┬────────┘  └──────────────────┬───────────────────┘  │
-└───────────┼──────────────────────────────┼──────────────────────┘
-            │                              │
-            ▼                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      FHAnalyzer (Entry Point)                    │
-│  - getAvailableAnalyses()                                        │
-│  - runAnalysis(configSysId)                                      │
-│  - getAnalysisResult(sysId)                                      │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     FHAnalysisEngine                             │
-│  - Orchestrates analysis execution                               │
-│  - Runs registered checks via FHCheckRegistry                    │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-            ┌────────────────┼────────────────┐
-            ▼                ▼                ▼
-┌───────────────────┐ ┌───────────────┐ ┌───────────────────┐
-│   FHCheckTable    │ │FHCheckAuto-   │ │ FHCheckIntegration│
-│   - Fields        │ │  mation       │ │ - Data Sources    │
-│   - Business Rules│ │ - Scheduled   │ │ - Transform Maps  │
-│   - Client Scripts│ │   Jobs        │ │ - ACLs            │
-│   - Deep Scan     │ │ - Flows       │ │ - REST APIs       │
-│   - Children      │ │ - Workflows   │ │ - Dependencies    │
-│   - References    │ │ - Notifs      │ │                   │
-└───────────────────┘ └───────────────┘ └───────────────────┘
-            │                │                │
-            └────────────────┼────────────────┘
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    FHAnalysisContext                             │
-│  - Stores issues, metrics, and analysis state                    │
-│  - addIssue(code, message, severity, metadata)                   │
-└─────────────────────────────────────────────────────────────────┘</div>
+        <div class="fha-arch-visual">
+            <!-- UI Layer -->
+            <div class="fha-arch-layer fha-arch-ui">
+                <div class="fha-arch-layer-title">Service Portal (UI Layer)</div>
+                <div class="fha-arch-boxes">
+                    <div class="fha-arch-box">FHA Dashboard Widget</div>
+                    <div class="fha-arch-box">FHA Analysis Results Widget</div>
+                    <div class="fha-arch-box">FHA Documentation Widget</div>
+                </div>
+            </div>
+            <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
+            
+            <!-- Entry Point -->
+            <div class="fha-arch-layer fha-arch-entry">
+                <div class="fha-arch-layer-title">FHAnalyzer (Entry Point)</div>
+                <div class="fha-arch-methods">
+                    <code>getAvailableAnalyses()</code>
+                    <code>runAnalysis(configSysId)</code>
+                    <code>getAnalysisResult(sysId)</code>
+                </div>
+            </div>
+            <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
+            
+            <!-- Engine -->
+            <div class="fha-arch-layer fha-arch-engine">
+                <div class="fha-arch-layer-title">FHAnalysisEngine</div>
+                <div class="fha-arch-desc">Orchestrates analysis execution via FHCheckRegistry</div>
+            </div>
+            <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
+            
+            <!-- Check Modules -->
+            <div class="fha-arch-checks">
+                <div class="fha-arch-check">
+                    <div class="fha-arch-check-title"><i class="fa fa-table"></i> FHCheckTable</div>
+                    <ul>
+                        <li>Fields &amp; Fill Rates</li>
+                        <li>Business Rules</li>
+                        <li>Client Scripts</li>
+                        <li>Deep Scan (scripts)</li>
+                        <li>Children Tables</li>
+                        <li>Reference Analysis</li>
+                    </ul>
+                </div>
+                <div class="fha-arch-check">
+                    <div class="fha-arch-check-title"><i class="fa fa-cogs"></i> FHCheckAutomation</div>
+                    <ul>
+                        <li>Scheduled Jobs</li>
+                        <li>Flows (Flow Designer)</li>
+                        <li>Workflows (Legacy)</li>
+                        <li>Notifications</li>
+                        <li>UI Actions</li>
+                        <li>UI Policies</li>
+                    </ul>
+                </div>
+                <div class="fha-arch-check">
+                    <div class="fha-arch-check-title"><i class="fa fa-exchange"></i> FHCheckIntegration</div>
+                    <ul>
+                        <li>Data Sources</li>
+                        <li>Transform Maps</li>
+                        <li>ACLs (Security)</li>
+                        <li>REST APIs</li>
+                        <li>Import Sets</li>
+                        <li>Dependencies</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
+            
+            <!-- Context -->
+            <div class="fha-arch-layer fha-arch-context">
+                <div class="fha-arch-layer-title">FHAnalysisContext</div>
+                <div class="fha-arch-desc">Stores issues, metrics, and analysis state</div>
+                <div class="fha-arch-methods">
+                    <code>addIssue(code, message, severity, metadata)</code>
+                </div>
+            </div>
+        </div>
 
         <h3>${Data Model}</h3>
         <table class="fha-doc-table">

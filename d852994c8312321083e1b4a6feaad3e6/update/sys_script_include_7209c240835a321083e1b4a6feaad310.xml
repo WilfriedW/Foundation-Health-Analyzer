@@ -99,6 +99,42 @@ FHCheckAutomation.prototype = {
     },
 
     /**
+     * Check if script contains exact table reference (not partial match)
+     * @private
+     * @param {String} script - Script content
+     * @param {String} tableName - Table name to search
+     * @returns {Boolean} True if exact match found
+     */
+    _scriptContainsTable: function(script, tableName) {
+        if (!script || !tableName) return false;
+        
+        // Patterns that indicate exact table usage:
+        // 1. GlideRecord('table_name') or GlideRecord("table_name")
+        // 2. new GlideAggregate('table_name')
+        // 3. table: 'table_name' or table: "table_name"
+        // 4. addQuery('table', 'table_name')
+        
+        // Build regex patterns for exact table name match
+        var patterns = [
+            // GlideRecord/GlideAggregate with quotes
+            new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            // Table property assignment
+            new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i"),
+            // setTableName
+            new RegExp("setTableName\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i")
+        ];
+        
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+        
+        return false;
+    },
+
+    /**
      * Check scheduled jobs that reference this table
      * @private
      * @param {Object} ctx - Analysis context
@@ -109,19 +145,26 @@ FHCheckAutomation.prototype = {
         var scheduledJobs = [];
         var self = this;
         
-        // Check sys_trigger for scheduled jobs - search for any table in the list
+        // Query all scheduled jobs with scripts that might contain our tables
+        // We'll do a broader search first, then filter with exact matching
         var gr = new GlideRecord('sysauto_script');
-        if (tablesToCheck.length === 1) {
-            gr.addQuery('script', 'CONTAINS', tablesToCheck[0]);
-        } else {
-            var qc = gr.addQuery('script', 'CONTAINS', tablesToCheck[0]);
-            for (var i = 1; i < tablesToCheck.length; i++) {
-                qc.addOrCondition('script', 'CONTAINS', tablesToCheck[i]);
-            }
-        }
+        gr.addNotNullQuery('script');
         gr.query();
         
         while (gr.next()) {
+            var script = self._safeGetValue(gr, 'script');
+            
+            // Check if script contains exact reference to any of our tables
+            var matchedTable = null;
+            for (var i = 0; i < tablesToCheck.length; i++) {
+                if (self._scriptContainsTable(script, tablesToCheck[i])) {
+                    matchedTable = tablesToCheck[i];
+                    break;
+                }
+            }
+            
+            if (!matchedTable) continue; // Skip if no exact match
+            
             var jobName = self._safeGetValue(gr, 'name') || 'Unnamed';
             // Check active field - can be 'true', '1', or boolean
             var activeVal = gr.getValue('active');
@@ -131,6 +174,7 @@ FHCheckAutomation.prototype = {
                 sys_id: gr.getUniqueValue(),
                 name: jobName,
                 active: isActive,
+                matched_table: matchedTable,
                 run_type: self._safeGetValue(gr, 'run_type'),
                 next_action: self._safeGetValue(gr, 'next_action')
             };
