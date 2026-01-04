@@ -74,15 +74,36 @@ FHCheckSecurity.prototype = {
             var aclName = ctx.safeGetValue(gr, 'name');
             var operation = ctx.safeGetValue(gr, 'operation');
 
-            // Determine which table this ACL is for
-            // Check exact match first, then check if it starts with table name followed by a dot
-            var aclTable = tableName;
+            // Filter ACLs to match only valid patterns:
+            // - Exact table name: "sys_user"
+            // - Table name followed by dot: "sys_user.field_name" or "sys_user.*"
+            // Exclude false positives like "sys_user_has_role" (different table)
+            var isValidACL = false;
+            var aclTable = null;
+            
             for (var j = 0; j < tablesToCheck.length; j++) {
                 var checkTable = tablesToCheck[j];
-                if (aclName === checkTable || aclName.indexOf(checkTable + '.') === 0) {
+                
+                // Exact match: aclName === checkTable
+                if (aclName === checkTable) {
+                    isValidACL = true;
                     aclTable = checkTable;
                     break;
                 }
+                
+                // Pattern match: aclName starts with checkTable + '.'
+                // This ensures we match "sys_user.field" but not "sys_user_has_role"
+                var tableWithDot = checkTable + '.';
+                if (aclName.indexOf(tableWithDot) === 0) {
+                    isValidACL = true;
+                    aclTable = checkTable;
+                    break;
+                }
+            }
+            
+            // Skip this ACL if it doesn't match any valid pattern
+            if (!isValidACL || !aclTable) {
+                continue;
             }
 
             var aclInfo = {
