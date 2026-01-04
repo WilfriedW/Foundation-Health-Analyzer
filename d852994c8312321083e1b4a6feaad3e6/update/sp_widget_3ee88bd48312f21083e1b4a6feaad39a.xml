@@ -1483,25 +1483,25 @@
       <!-- LDAP Summary Cards -->
       <div class="row" style="margin-bottom: 20px;">
         <div class="col-md-3">
-          <div class="fha-stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #1a5a96 0%, #2980b9 100%);">
             <div class="fha-stat-number">{{c.getLdapDataSources().length}}</div>
             <div class="fha-stat-label">${LDAP Data Sources}</div>
           </div>
         </div>
         <div class="col-md-3">
-          <div class="fha-stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);">
             <div class="fha-stat-number">{{c.getLdapTransformMaps().length}}</div>
             <div class="fha-stat-label">${Transform Maps}</div>
           </div>
         </div>
         <div class="col-md-3">
-          <div class="fha-stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #3498db 0%, #5dade2 100%);">
             <div class="fha-stat-number">{{c.getLdapAttributeMappings().length}}</div>
             <div class="fha-stat-label">${Attribute Mappings}</div>
           </div>
         </div>
         <div class="col-md-3">
-          <div class="fha-stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #5dade2 0%, #85c1e9 100%);">
             <div class="fha-stat-number">{{c.getLdapServers().length}}</div>
             <div class="fha-stat-label">${LDAP Servers}</div>
           </div>
