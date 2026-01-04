@@ -18,16 +18,14 @@ FHCheckSecurity.prototype = {
 
     /**
      * execute(ctx)
-     * Security checks entrypoint. Requires ctx.metrics.table_exists to be true.
+     * Security checks entrypoint. Requires table to exist.
      */
     execute: function(ctx) {
-        if (!ctx.metrics || !ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
 
-        ctx.registerCategory && ctx.registerCategory('security', 'Security', 'fa-shield-alt');
+        ctx.registerCategory('security', 'Security', 'fa-shield-alt');
 
-        var tablesToCheck = ctx.getTablesToCheck && ctx.getTablesToCheck();
-        ctx.metrics = ctx.metrics || {};
-        ctx.metrics.security_tables_checked = tablesToCheck;
+        var tablesToCheck = ctx.getTablesToCheck();
 
         this._checkACLs(ctx, tablesToCheck);
     },
@@ -85,36 +83,12 @@ FHCheckSecurity.prototype = {
             }
         }
 
-        // Use centralized helper to add UI items and metrics (preserving nested shape)
-        try {
-            this.utils.addCategoryAndMetrics(ctx, 'security', 'acls', 'ACLs', acls, {
-                table: 'sys_security_acl',
-                icon: 'fa-lock',
-                color: '#dc3545',
-                preserveNested: true,
-                countKeys: { total: 'acl_count', direct: 'acl_direct_count', inherited: 'acl_inherited_count' }
-            });
-
-            // Keep operations summary in the nested meta area for compatibility with existing widget keys
-            ctx.metrics = ctx.metrics || {};
-            // place summary under acls_meta to avoid clobbering the array
-            ctx.metrics.acls_meta = ctx.metrics.acls_meta || {};
-            ctx.metrics.acls_meta.acls_by_operation = aclsByOperation;
-        } catch (e) {
-            // fallback to original structure if helper fails
-            ctx.addCategoryItems && ctx.addCategoryItems('security', 'acl', 'ACLs', acls, {
-                table: 'sys_security_acl',
-                icon: 'fa-lock',
-                color: '#dc3545'
-            });
-
-            ctx.metrics.acls = acls;
-            ctx.metrics.acls = ctx.metrics.acls || [];
-            ctx.metrics.acls.acl_count = acls.length;
-            ctx.metrics.acls.acl_direct_count = acls.filter(function(a) { return !a.inherited; }).length;
-            ctx.metrics.acls.acl_inherited_count = acls.filter(function(a) { return a.inherited; }).length;
-            ctx.metrics.acls.acls_by_operation = aclsByOperation;
-        }
+        // Add to security category using addCategoryItems
+        ctx.addCategoryItems('security', 'acl', 'ACLs', acls, {
+            table: 'sys_security_acl',
+            icon: 'fa-lock',
+            color: '#dc3545'
+        });
 
         if (aclsByOperation.read === 0) {
             ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
