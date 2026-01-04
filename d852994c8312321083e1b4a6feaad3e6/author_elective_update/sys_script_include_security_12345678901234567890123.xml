@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="DELETE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHCheckSecurity</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHCheckSecurity</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHCheckSecurity = Class.create();
+FHCheckSecurity.prototype = {
+    initialize: function() {
+        this.utils = new FHScanUtils();
+        this.optionsHandler = new FHOptionsHandler();
+    },
+
+    /**
+     * execute(ctx)
+     * Security checks entrypoint. Requires ctx.metrics.table_exists to be true.
+     */
+    execute: function(ctx) {
+        if (!ctx.metrics || !ctx.metrics.table_exists) return;
+
+        ctx.registerCategory && ctx.registerCategory('security', 'Security', 'fa-shield-alt');
+
+        var tablesToCheck = ctx.getTablesToCheck && ctx.getTablesToCheck();
+        ctx.metrics = ctx.metrics || {};
+        ctx.metrics.security_tables_checked = tablesToCheck;
+
+        this._checkACLs(ctx, tablesToCheck);
+    },
+
+    /**
+     * _checkACLs - collect ACLs in the table hierarchy and compute summaries.
+     */
+    _checkACLs: function(ctx, tablesToCheck) {
+        var tableName = ctx.getTableName && ctx.getTableName();
+        tablesToCheck = tablesToCheck || [tableName];
+
+        var acls = [];
+        var aclsByOperation = { read: 0, write: 0, create: 0, delete: 0 };
+
+        // Build a GlideRecord query for ACLs affecting the table or parents.
+        var gr = new GlideRecord('sys_security_acl');
+
+        // Construct an encoded query: name starting with tableName or any parent table
+        var encoded = '';
+        for (var i = 0; i < tablesToCheck.length; i++) {
+            if (i === 0) encoded += 'nameSTARTSWITH' + tablesToCheck[i];
+            else encoded += '^ORnameSTARTSWITH' + tablesToCheck[i];
+        }
+        gr.addEncodedQuery(encoded);
+        gr.addQuery('active', true);
+        gr.query();
+
+        while (gr.next()) {
+            var aclName = ctx.safeGetValue ? ctx.safeGetValue(gr, 'name') : gr.getValue('name');
+            var operation = ctx.safeGetValue ? ctx.safeGetValue(gr, 'operation') : gr.getValue('operation');
+
+            // determine which table this ACL is primarily for (closest match in hierarchy)
+            var aclTable = tableName;
+            for (var j = 0; j < tablesToCheck.length; j++) {
+                if (aclName.indexOf(tablesToCheck[j]) === 0) {
+                    aclTable = tablesToCheck[j];
+                    break;
+                }
+            }
+
+            var aclInfo = {
+                sys_id: gr.getUniqueValue(),
+                name: aclName,
+                table: aclTable,
+                inherited: (aclTable !== tableName),
+                operation: operation,
+                admin_overrides: (ctx.safeGetValue ? ctx.safeGetValue(gr, 'admin_overrides') === 'true' : gr.getValue('admin_overrides') === 'true'),
+                condition: (ctx.safeGetValue ? !!ctx.safeGetValue(gr, 'condition') : !!gr.getValue('condition'))
+            };
+
+            acls.push(aclInfo);
+
+            if (operation && aclsByOperation.hasOwnProperty(operation)) {
+                aclsByOperation[operation]++;
+            }
+        }
+
+        // Use centralized helper to add UI items and metrics (preserving nested shape)
+        try {
+            this.utils.addCategoryAndMetrics(ctx, 'security', 'acls', 'ACLs', acls, {
+                table: 'sys_security_acl',
+                icon: 'fa-lock',
+                color: '#dc3545',
+                preserveNested: true,
+                countKeys: { total: 'acl_count', direct: 'acl_direct_count', inherited: 'acl_inherited_count' }
+            });
+
+            // Keep operations summary in the nested meta area for compatibility with existing widget keys
+            ctx.metrics = ctx.metrics || {};
+            // place summary under acls_meta to avoid clobbering the array
+            ctx.metrics.acls_meta = ctx.metrics.acls_meta || {};
+            ctx.metrics.acls_meta.acls_by_operation = aclsByOperation;
+        } catch (e) {
+            // fallback to original structure if helper fails
+            ctx.addCategoryItems && ctx.addCategoryItems('security', 'acl', 'ACLs', acls, {
+                table: 'sys_security_acl',
+                icon: 'fa-lock',
+                color: '#dc3545'
+            });
+
+            ctx.metrics.acls = acls;
+            ctx.metrics.acls = ctx.metrics.acls || [];
+            ctx.metrics.acls.acl_count = acls.length;
+            ctx.metrics.acls.acl_direct_count = acls.filter(function(a) { return !a.inherited; }).length;
+            ctx.metrics.acls.acl_inherited_count = acls.filter(function(a) { return a.inherited; }).length;
+            ctx.metrics.acls.acls_by_operation = aclsByOperation;
+        }
+
+        if (aclsByOperation.read === 0) {
+            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'nameSTARTSWITH' + tableName,
+                category: 'security'
+            });
+        }
+        if (aclsByOperation.write === 0) {
+            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'nameSTARTSWITH' + tableName,
+                category: 'security'
+            });
+        }
+    },
+
+    type: 'FHCheckSecurity'
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-04 09:00:00</sys_created_on>
+        <sys_id>security_12345678901234567890123</sys_id>
+        <sys_mod_count>4</sys_mod_count>
+        <sys_name>FHCheckSecurity</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_security_12345678901234567890123</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-04 19:00:49</sys_updated_on>
+    </sys_script_include>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>615a31611b9ab59ce84d2f8dee4bcb52</instance_id>
+        <instance_name>dev203401</instance_name>
+        <name>sys_script_include_security_12345678901234567890123</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;&lt;sys_script_include action="INSERT_OR_UPDATE"&gt;&lt;access&gt;package_private&lt;/access&gt;&lt;active&gt;true&lt;/active&gt;&lt;api_name&gt;x_1310794_founda_0.FHCheckSecurity&lt;/api_name&gt;&lt;caller_access/&gt;&lt;client_callable&gt;false&lt;/client_callable&gt;&lt;description/&gt;&lt;mobile_callable&gt;false&lt;/mobile_callable&gt;&lt;name&gt;FHCheckSecurity&lt;/name&gt;&lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;&lt;script&gt;&lt;![CDATA[var FHCheckSecurity = Class.create();
+FHCheckSecurity.prototype = {
+    initialize: function() {
+        this.utils = new FHScanUtils();
+        this.optionsHandler = new FHOptionsHandler();
+    },
+
+    /**
+     * execute(ctx)
+     * Security checks entrypoint. Requires ctx.metrics.table_exists to be true.
+     */
+    execute: function(ctx) {
+        if (!ctx.metrics || !ctx.metrics.table_exists) return;
+
+        ctx.registerCategory &amp;&amp; ctx.registerCategory('security', 'Security', 'fa-shield-alt');
+
+        var tablesToCheck = ctx.getTablesToCheck &amp;&amp; ctx.getTablesToCheck();
+        ctx.metrics = ctx.metrics || {};
+        ctx.metrics.security_tables_checked = tablesToCheck;
+
+        this._checkACLs(ctx, tablesToCheck);
+    },
+
+    /**
+     * _checkACLs - collect ACLs in the table hierarchy and compute summaries.
+     */
+    _checkACLs: function(ctx, tablesToCheck) {
+        var tableName = ctx.getTableName &amp;&amp; ctx.getTableName();
+        tablesToCheck = tablesToCheck || [tableName];
+
+        var acls = [];
+        var aclsByOperation = { read: 0, write: 0, create: 0, delete: 0 };
+
+        // Build a GlideRecord query for ACLs affecting the table or parents.
+        var gr = new GlideRecord('sys_security_acl');
+
+        // Construct an encoded query: name starting with tableName or any parent table
+        var encoded = '';
+        for (var i = 0; i &lt; tablesToCheck.length; i++) {
+            if (i === 0) encoded += 'nameSTARTSWITH' + tablesToCheck[i];
+            else encoded += '^ORnameSTARTSWITH' + tablesToCheck[i];
+        }
+        gr.addEncodedQuery(encoded);
+        gr.addQuery('active', true);
+        gr.query();
+
+        while (gr.next()) {
+            var aclName = ctx.safeGetValue ? ctx.safeGetValue(gr, 'name') : gr.getValue('name');
+            var operation = ctx.safeGetValue ? ctx.safeGetValue(gr, 'operation') : gr.getValue('operation');
+
+            // determine which table this ACL is primarily for (closest match in hierarchy)
+            var aclTable = tableName;
+            for (var j = 0; j &lt; tablesToCheck.length; j++) {
+                if (aclName.indexOf(tablesToCheck[j]) === 0) {
+                    aclTable = tablesToCheck[j];
+                    break;
+                }
+            }
+
+            var aclInfo = {
+                sys_id: gr.getUniqueValue(),
+                name: aclName,
+                table: aclTable,
+                inherited: (aclTable !== tableName),
+                operation: operation,
+                admin_overrides: (ctx.safeGetValue ? ctx.safeGetValue(gr, 'admin_overrides') === 'true' : gr.getValue('admin_overrides') === 'true'),
+                condition: (ctx.safeGetValue ? !!ctx.safeGetValue(gr, 'condition') : !!gr.getValue('condition'))
+            };
+
+            acls.push(aclInfo);
+
+            if (operation &amp;&amp; aclsByOperation.hasOwnProperty(operation)) {
+                aclsByOperation[operation]++;
+            }
+        }
+
+        // Use centralized helper to add UI items and metrics (preserving nested shape)
+        try {
+            this.utils.addCategoryAndMetrics(ctx, 'security', 'acls', 'ACLs', acls, {
+                table: 'sys_security_acl',
+                icon: 'fa-lock',
+                color: '#dc3545',
+                preserveNested: true,
+                countKeys: { total: 'acl_count', direct: 'acl_direct_count', inherited: 'acl_inherited_count' }
+            });
+
+            // Keep operations summary in the nested meta area for compatibility with existing widget keys
+            ctx.metrics = ctx.metrics || {};
+            // place summary under acls_meta to avoid clobbering the array
+            ctx.metrics.acls_meta = ctx.metrics.acls_meta || {};
+            ctx.metrics.acls_meta.acls_by_operation = aclsByOperation;
+        } catch (e) {
+            // fallback to original structure if helper fails
+            ctx.addCategoryItems &amp;&amp; ctx.addCategoryItems('security', 'acl', 'ACLs', acls, {
+                table: 'sys_security_acl',
+                icon: 'fa-lock',
+                color: '#dc3545'
+            });
+
+            ctx.metrics.acls = acls;
+            ctx.metrics.acls = ctx.metrics.acls || [];
+            ctx.metrics.acls.acl_count = acls.length;
+            ctx.metrics.acls.acl_direct_count = acls.filter(function(a) { return !a.inherited; }).length;
+            ctx.metrics.acls.acl_inherited_count = acls.filter(function(a) { return a.inherited; }).length;
+            ctx.metrics.acls.acls_by_operation = aclsByOperation;
+        }
+
+        if (aclsByOperation.read === 0) {
+            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'nameSTARTSWITH' + tableName,
+                category: 'security'
+            });
+        }
+        if (aclsByOperation.write === 0) {
+            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'nameSTARTSWITH' + tableName,
+                category: 'security'
+            });
+        }
+    },
+
+    type: 'FHCheckSecurity'
+};
+]]&gt;&lt;/script&gt;&lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;&lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;&lt;sys_created_on&gt;2026-01-04 09:00:00&lt;/sys_created_on&gt;&lt;sys_id&gt;security_12345678901234567890123&lt;/sys_id&gt;&lt;sys_mod_count&gt;4&lt;/sys_mod_count&gt;&lt;sys_name&gt;FHCheckSecurity&lt;/sys_name&gt;&lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;&lt;sys_policy&gt;read&lt;/sys_policy&gt;&lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;&lt;sys_update_name&gt;sys_script_include_security_12345678901234567890123&lt;/sys_update_name&gt;&lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;&lt;sys_updated_on&gt;2026-01-04 19:00:49&lt;/sys_updated_on&gt;&lt;/sys_script_include&gt;&lt;/record_update&gt;</payload>
+        <payload_hash>-1289417452</payload_hash>
+        <record_name>FHCheckSecurity</record_name>
+        <reverted_from/>
+        <source>20bc88d0835a721083e1b4a6feaad3fc</source>
+        <source_table>sys_update_set</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-04 19:00:49</sys_created_on>
+        <sys_id>e8a06ba083d2761083e1b4a6feaad3e2</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19b8a6232170000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-04 19:00:49</sys_updated_on>
+        <type>Script Include</type>
+        <update_guid>68a06ba0bbd2761050229268b06626e1</update_guid>
+        <update_guid_history>68a06ba0bbd2761050229268b06626e1:-1289417452,022e0ba07b5276100c0d5a92a42f56e1:1583892973,28326960d8163610de12aa32ad837cd4:-1052380103,c0806d6ceed23610562971e8d875720c:-656224979,80806d6c6ad236100dabaa54666aea09:-39240164</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-04 22:18:55</sys_created_on>
+        <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
+        <sys_id>0c42c5ba8f93445a872538a52ef212e4</sys_id>
+        <sys_metadata>security_12345678901234567890123</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHCheckSecurity</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_script_include_security_12345678901234567890123</sys_update_name>
+        <sys_update_version display_value="sys_script_include_security_12345678901234567890123">e8a06ba083d2761083e1b4a6feaad3e2</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-04 22:18:55</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

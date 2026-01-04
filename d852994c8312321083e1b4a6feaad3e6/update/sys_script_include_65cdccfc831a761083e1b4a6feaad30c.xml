@@ -137,15 +137,15 @@ FHCheckSecurity.prototype = {
 ]]></script>
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-01-04 09:00:00</sys_created_on>
-        <sys_id>security_12345678901234567890123</sys_id>
-        <sys_mod_count>4</sys_mod_count>
+        <sys_created_on>2026-01-04 22:18:10</sys_created_on>
+        <sys_id>65cdccfc831a761083e1b4a6feaad30c</sys_id>
+        <sys_mod_count>0</sys_mod_count>
         <sys_name>FHCheckSecurity</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
-        <sys_update_name>sys_script_include_security_12345678901234567890123</sys_update_name>
+        <sys_update_name>sys_script_include_65cdccfc831a761083e1b4a6feaad30c</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 19:00:49</sys_updated_on>
+        <sys_updated_on>2026-01-04 22:18:10</sys_updated_on>
     </sys_script_include>
 </record_update>
