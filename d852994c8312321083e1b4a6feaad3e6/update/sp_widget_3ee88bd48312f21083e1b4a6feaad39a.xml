@@ -85,10 +85,13 @@
 
     // Get items from a category (flattened)
     c.getCategoryItems = function(categoryId) {
-
         var category = c.getCategory(categoryId);
+						console.log('category ' +category);
+
         if (!category || !category.items) return [];
-        
+         
+			console.log('category ' +category);
+
         var items = [];
         category.items.forEach(function(itemType) {
             if (itemType.records) {
@@ -107,7 +110,8 @@
                 });
             }
         });
-			
+			 console.log('items ' +items);
+
         return items;
     };
 
@@ -1081,14 +1085,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>14</sys_mod_count>
+        <sys_mod_count>17</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 04:38:08</sys_updated_on>
+        <sys_updated_on>2026-01-04 06:54:24</sys_updated_on>
         <template><![CDATA[<div class="fha-results-page">
   
   <!-- Page Header -->

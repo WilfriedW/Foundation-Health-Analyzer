@@ -164,9 +164,9 @@ FHCheckAutomation.prototype = {
             color: '#6f42c1'
         });
 
-        // // Keep metrics for backward compatibility
-        // ctx.metrics.scheduled_jobs = scheduledJobs;
-        // ctx.metrics.scheduled_job_count = scheduledJobs.length;
+        // Keep metrics for backward compatibility
+        ctx.metrics.scheduled_jobs = scheduledJobs;
+        //ctx.metrics.scheduled_job_count = scheduledJobs.length;
     },
 
     /**
@@ -231,7 +231,7 @@ FHCheckAutomation.prototype = {
 
         // // Keep metrics for backward compatibility
         // ctx.metrics.flows = flows;
-        // ctx.metrics.flow_count = flows.length;
+        ctx.metrics.flow_count = flows.length;
         // ctx.metrics.flow_direct_count = flows.filter(function(f) { return !f.inherited; }).length;
         // ctx.metrics.flow_inherited_count = flows.filter(function(f) { return f.inherited; }).length;
 
@@ -292,14 +292,14 @@ FHCheckAutomation.prototype = {
             color: '#fd7e14'
         });
 
-        ctx.metrics.workflows = workflows;
+         //ctx.metrics.workflows = workflows;
         ctx.metrics.workflow_count = workflows.length;
-        ctx.metrics.workflow_direct_count = workflows.filter(function(w) {
-            return !w.inherited;
-        }).length;
-        ctx.metrics.workflow_inherited_count = workflows.filter(function(w) {
-            return w.inherited;
-        }).length;
+        // ctx.metrics.workflow_direct_count = workflows.filter(function(w) {
+        //     return !w.inherited;
+        // }).length;
+        // ctx.metrics.workflow_inherited_count = workflows.filter(function(w) {
+        //     return w.inherited;
+        // }).length;
 
         if (workflows.length > 0) {
             ctx.addIssue('LEGACY_WORKFLOWS', 'Table uses ' + workflows.length + ' legacy workflow(s). Consider migrating to Flow Designer.', 'low', {
@@ -348,14 +348,14 @@ FHCheckAutomation.prototype = {
             color: '#28a745'
         });
 
-        ctx.metrics.notifications = notifications;
-        ctx.metrics.notification_count = notifications.length;
-        ctx.metrics.notification_direct_count = notifications.filter(function(n) {
-            return !n.inherited;
-        }).length;
-        ctx.metrics.notification_inherited_count = notifications.filter(function(n) {
-            return n.inherited;
-        }).length;
+        // ctx.metrics.notifications = notifications;
+         ctx.metrics.notification_count = notifications.length;
+        // ctx.metrics.notification_direct_count = notifications.filter(function(n) {
+        //     return !n.inherited;
+        // }).length;
+        // ctx.metrics.notification_inherited_count = notifications.filter(function(n) {
+        //     return n.inherited;
+        // }).length;
 
         if (notifications.length > 20) {
             ctx.addIssue('MANY_NOTIFICATIONS', 'Table has ' + notifications.length + ' notifications. Check for potential spam.', 'medium', {
@@ -407,7 +407,7 @@ FHCheckAutomation.prototype = {
         });
 
         // ctx.metrics.ui_actions = uiActions;
-        // ctx.metrics.ui_action_count = uiActions.length;
+         ctx.metrics.ui_action_count = uiActions.length;
         // ctx.metrics.ui_action_active_count = uiActions.filter(function(a) {
         //     return a.active;
         // }).length;
@@ -471,7 +471,7 @@ FHCheckAutomation.prototype = {
         });
 
         // ctx.metrics.ui_policies = uiPolicies;
-        // ctx.metrics.ui_policy_count = uiPolicies.length;
+         ctx.metrics.ui_policy_count = uiPolicies.length;
         // ctx.metrics.ui_policy_direct_count = uiPolicies.filter(function(p) {
         //     return !p.inherited;
         // }).length;
@@ -592,7 +592,7 @@ FHCheckAutomation.prototype = {
         });
 
         // ctx.metrics.inbound_email_actions = inboundEmails;
-        // ctx.metrics.inbound_email_count = inboundEmails.length;
+         ctx.metrics.inbound_email_count = inboundEmails.length;
         // ctx.metrics.inbound_email_active_count = inboundEmails.filter(function(e) {
         //     return e.active;
         // }).length;
@@ -649,8 +649,8 @@ FHCheckAutomation.prototype = {
             });
         }
 
-        ctx.metrics.automation_script_issues = automationIssues;
-        ctx.metrics.automation_script_issue_count = automationIssues.length;
+        // ctx.metrics.automation_script_issues = automationIssues;
+         ctx.metrics.automation_script_issue_count = automationIssues.length;
 
         // Add issues
         automationIssues.forEach(function(issue) {
@@ -727,13 +727,13 @@ FHCheckAutomation.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:21:10</sys_created_on>
         <sys_id>7209c240835a321083e1b4a6feaad310</sys_id>
-        <sys_mod_count>9</sys_mod_count>
+        <sys_mod_count>13</sys_mod_count>
         <sys_name>FHCheckAutomation</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_7209c240835a321083e1b4a6feaad310</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 05:49:50</sys_updated_on>
+        <sys_updated_on>2026-01-04 06:48:33</sys_updated_on>
     </sys_script_include>
 </record_update>
