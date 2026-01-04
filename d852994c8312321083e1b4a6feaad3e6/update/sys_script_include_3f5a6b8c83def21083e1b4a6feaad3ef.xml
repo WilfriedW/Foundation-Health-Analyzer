@@ -52,19 +52,15 @@ FHCheckSecurity.prototype = {
         // Build query for ACLs on any table in hierarchy
         // ACL names can be: table_name, table_name.field_name, or table_name.*
         // We need to match exactly to avoid false positives (e.g., sys_user_has_role when querying sys_user)
+        // Strategy: Use a broad query with STARTSWITH to limit results, then filter strictly in JavaScript
         var gr = new GlideRecord('sys_security_acl');
         
-        // Create OR conditions for each table in the hierarchy
-        // For each table, we match: exact name OR name followed by a dot
+        // Create a query that limits results to potential matches (using STARTSWITH as a pre-filter)
+        // We'll do strict filtering in JavaScript to exclude false positives
         var firstTable = tablesToCheck[0];
-        var qc = gr.addQuery('name', firstTable);
-        qc.addOrCondition('name', 'STARTSWITH', firstTable + '.');
-        
-        // Add OR conditions for remaining tables
+        var qc = gr.addQuery('name', 'STARTSWITH', firstTable);
         for (var i = 1; i < tablesToCheck.length; i++) {
-            var currentTable = tablesToCheck[i];
-            qc.addOrCondition('name', currentTable);
-            qc.addOrCondition('name', 'STARTSWITH', currentTable + '.');
+            qc.addOrCondition('name', 'STARTSWITH', tablesToCheck[i]);
         }
         
         gr.addQuery('active', true);
