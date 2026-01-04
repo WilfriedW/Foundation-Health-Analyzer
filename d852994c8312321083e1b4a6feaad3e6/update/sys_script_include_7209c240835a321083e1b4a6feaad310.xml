@@ -44,9 +44,10 @@ FHCheckAutomation.prototype = {
         this._checkUIPolicies(ctx,tablesToCheck);
         this._checkInboundEmailActions(ctx, tablesToCheck);
 
+        // Option-based checks are handled by FHOptionsHandler
         // Deep scan: analyze automation scripts
         if (ctx.isDeepScanEnabled()) {
-            this._deepScanAutomations(ctx);
+            new FHOptionsHandler().deepScanAutomations(ctx);
         }
     },
 
@@ -536,117 +537,6 @@ FHCheckAutomation.prototype = {
                 category: 'automation'
             });
         }
-    },
-
-    /**
-     * Deep scan automations for script quality (if deep_scan option is enabled)
-     * @private
-     * @param {Object} ctx - Analysis context
-     */
-    _deepScanAutomations: function(ctx) {
-        var automationIssues = [];
-        var self = this;
-
-        // Scan Flows for complexity
-        if (ctx.metrics.flows && ctx.metrics.flows.length > 0) {
-            ctx.metrics.flows.forEach(function(flow) {
-                if (flow.active) {
-                    // Check for flows without description
-                    if (!flow.description) {
-                        automationIssues.push({
-                            type: 'Flow',
-                            name: flow.name,
-                            code: 'NO_DESCRIPTION',
-                            message: 'Flow "' + flow.name + '" has no description',
-                            severity: 'low'
-                        });
-                    }
-                }
-            });
-        }
-
-        // Scan Scheduled Jobs for script issues
-        if (ctx.metrics.scheduled_jobs && ctx.metrics.scheduled_jobs.length > 0) {
-            var jobGr = new GlideRecord('sysauto_script');
-            ctx.metrics.scheduled_jobs.forEach(function(job) {
-                if (jobGr.get(job.sys_id)) {
-                    var script = ctx.safeGetValue(jobGr, 'script');
-                    var issues = self._analyzeAutomationScript(script, job.name, 'Scheduled Job');
-                    automationIssues = automationIssues.concat(issues);
-                }
-            });
-        }
-
-        // ctx.metrics.automation_script_issues = automationIssues;
-         ctx.metrics.automation_script_issue_count = automationIssues.length;
-
-        // Add issues
-        automationIssues.forEach(function(issue) {
-            ctx.addIssue(issue.code, issue.message, issue.severity, {
-                category: 'automation'
-            });
-        });
-    },
-
-    /**
-     * Analyze automation script for common issues
-     * @private
-     */
-    _analyzeAutomationScript: function(script, scriptName, scriptType) {
-        var issues = [];
-        if (!script) return issues;
-
-        // Check for GlideRecord in loop without limit
-        if (script.indexOf('GlideRecord') > -1 && script.indexOf('.query()') > -1) {
-            if (script.indexOf('setLimit') === -1 && script.indexOf('get(') === -1) {
-                if (script.indexOf('while') > -1 && script.indexOf('.next()') > -1) {
-                    issues.push({
-                        type: scriptType,
-                        name: scriptName,
-                        code: 'QUERY_NO_LIMIT',
-                        message: scriptType + ' "' + scriptName + '" has GlideRecord query without setLimit()',
-                        severity: 'medium'
-                    });
-                }
-            }
-        }
-
-        // Check for hardcoded sys_ids (32 hex characters)
-        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
-        var sysIdMatches = script.match(sysIdPattern);
-        if (sysIdMatches && sysIdMatches.length > 0) {
-            issues.push({
-                type: scriptType,
-                name: scriptName,
-                code: 'HARDCODED_SYSID',
-                message: scriptType + ' "' + scriptName + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s)',
-                severity: 'medium'
-            });
-        }
-
-        // Check for gs.sleep (can cause performance issues)
-        if (script.indexOf('gs.sleep') > -1) {
-            issues.push({
-                type: scriptType,
-                name: scriptName,
-                code: 'GS_SLEEP',
-                message: scriptType + ' "' + scriptName + '" uses gs.sleep() which can impact performance',
-                severity: 'medium'
-            });
-        }
-
-        // Check for eval usage
-        if (script.indexOf('eval(') > -1) {
-            issues.push({
-                type: scriptType,
-                name: scriptName,
-                code: 'EVAL_USAGE',
-                message: scriptType + ' "' + scriptName + '" uses eval() which is a security risk',
-                severity: 'high'
-            });
-        }
-
-        return issues;
     },
 
     type: 'FHCheckAutomation'
