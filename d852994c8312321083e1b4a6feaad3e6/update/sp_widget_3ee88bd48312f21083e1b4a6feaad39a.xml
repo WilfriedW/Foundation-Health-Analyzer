@@ -504,7 +504,7 @@
 .fha-stat-value.poor { color: #DC3545; }
 
 .fha-stat-label {
-  color: #666;
+  color: white;
   font-size: 14px;
 }
 
@@ -1065,14 +1065,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>1</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-03 22:38:44</sys_updated_on>
+        <sys_updated_on>2026-01-04 01:14:38</sys_updated_on>
         <template><![CDATA[<div class="fha-results-page">
   
   <!-- Page Header -->
