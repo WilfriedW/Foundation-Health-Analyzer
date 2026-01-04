@@ -123,6 +123,69 @@
         return items;
     };
 
+    // Get LDAP analysis data
+    c.getLdapAnalysis = function() {
+        var metrics = c.getMetrics();
+        return metrics.ldap_analysis || null;
+    };
+
+    // Check if LDAP analysis is available
+    c.hasLdapAnalysis = function() {
+        var ldap = c.getLdapAnalysis();
+        return ldap && (ldap.data_sources.length > 0 || ldap.transform_maps.length > 0 || ldap.attribute_mappings.length > 0);
+    };
+
+    // Get LDAP data sources
+    c.getLdapDataSources = function() {
+        var ldap = c.getLdapAnalysis();
+        return ldap ? ldap.data_sources : [];
+    };
+
+    // Get LDAP transform maps
+    c.getLdapTransformMaps = function() {
+        var ldap = c.getLdapAnalysis();
+        return ldap ? ldap.transform_maps : [];
+    };
+
+    // Get LDAP attribute mappings
+    c.getLdapAttributeMappings = function() {
+        var ldap = c.getLdapAnalysis();
+        return ldap ? ldap.attribute_mappings : [];
+    };
+
+    // Get LDAP servers
+    c.getLdapServers = function() {
+        var ldap = c.getLdapAnalysis();
+        return ldap ? ldap.servers : [];
+    };
+
+    // Get LDAP issues
+    c.getLdapIssues = function() {
+        if (!c.result || !c.result.issues) return [];
+        return c.result.issues.filter(function(i) { return i.category === 'ldap'; });
+    };
+
+    // LDAP filter
+    c.ldapFilter = {
+        search: ''
+    };
+
+    // Get filtered LDAP attribute mappings
+    c.getFilteredLdapMappings = function() {
+        var mappings = c.getLdapAttributeMappings();
+        
+        if (c.ldapFilter.search) {
+            var search = c.ldapFilter.search.toLowerCase();
+            mappings = mappings.filter(function(m) {
+                return m.ldap_attribute.toLowerCase().indexOf(search) !== -1 ||
+                       m.servicenow_field.toLowerCase().indexOf(search) !== -1 ||
+                       m.transform_map.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return mappings;
+    };
+
     // Filters for automation tab
     c.automationFilter = {
         type: 'all',
@@ -694,6 +757,27 @@
 .fha-status-badge.active { background: rgba(40, 167, 69, 0.15); color: #28A745; }
 .fha-status-badge.inactive { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
 
+/* LDAP Stat Cards */
+.fha-stat-card {
+  padding: 20px;
+  border-radius: 12px;
+  color: white;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.fha-stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
+.fha-stat-label {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
 .fha-type-badge {
   padding: 4px 10px;
   border-radius: 6px;
@@ -1082,6 +1166,10 @@
         <i class="fa fa-exchange"></i> ${Integrations}
         <span class="badge">{{c.getIntegrationItems().length}}</span>
       </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'ldap'}" ng-click="c.setActiveTab('ldap')" ng-if="c.hasLdapAnalysis()">
+        <i class="fa fa-address-book"></i> ${LDAP}
+        <span class="badge">{{c.getLdapAttributeMappings().length}}</span>
+      </button>
     </div>
 
     <!-- ==================== OVERVIEW TAB ==================== -->
@@ -1388,6 +1476,198 @@
       </div>
     </div>
   </div>
+
+    <!-- ==================== LDAP TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'ldap'">
+      
+      <!-- LDAP Summary Cards -->
+      <div class="row" style="margin-bottom: 20px;">
+        <div class="col-md-3">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="fha-stat-number">{{c.getLdapDataSources().length}}</div>
+            <div class="fha-stat-label">${LDAP Data Sources}</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <div class="fha-stat-number">{{c.getLdapTransformMaps().length}}</div>
+            <div class="fha-stat-label">${Transform Maps}</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <div class="fha-stat-number">{{c.getLdapAttributeMappings().length}}</div>
+            <div class="fha-stat-label">${Attribute Mappings}</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="fha-stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+            <div class="fha-stat-number">{{c.getLdapServers().length}}</div>
+            <div class="fha-stat-label">${LDAP Servers}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LDAP Issues -->
+      <div class="fha-card" ng-if="c.getLdapIssues().length > 0" style="margin-bottom: 20px;">
+        <div class="fha-card-header" style="background: #fef3c7;">
+          <h4><i class="fa fa-exclamation-triangle" style="color: #d97706;"></i> ${LDAP Issues} ({{c.getLdapIssues().length}})</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="120">${Severity}</th>
+                <th>${Message}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="issue in c.getLdapIssues()">
+                <td><span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity | uppercase}}</span></td>
+                <td>{{issue.message}}</td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord(issue.record_table, issue.record_sys_id)" ng-if="issue.record_sys_id">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LDAP Data Sources -->
+      <div class="fha-card" style="margin-bottom: 20px;">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-database"></i> ${LDAP Data Sources}</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getLdapDataSources().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${Name}</th>
+                <th>${Import Set Table}</th>
+                <th>${Last Run}</th>
+                <th width="100">${Status}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="ds in c.getLdapDataSources()" ng-class="{'fha-row-inactive': !ds.active}">
+                <td><strong>{{ds.name}}</strong></td>
+                <td><code>{{ds.import_set_table}}</code></td>
+                <td>{{ds.last_run || 'Never'}}</td>
+                <td>
+                  <span class="fha-status-badge" ng-class="ds.active ? 'active' : 'inactive'">
+                    {{ds.active ? '${Active}' : '${Inactive}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord('sys_data_source', ds.sys_id)">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="c.getLdapDataSources().length === 0" style="text-align: center; padding: 30px; color: #666;">
+          <i class="fa fa-info-circle"></i> ${No LDAP data sources found}
+        </div>
+      </div>
+
+      <!-- LDAP Transform Maps -->
+      <div class="fha-card" style="margin-bottom: 20px;">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-random"></i> ${LDAP Transform Maps}</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getLdapTransformMaps().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${Name}</th>
+                <th>${Source Table}</th>
+                <th>${Target Table}</th>
+                <th>${Coalesce Field}</th>
+                <th>${Field Maps}</th>
+                <th width="100">${Status}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="tm in c.getLdapTransformMaps()" ng-class="{'fha-row-inactive': !tm.active}">
+                <td><strong>{{tm.name}}</strong></td>
+                <td><code>{{tm.source_table}}</code></td>
+                <td><code>{{tm.target_table}}</code></td>
+                <td>{{tm.coalesce_field || '-'}}</td>
+                <td><span class="badge">{{tm.field_maps.length}}</span></td>
+                <td>
+                  <span class="fha-status-badge" ng-class="tm.active ? 'active' : 'inactive'">
+                    {{tm.active ? '${Active}' : '${Inactive}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord('sys_transform_map', tm.sys_id)">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="c.getLdapTransformMaps().length === 0" style="text-align: center; padding: 30px; color: #666;">
+          <i class="fa fa-info-circle"></i> ${No LDAP transform maps found}
+        </div>
+      </div>
+
+      <!-- LDAP Attribute Mappings -->
+      <div class="fha-card">
+        <div class="fha-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h4><i class="fa fa-arrows-h"></i> ${LDAP Attribute Mappings}</h4>
+          <div class="fha-filter-group fha-filter-search" style="margin: 0;" ng-if="c.getLdapAttributeMappings().length > 5">
+            <input type="text" ng-model="c.ldapFilter.search" placeholder="${Search attributes...}" style="width: 200px;">
+          </div>
+        </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getLdapAttributeMappings().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${LDAP Attribute}</th>
+                <th><i class="fa fa-arrow-right"></i></th>
+                <th>${ServiceNow Field}</th>
+                <th>${Transform Map}</th>
+                <th>${Coalesce}</th>
+                <th>${Uses Script}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="m in c.getFilteredLdapMappings()">
+                <td><code style="background: #e0f2fe; color: #0369a1;">{{m.ldap_attribute}}</code></td>
+                <td style="text-align: center; color: #9ca3af;"><i class="fa fa-arrow-right"></i></td>
+                <td><code style="background: #dcfce7; color: #166534;">{{m.servicenow_field}}</code></td>
+                <td>{{m.transform_map}}</td>
+                <td>
+                  <span ng-if="m.coalesce" style="color: #059669;"><i class="fa fa-check"></i></span>
+                  <span ng-if="!m.coalesce" style="color: #9ca3af;">-</span>
+                </td>
+                <td>
+                  <span ng-if="m.uses_script" style="color: #d97706;"><i class="fa fa-code"></i> ${Yes}</span>
+                  <span ng-if="!m.uses_script" style="color: #9ca3af;">-</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding: 10px 15px; background: #f8fafc; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+            ${Showing} {{c.getFilteredLdapMappings().length}} ${of} {{c.getLdapAttributeMappings().length}} ${attribute mappings}
+          </div>
+        </div>
+        <div class="fha-card-body" ng-if="c.getLdapAttributeMappings().length === 0" style="text-align: center; padding: 30px; color: #666;">
+          <i class="fa fa-info-circle"></i> ${No LDAP attribute mappings found}
+        </div>
+      </div>
+
+    </div>
 
   </div>
 </div>
