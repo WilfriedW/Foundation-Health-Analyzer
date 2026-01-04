@@ -3,560 +3,158 @@
         <category>custom</category>
         <client_script><![CDATA[function($scope, spUtil, $location, $window) {
   var c = this;
-    
-    // Get analysis ID from URL parameter
-    c.analysisId = $location.search().sys_id || c.data.analysisId || '';
-    c.loading = !c.data.result;
-    c.error = c.data.error || null;
-    c.result = c.data.result || null;
-    c.activeTab = 'overview';
-    
-    // Expanded sections
-    c.expandedSections = {
-        fields: false,
-        business_rules: false,
-        automation: false,
-        integration: false
+
+  // State
+  c.analysisId = $location.search().sys_id || c.data.analysisId || '';
+  c.loading = !c.data.result;
+  c.error = c.data.error || null;
+  c.result = c.data.result || null;
+  c.activeTab = 'overview';
+  c.expandedSections = { fields: false, business_rules: false, automation: false, integration: false };
+  c.items = { automation: [], integration: [], security: [], business_rules: [], table_summary: null };
+
+  // UI helpers
+  c.toggleSection = function(section) { c.expandedSections[section] = !c.expandedSections[section]; };
+  c.getHealthScoreClass = function(score) { if (score >= 70) return 'good'; if (score >= 40) return 'medium'; return 'poor'; };
+  c.getSeverityClass = function(sev) { return sev === 'high' ? 'danger' : sev === 'medium' ? 'warning' : sev === 'low' ? 'info' : 'default'; };
+  c.countBySeverity = function(sev) { if (!c.result || !c.result.issues) return 0; return c.result.issues.filter(function(i){return i.severity===sev;}).length; };
+  c.getIssuesByCategory = function(cat) { if (!c.result || !c.result.issues) return []; return c.result.issues.filter(function(i){return i.category===cat;}); };
+  c.getTypeBadgeClass = function(type) { return 'type-default'; }; // placeholder (conserve l’existant)
+
+  // Categories helper
+  c.getCategories = function() { return (c.result && c.result.categories) ? c.result.categories : {}; };
+
+  c.getCategoryItems = function(categoryId) {
+    var cats = c.getCategories();
+    var cat = cats[categoryId];
+    if (!cat || !cat.items) return [];
+    var items = [];
+    cat.items.forEach(function(it) {
+      var records = it.records || [];
+      records.forEach(function(rec) {
+        items.push(angular.extend({
+          item_type: it.type,
+          item_label: it.label || it.itemLabel,
+          item_icon: it.icon || it.itemIcon,
+          item_color: it.color || it.itemColor
+        }, rec));
+      });
+    });
+    return items;
+  };
+
+  c.getTableSummary = function() {
+    var cats = c.getCategories();
+    var cat = cats.table;
+    if (!cat || !cat.items) return null;
+    for (var i = 0; i < cat.items.length; i++) {
+      var it = cat.items[i];
+      if (it.type === 'table_summary' && it.records && it.records.length > 0) {
+        return it.records[0];
+      }
+    }
+    return null;
+  };
+
+  c.getBusinessRules = function() {
+    return c.getCategoryItems('automation').filter(function(r){ return r.item_type === 'business_rules'; });
+  };
+  c.getBusinessRuleCount = function(){ return c.getBusinessRules().length; };
+  c.getActiveBusinessRuleCount = function(){ return c.getBusinessRules().filter(function(r){ return r.active !== false; }).length; };
+
+  // Flatten automation/integration/security once
+  c.buildAutomationItems = function() {
+    var labels = {
+      scheduled_job: { type: 'Scheduled Jobs', icon: 'fa-clock', color: '#6f42c1' },
+      flow: { type: 'Flows', icon: 'fa-project-diagram', color: '#17a2b8' },
+      workflow: { type: 'Workflows', icon: 'fa-sitemap', color: '#fd7e14' },
+      notification: { type: 'Notifications', icon: 'fa-envelope', color: '#28a745' },
+      ui_action: { type: 'UI Actions', icon: 'fa-mouse-pointer', color: '#dc3545' },
+      ui_policy: { type: 'UI Policies', icon: 'fa-shield-alt', color: '#20c997' },
+      inbound_email: { type: 'Inbound Email Actions', icon: 'fa-inbox', color: '#e83e8c' },
+      client_scripts: { type: 'Client Scripts', icon: 'fa-code', color: '#6c757d' },
+      business_rules: { type: 'Business Rules', icon: 'fa-cogs', color: '#6c757d' }
     };
+    return c.getCategoryItems('automation').filter(function(r){ return labels.hasOwnProperty(r.item_type); })
+      .map(function(r){
+        var meta = labels[r.item_type];
+        return angular.extend({
+          type: meta.type,
+          icon: meta.icon,
+          color: meta.color,
+          active: r.active !== false
+        }, r);
+      });
+  };
 
-    // Toggle section
-    c.toggleSection = function(section) {
-        c.expandedSections[section] = !c.expandedSections[section];
+  c.buildIntegrationItems = function() {
+    var labels = {
+      data_source: { type: 'Data Sources', icon: 'fa-database', color: '#6f42c1' },
+      transform_map: { type: 'Transform Maps', icon: 'fa-exchange-alt', color: '#17a2b8' },
+      import_sets: { type: 'Import Sets', icon: 'fa-download', color: '#17a2b8' },
+      rest_apis: { type: 'REST APIs', icon: 'fa-plug', color: '#28a745' }
     };
+    return c.getCategoryItems('integration').filter(function(r){ return labels.hasOwnProperty(r.item_type); })
+      .map(function(r){
+        var meta = labels[r.item_type];
+        return angular.extend({
+          type: meta.type,
+          icon: meta.icon,
+          color: meta.color,
+          active: r.active !== false
+        }, r);
+      });
+  };
 
-    // Get health score class
-    c.getHealthScoreClass = function(score) {
-        if (score >= 70) return 'good';
-        if (score >= 40) return 'medium';
-        return 'poor';
-    };
+  c.buildSecurityItems = function() {
+    return c.getCategoryItems('security').filter(function(r){ return r.item_type === 'acl'; })
+      .map(function(r){
+        return angular.extend({
+          type: 'ACL',
+          active: true,
+          icon: 'fa-lock',
+          color: '#dc3545'
+        }, r);
+      });
+  };
 
-    // Get severity class
-    c.getSeverityClass = function(severity) {
-        switch(severity) {
-            case 'high': return 'danger';
-            case 'medium': return 'warning';
-            case 'low': return 'info';
-            default: return 'default';
-        }
-    };
+  // Precompute once when result is ready
+  c.buildAll = function() {
+    c.items.automation = c.buildAutomationItems();
+    c.items.integration = c.buildIntegrationItems();
+    c.items.security = c.buildSecurityItems();
+    c.items.business_rules = c.getBusinessRules();
+    c.items.table_summary = c.getTableSummary();
+  };
 
-    // Count issues by severity
-    c.countBySeverity = function(severity) {
-        if (!c.result || !c.result.issues) return 0;
-        return c.result.issues.filter(function(i) { return i.severity === severity; }).length;
-    };
-
-    // Get issues by category
-    c.getIssuesByCategory = function(category) {
-        if (!c.result || !c.result.issues) return [];
-        return c.result.issues.filter(function(i) { return i.category === category; });
-    };
-
-    // === Helpers basés sur categories ===
-    c.getCategories = function() {
-        return (c.result && c.result.categories) ? c.result.categories : {};
-    };
-
-    c.getCategoryItems = function(categoryId) {
-        var cats = c.getCategories();
-        var cat = cats[categoryId];
-        if (!cat || !cat.items) return [];
-        var items = [];
-        cat.items.forEach(function(it) {
-            var records = it.records || [];
-            records.forEach(function(rec) {
-                items.push(angular.extend({
-                    item_type: it.type,
-                    item_label: it.label || it.itemLabel,
-                    item_icon: it.icon || it.itemIcon,
-                    item_color: it.color || it.itemColor
-                }, rec));
-            });
-        });
-        return items;
-    };
-
-    c.getTableSummary = function() {
-        var cats = c.getCategories();
-        var cat = cats.table;
-        if (!cat || !cat.items) return null;
-        for (var i = 0; i < cat.items.length; i++) {
-            var it = cat.items[i];
-            if (it.type === 'table_summary' && it.records && it.records.length > 0) {
-                return it.records[0];
-            }
-        }
-        return null;
-    };
-
-    // Get custom fields (non exposé pour l’instant)
-    c.getCustomFields = function() {
-        return [];
-    };
-
-    // Get business rules
-    c.getBusinessRules = function() {
-        return c.getCategoryItems('automation').filter(function(r) {
-            return r.item_type === 'business_rules';
-        });
-    };
-
-    c.getBusinessRuleCount = function() {
-        return c.getBusinessRules().length;
-    };
-
-    c.getActiveBusinessRuleCount = function() {
-        return c.getBusinessRules().filter(function(r) { return r.active !== false; }).length;
-    };
-
-    // ==================== AUTOMATION ITEMS ====================
-    
-    // Get all automation items from categories
-    c.getAutomationItems = function() {
-        var labels = {
-            scheduled_job: { type: 'Scheduled Jobs', icon: 'fa-clock', color: '#6f42c1' },
-            flow: { type: 'Flows', icon: 'fa-project-diagram', color: '#17a2b8' },
-            workflow: { type: 'Workflows', icon: 'fa-sitemap', color: '#fd7e14' },
-            notification: { type: 'Notifications', icon: 'fa-envelope', color: '#28a745' },
-            ui_action: { type: 'UI Actions', icon: 'fa-mouse-pointer', color: '#dc3545' },
-            ui_policy: { type: 'UI Policies', icon: 'fa-shield-alt', color: '#20c997' },
-            inbound_email: { type: 'Inbound Email Actions', icon: 'fa-inbox', color: '#e83e8c' },
-            client_scripts: { type: 'Client Scripts', icon: 'fa-code', color: '#6c757d' },
-            business_rules: { type: 'Business Rules', icon: 'fa-cogs', color: '#6c757d' }
-        };
-        return c.getCategoryItems('automation').filter(function(r) {
-            return labels.hasOwnProperty(r.item_type);
-        }).map(function(r) {
-            var meta = labels[r.item_type];
-            return angular.extend({
-                type: meta.type,
-                icon: meta.icon,
-                color: meta.color,
-                active: r.active !== false
-            }, r);
-        });
-    };
-
-    // ==================== INTEGRATION ITEMS ====================
-    
-    // Get all integration items from categories
-    c.getIntegrationItems = function() {
-        var labels = {
-            data_source: { type: 'Data Sources', icon: 'fa-database', color: '#6f42c1' },
-            transform_map: { type: 'Transform Maps', icon: 'fa-exchange-alt', color: '#17a2b8' },
-            import_sets: { type: 'Import Sets', icon: 'fa-download', color: '#17a2b8' },
-            rest_apis: { type: 'REST APIs', icon: 'fa-plug', color: '#28a745' }
-        };
-        return c.getCategoryItems('integration').filter(function(r) {
-            return labels.hasOwnProperty(r.item_type);
-        }).map(function(r) {
-            var meta = labels[r.item_type];
-            return angular.extend({
-                type: meta.type,
-                icon: meta.icon,
-                color: meta.color,
-                active: r.active !== false
-            }, r);
-        });
-    };
-
-    // ==================== SECURITY ITEMS ====================
-    
-    // Get all security items from categories (ACLs)
-    c.getSecurityItems = function() {
-        return c.getCategoryItems('security').filter(function(r) {
-            return r.item_type === 'acl';
-        }).map(function(r) {
-            return angular.extend({
-                type: 'ACL',
-                active: true,
-                icon: 'fa-lock',
-                color: '#dc3545'
-            }, r);
-        });
-    };
-
-    // Get LDAP analysis data (non exposé dans la nouvelle structure)
-    c.getLdapAnalysis = function() {
-        return null;
-    };
-
-    // Check if LDAP analysis is available
-    c.hasLdapAnalysis = function() {
-        var ldap = c.getLdapAnalysis();
-        return ldap && (ldap.data_sources.length > 0 || ldap.transform_maps.length > 0 || ldap.attribute_mappings.length > 0);
-    };
-
-    // Get LDAP data sources
-    c.getLdapDataSources = function() {
-        var ldap = c.getLdapAnalysis();
-        return ldap ? ldap.data_sources : [];
-    };
-
-    // Get LDAP transform maps
-    c.getLdapTransformMaps = function() {
-        var ldap = c.getLdapAnalysis();
-        return ldap ? ldap.transform_maps : [];
-    };
-
-    // Get LDAP attribute mappings
-    c.getLdapAttributeMappings = function() {
-        var ldap = c.getLdapAnalysis();
-        return ldap ? ldap.attribute_mappings : [];
-    };
-
-    // Get LDAP servers
-    c.getLdapServers = function() {
-        var ldap = c.getLdapAnalysis();
-        return ldap ? ldap.servers : [];
-    };
-
-    // Get LDAP issues
-    c.getLdapIssues = function() {
-        if (!c.result || !c.result.issues) return [];
-        return c.result.issues.filter(function(i) { return i.category === 'ldap'; });
-    };
-
-    // LDAP filter
-    c.ldapFilter = {
-        search: ''
-    };
-
-    // Get filtered LDAP attribute mappings
-    c.getFilteredLdapMappings = function() {
-        var mappings = c.getLdapAttributeMappings();
-        
-        if (c.ldapFilter.search) {
-            var search = c.ldapFilter.search.toLowerCase();
-            mappings = mappings.filter(function(m) {
-                return m.ldap_attribute.toLowerCase().indexOf(search) !== -1 ||
-                       m.servicenow_field.toLowerCase().indexOf(search) !== -1 ||
-                       m.transform_map.toLowerCase().indexOf(search) !== -1;
-            });
-        }
-        
-        return mappings;
-    };
-
-    // Filters for automation tab
-    c.automationFilter = {
-        type: 'all',
-        status: 'all',
-        search: ''
-    };
-
-    // Filters for integration tab
-    c.integrationFilter = {
-        type: 'all',
-        status: 'all',
-        search: ''
-    };
-
-    // Filters for security tab
-    c.securityFilter = {
-        operation: 'all',
-        inherited: 'all',
-        search: ''
-    };
-
-    // Cache for types (prevents infinite digest loop)
-    c._automationTypesCache = null;
-    c._integrationTypesCache = null;
-
-    // Get unique automation types (cached)
-    c.getAutomationTypes = function() {
-        if (c._automationTypesCache !== null) {
-            return c._automationTypesCache;
-        }
-        var items = c.getAutomationItems();
-        var types = {};
-        items.forEach(function(item) {
-            if (item.type) types[item.type] = true;
-        });
-        c._automationTypesCache = Object.keys(types);
-        return c._automationTypesCache;
-    };
-
-    // Get unique integration types (cached)
-    c.getIntegrationTypes = function() {
-        if (c._integrationTypesCache !== null) {
-            return c._integrationTypesCache;
-        }
-        var items = c.getIntegrationItems();
-        var types = {};
-        items.forEach(function(item) {
-            if (item.type) types[item.type] = true;
-        });
-        c._integrationTypesCache = Object.keys(types);
-        return c._integrationTypesCache;
-    };
-
-    // Get unique security types (cached)
-    c.getSecurityTypes = function() {
-        if (c._securityTypesCache !== null) {
-            return c._securityTypesCache;
-        }
-        var items = c.getSecurityItems();
-        var types = {};
-        items.forEach(function(item) {
-            if (item.type) types[item.type] = true;
-        });
-        c._securityTypesCache = Object.keys(types);
-        return c._securityTypesCache;
-    };
-
-    // Get filtered automation items
-    c.getFilteredAutomationItems = function() {
-        var items = c.getAutomationItems();
-        
-        // Filter by type
-        if (c.automationFilter.type !== 'all') {
-            items = items.filter(function(item) {
-                return item.type === c.automationFilter.type;
-            });
-        }
-        
-        // Filter by status
-        if (c.automationFilter.status !== 'all') {
-            var isActive = c.automationFilter.status === 'active';
-            items = items.filter(function(item) {
-                return item.active === isActive;
-            });
-        }
-        
-        // Filter by search
-        if (c.automationFilter.search) {
-            var search = c.automationFilter.search.toLowerCase();
-            items = items.filter(function(item) {
-                return item.name.toLowerCase().indexOf(search) !== -1;
-            });
-        }
-        
-        return items;
-    };
-
-    // Get filtered integration items
-    c.getFilteredIntegrationItems = function() {
-        var items = c.getIntegrationItems();
-        
-        // Filter by type
-        if (c.integrationFilter.type !== 'all') {
-            items = items.filter(function(item) {
-                return item.type === c.integrationFilter.type;
-            });
-        }
-        
-        // Filter by status
-        if (c.integrationFilter.status !== 'all') {
-            var isActive = c.integrationFilter.status === 'active';
-            items = items.filter(function(item) {
-                return item.active === isActive;
-            });
-        }
-        
-        // Filter by search
-        if (c.integrationFilter.search) {
-            var search = c.integrationFilter.search.toLowerCase();
-            items = items.filter(function(item) {
-                return item.name.toLowerCase().indexOf(search) !== -1;
-            });
-        }
-        
-        return items;
-    };
-
-    // Get filtered security items
-    c.getFilteredSecurityItems = function() {
-        var items = c.getSecurityItems();
-        
-        // Filter by operation
-        if (c.securityFilter.operation !== 'all') {
-            items = items.filter(function(item) {
-                return item.operation === c.securityFilter.operation;
-            });
-        }
-        
-        // Filter by inherited
-        if (c.securityFilter.inherited !== 'all') {
-            var isInherited = c.securityFilter.inherited === 'inherited';
-            items = items.filter(function(item) {
-                return item.inherited === isInherited;
-            });
-        }
-        
-        // Filter by search
-        if (c.securityFilter.search) {
-            var search = c.securityFilter.search.toLowerCase();
-            items = items.filter(function(item) {
-                return item.name.toLowerCase().indexOf(search) !== -1;
-            });
-        }
-        
-        return items;
-    };
-
-    // Get type badge class (color coding)
-    c.getTypeBadgeClass = function(type) {
-        var classes = {
-            'Scheduled Job': 'type-scheduled-job',
-            'Flow': 'type-flow',
-            'Workflow': 'type-workflow',
-            'Notification': 'type-notification',
-            'UI Action': 'type-ui-action',
-            'Data Source': 'type-data-source',
-            'Transform Map': 'type-transform-map'
-        };
-        return classes[type] || 'type-default';
-    };
-
-    // Reset automation filter
-    c.resetAutomationFilter = function() {
-        c.automationFilter = { type: 'all', status: 'all', search: '' };
-    };
-
-    // Reset integration filter
-    c.resetIntegrationFilter = function() {
-        c.integrationFilter = { type: 'all', status: 'all', search: '' };
-    };
-
-    // Reset security filter
-    c.resetSecurityFilter = function() {
-        c.securityFilter = { operation: 'all', inherited: 'all', search: '' };
-    };
-
-    // Open record
-    c.openRecord = function(table, sysId) {
-        if (table && sysId) {
-            $window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
-        }
-    };
-
-    // Open list with filter
-    c.openList = function(table, filter) {
-        var url = '/' + table + '_list.do';
-        if (filter) {
-            url += '?sysparm_query=' + encodeURIComponent(filter);
-        }
-        $window.open(url, '_blank');
-    };
-
-    // Go back to dashboard
-    c.goBack = function() {
-        $location.path('/fha');
-    };
-
-    // Set active tab
-    c.setActiveTab = function(tab) {
-        c.activeTab = tab;
-    };
-
-    // Export to JSON
-    c.exportJSON = function() {
-        if (!c.result) return;
-        var dataStr = JSON.stringify(c.result, null, 2);
-        var dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-        var exportName = 'fha_analysis_' + c.analysisId + '.json';
-        var linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportName);
-        linkElement.click();
-    };
-
-    // Export to PDF
-    c.exportPDF = function() {
-        if (!c.result) return;
-        
-        // Create a printable HTML content
-        var printContent = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
-        printContent += '<title>FHA Analysis Report - ' + (c.result.table_label || c.result.table_name) + '</title>';
-        printContent += '<style>';
-        printContent += 'body { font-family: Arial, sans-serif; padding: 40px; color: #333; }';
-        printContent += 'h1 { color: #0378BE; border-bottom: 3px solid #0378BE; padding-bottom: 10px; }';
-        printContent += 'h2 { color: #035B8E; margin-top: 30px; }';
-        printContent += 'h3 { color: #495057; margin-top: 20px; }';
-        printContent += '.header-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }';
-        printContent += '.score-circle { display: inline-block; width: 80px; height: 80px; border-radius: 50%; text-align: center; line-height: 80px; font-size: 28px; font-weight: bold; margin-right: 20px; }';
-        printContent += '.score-good { background: #d4edda; color: #28A745; border: 3px solid #28A745; }';
-        printContent += '.score-medium { background: #fff3cd; color: #856404; border: 3px solid #FFC107; }';
-        printContent += '.score-poor { background: #f8d7da; color: #DC3545; border: 3px solid #DC3545; }';
-        printContent += 'table { width: 100%; border-collapse: collapse; margin: 15px 0; }';
-        printContent += 'th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }';
-        printContent += 'th { background: #f8f9fa; font-weight: 600; }';
-        printContent += '.severity-high { background: #DC3545; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
-        printContent += '.severity-medium { background: #FFC107; color: #333; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
-        printContent += '.severity-low { background: #17A2B8; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
-        printContent += '.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }';
-        printContent += '.summary-item { text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px; }';
-        printContent += '.summary-value { font-size: 24px; font-weight: bold; }';
-        printContent += '.summary-label { font-size: 12px; color: #666; margin-top: 5px; }';
-        printContent += '.footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; text-align: center; }';
-        printContent += '@media print { body { padding: 20px; } }';
-        printContent += '</style></head><body>';
-        
-        // Header
-        printContent += '<h1>Foundation Health Analysis Report</h1>';
-        printContent += '<div class="header-info">';
-        printContent += '<p><strong>Table:</strong> ' + (c.result.table_label || c.result.table_name) + ' (' + c.result.table_name + ')</p>';
-        printContent += '<p><strong>Analysis Number:</strong> ' + c.result.number + '</p>';
-        printContent += '<p><strong>Date:</strong> ' + c.result.created_on + '</p>';
-        printContent += '<p><strong>Analyzed by:</strong> ' + c.result.created_by + '</p>';
-        printContent += '</div>';
-        
-        // Health Score
-        var scoreClass = c.result.health_score >= 70 ? 'score-good' : (c.result.health_score >= 40 ? 'score-medium' : 'score-poor');
-        printContent += '<h2>Health Score</h2>';
-        printContent += '<div class="score-circle ' + scoreClass + '">' + c.result.health_score + '</div>';
-        printContent += '<span style="font-size: 18px;">' + (c.result.health_score >= 70 ? 'Good' : (c.result.health_score >= 40 ? 'Needs Attention' : 'Critical')) + '</span>';
-        
-        // Summary
-        printContent += '<div class="summary-grid">';
-        printContent += '<div class="summary-item"><div class="summary-value">' + c.result.issues.length + '</div><div class="summary-label">Total Issues</div></div>';
-        printContent += '<div class="summary-item"><div class="summary-value" style="color:#DC3545;">' + c.countBySeverity('high') + '</div><div class="summary-label">High Severity</div></div>';
-        printContent += '<div class="summary-item"><div class="summary-value" style="color:#FFC107;">' + c.countBySeverity('medium') + '</div><div class="summary-label">Medium Severity</div></div>';
-        printContent += '<div class="summary-item"><div class="summary-value" style="color:#17A2B8;">' + c.countBySeverity('low') + '</div><div class="summary-label">Low Severity</div></div>';
-        printContent += '</div>';
-        
-        // Issues List
-        if (c.result.issues && c.result.issues.length > 0) {
-            printContent += '<h2>Issues Found</h2>';
-            printContent += '<table><thead><tr><th>Severity</th><th>Category</th><th>Code</th><th>Description</th></tr></thead><tbody>';
-            c.result.issues.forEach(function(issue) {
-                var severityClass = 'severity-' + issue.severity;
-                printContent += '<tr>';
-                printContent += '<td><span class="' + severityClass + '">' + issue.severity.toUpperCase() + '</span></td>';
-                printContent += '<td>' + (issue.category || 'general') + '</td>';
-                printContent += '<td>' + issue.code + '</td>';
-                printContent += '<td>' + issue.message + '</td>';
-                printContent += '</tr>';
-            });
-            printContent += '</tbody></table>';
+  // Initial build if data preloaded
+  if (c.result) c.buildAll();
+	
+	c.init = function() {
+  if (!c.result && c.analysisId) {
+    c.loading = true;
+    c.server.get({ action: 'get_result', analysisId: c.analysisId })
+      .then(function(resp) {
+        if (resp.data && resp.data.success && resp.data.analysisResult) {
+          c.result = resp.data.analysisResult;
+          c.analysisId = c.analysisId; // déjà là
+          c.buildAll(); // reconstruire c.items.*
         } else {
-            printContent += '<h2>Issues Found</h2>';
-            printContent += '<p style="color: #28A745;"><strong>No issues found. This table is in excellent health!</strong></p>';
+          c.error = resp.data.error || 'Analysis not found';
         }
-        
-        // Footer
-        printContent += '<div class="footer">';
-        printContent += '<p>Generated by Foundation Health Analyzer</p>';
-        printContent += '<p>' + new Date().toLocaleString() + '</p>';
-        printContent += '</div>';
-        
-        printContent += '</body></html>';
-        
-        // Open print window
-        var printWindow = window.open('', '_blank');
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.focus();
-        
-        // Auto print after a short delay
-        setTimeout(function() {
-            printWindow.print();
-        }, 500);
-    };
-}
-]]></client_script>
+        c.loading = false;
+      }, function() {
+        c.error = '${Server communication error}';
+        c.loading = false;
+      });
+  } else if (c.result) {
+    c.buildAll(); // si le résultat est déjà injecté via data
+    c.loading = false;
+  }
+};
+c.init();
+
+}]]></client_script>
         <controller_as>c</controller_as>
         <css>/* FHA Analysis Results Page Styles */
 .fha-results-page {
@@ -1114,79 +712,161 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function() {
-    // Get sys_id from URL parameter
-    var sysId = $sp.getParameter('sys_id') || '';
+    // Load available configurations
+    data.configurations = [];
+    var configGr = new GlideRecord('x_1310794_founda_0_fha_configuration');
+    configGr.addQuery('active', true);
+    configGr.orderBy('name');
+    configGr.query();
     
-    data.analysisId = sysId;
-    data.result = null;
-    data.error = null;
+    while (configGr.next()) {
+        var tableRef = configGr.table_reference.getRefRecord();
+        
+        // Helper to check boolean values
+        var isTrue = function(val) {
+            return val === 'true' || val === '1' || val === true || val === 1;
+        };
+        
+        data.configurations.push({
+            config_sys_id: configGr.getUniqueValue(),
+            display_name: configGr.getValue('name'),
+            table_name: tableRef ? tableRef.getValue('name') : '',
+            table_label: tableRef ? tableRef.getValue('label') : '',
+            description: configGr.getValue('description'),
+            // Include options
+            deep_scan: isTrue(configGr.getValue('deep_scan')),
+            include_children_tables: isTrue(configGr.getValue('include_children_tables')),
+            analyze_references: isTrue(configGr.getValue('analyze_references')),
+            include_ldap: isTrue(configGr.getValue('include_ldap'))
+        });
+    }
     
-    if (sysId) {
-        try {
-            // Query directly by sys_id (not analysis_id)
-            var gr = new GlideRecord('x_1310794_founda_0_fha_results');
-            if (gr.get(sysId)) {
-                // Parse detail_json for full metrics first
-                var detailJson = {};
+    // Load recent analyses
+    data.recentAnalyses = [];
+    var resultsGr = new GlideRecord('x_1310794_founda_0_fha_results');
+    resultsGr.addQuery('status', 'completed');
+    resultsGr.orderByDesc('sys_created_on');
+    resultsGr.setLimit(10);
+    resultsGr.query();
+    
+    while (resultsGr.next()) {
+        // Get table display name from reference or detail_json
+        var tableDisplayName = '';
+        
+        if (resultsGr.table_name && !resultsGr.table_name.nil()) {
+            var tableRefGr = resultsGr.table_name.getRefRecord();
+            if (tableRefGr) {
+                tableDisplayName = tableRefGr.getValue('label') || tableRefGr.getValue('name') || '';
+            }
+        }
+        
+        data.recentAnalyses.push({
+            sys_id: resultsGr.getUniqueValue(),
+            number: resultsGr.getValue('number'),
+            table_name: tableDisplayName,
+            health_score: parseInt(resultsGr.getValue('health_score'), 10) || 0,
+            issue_count: parseInt(resultsGr.getValue('issue_found'), 10) || 0,
+            created_on: resultsGr.getValue('sys_created_on')
+        });
+    }
+    
+    // Handle server actions
+    if (input && input.action) {
+									gs.info('input : '+ input.action)
+
+        switch(input.action) {
+            case 'run_analysis':
                 try {
-                    var detailStr = gr.getValue('detail_json');
-                    if (detailStr) {
-                        detailJson = JSON.parse(detailStr);
+                    var analyzer = new x_1310794_founda_0.FHAnalyzer();
+                    var result = analyzer.runAnalysis(input.configSysId, {});
+                    
+                    if (result.success) {
+                        data.success = true;
+                        data.runResult = result.details;
+                        data.analysisId = result.analysis_id;
+                    } else {
+                        data.success = false;
+                        data.error = result.error;
                     }
                 } catch(e) {
+                    data.success = false;
+                    data.error = e.message;
                 }
+                break;
                 
-                // Get table name from reference field OR from detail_json
-                var tableName = '';
-                var tableLabel = '';
+            case 'get_result':
+                try {
+                    var analyzer = new x_1310794_founda_0.FHAnalyzer();
+                    var result = analyzer.getAnalysisResult(input.analysisId);
+                    data.success = result.success;
+                    data.analysisResult = result.result;
+                    data.error = result.error;
+                } catch(e) {
+                    data.success = false;
+                    data.error = e.message;
+                }
+                break;
                 
-                // First try from reference field
-                if (gr.table_name && !gr.table_name.nil()) {
-                    var tableRef = gr.table_name.getRefRecord();
-                    if (tableRef) {
-                        tableName = tableRef.getValue('name') || '';
-                        tableLabel = tableRef.getValue('label') || tableName;
+            case 'get_recent_analyses':
+                data.success = true;
+                data.analyses = [];
+                var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+                gr.addQuery('status', 'completed');
+                gr.orderByDesc('sys_created_on');
+                gr.setLimit(10);
+                gr.query();
+                
+                while (gr.next()) {
+                    // Get table display name from reference or detail_json
+                    var tblName = '';
+                    
+                    // Method 1: Try reference field
+                    if (gr.table_name && !gr.table_name.nil()) {
+                        var tblRef = gr.table_name.getRefRecord();
+                        if (tblRef) {
+                            tblName = tblRef.getValue('label') || tblRef.getValue('name') || '';
+                        }
                     }
+                    
+                    // Method 2: Fallback to detail_json
+                    if (!tblName) {
+                        try {
+                            var dJson = gr.getValue('detail_json');
+                            if (dJson) {
+                                var dObj = JSON.parse(dJson);
+                                tblName = dObj.table_label || dObj.table_name || '';
+                            }
+                        } catch(ex) {
+                            // Ignore parse errors
+                        }
+                    }
+                    
+                    data.analyses.push({
+                        sys_id: gr.getUniqueValue(),
+                        number: gr.getValue('number'),
+                        table_name: tblName,
+                        health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                        issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                        created_on: gr.getValue('sys_created_on')
+                    });
                 }
-                
-                data.result = {
-                    sys_id: gr.getUniqueValue(),
-                    number: gr.getValue('number'),
-                    table_name: tableName,
-                    table_label: tableLabel,
-                    health_score: parseInt(gr.getValue('health_score'), 10) || 0,
-                    issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
-                    status: gr.getValue('status'),
-                    created_on: gr.getValue('sys_created_on'),
-                    created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : '',
-                    issues: detailJson.issues || [],
-                    metrics: detailJson.metrics || {},
-                    duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
-                };
-        } else {
-                data.error = 'Analysis record not found (sys_id: ' + sysId + ')';
+                break;
         }
-        } catch(e) {
-            data.error = 'Error loading analysis: ' + e.message;
-        }
-    } else {
-        data.error = 'No analysis ID provided. Please access this page from the dashboard.';
     }
-})();
-]]></script>
+})();]]></script>
         <servicenow>false</servicenow>
         <sys_class_name>sp_widget</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>17</sys_mod_count>
+        <sys_mod_count>24</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 06:54:24</sys_updated_on>
+        <sys_updated_on>2026-01-04 23:20:04</sys_updated_on>
         <template><![CDATA[<div class="fha-results-page">
   
   <!-- Page Header -->
@@ -1214,7 +894,7 @@
 
   <!-- Loading State -->
   <div ng-if="c.loading && !c.error" style="text-align: center; padding: 80px;">
-        <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
+    <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
     <h3 style="margin-top: 20px; color: #666;">${Loading analysis results...}</h3>
   </div>
 
@@ -1228,26 +908,26 @@
           {{c.result.health_score}}
         </div>
         <div class="fha-stat-label">${Health Score}</div>
-          </div>
+      </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value" ng-class="c.countBySeverity('high') > 0 ? 'poor' : 'good'">
           {{c.countBySeverity('high')}}
-          </div>
+        </div>
         <div class="fha-stat-label">${High Severity Issues}</div>
       </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value medium">{{c.countBySeverity('medium')}}</div>
         <div class="fha-stat-label">${Medium Severity Issues}</div>
-          </div>
+      </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value" style="color: #17A2B8;">{{c.countBySeverity('low')}}</div>
         <div class="fha-stat-label">${Low Severity Issues}</div>
-        </div>
       </div>
+    </div>
       
     <!-- Actions Bar -->
-      <div class="fha-card">
-        <div class="fha-card-body">
+    <div class="fha-card">
+      <div class="fha-card-body">
         <div class="fha-actions-panel">
           <button class="fha-btn fha-btn-primary" ng-click="c.exportPDF()">
             <i class="fa fa-file-pdf-o"></i> ${Export PDF}
@@ -1274,15 +954,15 @@
       </button>
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'automation'}" ng-click="c.setActiveTab('automation')">
         <i class="fa fa-cogs"></i> ${Automation}
-        <span class="badge">{{c.getAutomationItems().length}}</span>
+        <span class="badge">{{c.items.automation.length}}</span>
       </button>
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'integration'}" ng-click="c.setActiveTab('integration')">
         <i class="fa fa-exchange"></i> ${Integrations}
-        <span class="badge">{{c.getIntegrationItems().length}}</span>
+        <span class="badge">{{c.items.integration.length}}</span>
       </button>
-      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'security'}" ng-click="c.setActiveTab('security')" ng-if="c.getSecurityItems().length > 0">
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'security'}" ng-click="c.setActiveTab('security')" ng-if="c.items.security.length > 0">
         <i class="fa fa-shield-alt"></i> ${Security}
-        <span class="badge">{{c.getSecurityItems().length}}</span>
+        <span class="badge">{{c.items.security.length}}</span>
       </button>
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'ldap'}" ng-click="c.setActiveTab('ldap')" ng-if="c.hasLdapAnalysis()">
         <i class="fa fa-address-book"></i> ${LDAP}
@@ -1294,11 +974,11 @@
     <div class="fha-tab-content" ng-show="c.activeTab === 'overview'">
       <div class="row">
         <div class="col-md-6">
-      <div class="fha-card">
-        <div class="fha-card-header">
+          <div class="fha-card">
+            <div class="fha-card-header">
               <h4><i class="fa fa-table"></i> ${Table Information}</h4>
-        </div>
-        <div class="fha-card-body">
+            </div>
+            <div class="fha-card-body">
               <table class="fha-data-table">
                 <tr>
                   <td><strong>${Table Name}</strong></td>
@@ -1310,7 +990,7 @@
                 </tr>
                 <tr>
                   <td><strong>${Record Count}</strong></td>
-                  <td>{{(c.getTableSummary() && c.getTableSummary().record_count) || 'N/A'}}</td>
+                  <td>{{(c.items.table_summary && c.items.table_summary.record_count) || 'N/A'}}</td>
                 </tr>
                 <tr>
                   <td><strong>${Custom Fields}</strong></td>
@@ -1321,9 +1001,9 @@
                   <td>{{c.getBusinessRuleCount()}} ({{c.getActiveBusinessRuleCount()}} ${active})</td>
                 </tr>
               </table>
-              </div>
             </div>
           </div>
+        </div>
         <div class="col-md-6">
           <div class="fha-card">
             <div class="fha-card-header">
@@ -1348,11 +1028,11 @@
                   <td>{{c.countBySeverity('low')}}</td>
                 </tr>
               </table>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
     <!-- ==================== ISSUES TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'issues'">
@@ -1395,22 +1075,22 @@
             </tbody>
           </table>
         </div>
-        </div>
+      </div>
       <div class="fha-card" ng-if="c.result.issues.length === 0">
         <div class="fha-card-body" style="text-align: center; padding: 50px;">
           <i class="fa fa-check-circle fa-3x" style="color: #28A745;"></i>
           <h3 style="margin-top: 15px; color: #28A745;">${No Issues Found!}</h3>
           <p style="color: #666;">${This table is in excellent health.}</p>
+        </div>
       </div>
     </div>
-  </div>
 
     <!-- ==================== FIELDS TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'fields'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>
-          </div>
+        </div>
         <div class="fha-card-body" style="padding: 0;" ng-if="c.getCustomFields().length > 0">
           <table class="fha-data-table">
             <thead>
@@ -1449,26 +1129,26 @@
         <div class="fha-card-body" ng-if="c.getCustomFields().length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No custom fields found on this table.}</p>
+        </div>
       </div>
     </div>
-  </div>
 
     <!-- ==================== AUTOMATION TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'automation'">
       <div class="fha-card">
         <div class="fha-card-header">
-          <h4><i class="fa fa-cogs"></i> ${Automation Items} ({{c.getAutomationItems().length}})</h4>
-          </div>
+          <h4><i class="fa fa-cogs"></i> ${Automation Items} ({{c.items.automation.length}})</h4>
+        </div>
         
         <!-- Filter Bar -->
-        <div class="fha-filter-bar" ng-if="c.getAutomationItems().length > 0">
+        <div class="fha-filter-bar" ng-if="c.items.automation.length > 0">
           <div class="fha-filter-group">
             <label>${Type}:</label>
             <select ng-model="c.automationFilter.type">
               <option value="all">${All Types}</option>
               <option ng-repeat="type in c.getAutomationTypes() track by type" value="{{type}}">{{type}}</option>
             </select>
-        </div>
+          </div>
           <div class="fha-filter-group">
             <label>${Status}:</label>
             <select ng-model="c.automationFilter.status">
@@ -1476,20 +1156,20 @@
               <option value="active">${Active}</option>
               <option value="inactive">${Inactive}</option>
             </select>
-            </div>
+          </div>
           <div class="fha-filter-group fha-filter-search">
             <label>${Search}:</label>
             <input type="text" ng-model="c.automationFilter.search" placeholder="${Filter by name...}">
           </div>
           <button class="fha-filter-reset" ng-click="c.resetAutomationFilter()">
             <i class="fa fa-refresh"></i> ${Reset}
-                </button>
+          </button>
           <span class="fha-filter-count">
-            {{c.getFilteredAutomationItems().length}} / {{c.getAutomationItems().length}} ${items}
-                  </span>
-              </div>
+            {{c.getFilteredAutomationItems().length}} / {{c.items.automation.length}} ${items}
+          </span>
+        </div>
         
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getAutomationItems().length > 0">
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.items.automation.length > 0">
           <table class="fha-data-table">
             <thead>
               <tr>
@@ -1497,12 +1177,11 @@
                 <th>${Name}</th>
                 <th width="100">${Status}</th>
                 <th width="100">${Target Table}</th>
-
                 <th width="80">${Action}</th>
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="item in c.getFilteredAutomationItems()" ng-class="{'fha-row-inactive': !item.active}">
+              <tr ng-repeat="item in c.getFilteredAutomationItems() track by item.sys_id || $index" ng-class="{'fha-row-inactive': !item.active}">
                 <td><span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)">{{item.type}}</span></td>
                 <td>{{item.name}}</td>
                 <td>
@@ -1510,8 +1189,7 @@
                     {{item.active ? '${Active}' : '${Inactive}'}}
                   </span>
                 </td>
-                                <td>{{item.trigger_table}}</td>
-
+                <td>{{item.trigger_table}}</td>
                 <td>
                   <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
                     <i class="fa fa-external-link"></i>
@@ -1520,30 +1198,30 @@
               </tr>
             </tbody>
           </table>
-            </div>
-        <div class="fha-card-body" ng-if="c.getAutomationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+        </div>
+        <div class="fha-card-body" ng-if="c.items.automation.length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No automation items found for this table.}</p>
-              </div>
-            </div>
-          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ==================== INTEGRATIONS TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'integration'">
       <div class="fha-card">
         <div class="fha-card-header">
-          <h4><i class="fa fa-exchange"></i> ${Integration Items} ({{c.getIntegrationItems().length}})</h4>
+          <h4><i class="fa fa-exchange"></i> ${Integration Items} ({{c.items.integration.length}})</h4>
         </div>
         
         <!-- Filter Bar -->
-        <div class="fha-filter-bar" ng-if="c.getIntegrationItems().length > 0">
+        <div class="fha-filter-bar" ng-if="c.items.integration.length > 0">
           <div class="fha-filter-group">
             <label>${Type}:</label>
             <select ng-model="c.integrationFilter.type">
               <option value="all">${All Types}</option>
               <option ng-repeat="type in c.getIntegrationTypes() track by type" value="{{type}}">{{type}}</option>
             </select>
-      </div>
+          </div>
           <div class="fha-filter-group">
             <label>${Status}:</label>
             <select ng-model="c.integrationFilter.status">
@@ -1551,20 +1229,20 @@
               <option value="active">${Active}</option>
               <option value="inactive">${Inactive}</option>
             </select>
-    </div>
+          </div>
           <div class="fha-filter-group fha-filter-search">
             <label>${Search}:</label>
             <input type="text" ng-model="c.integrationFilter.search" placeholder="${Filter by name...}">
-  </div>
+          </div>
           <button class="fha-filter-reset" ng-click="c.resetIntegrationFilter()">
             <i class="fa fa-refresh"></i> ${Reset}
-        </button>
+          </button>
           <span class="fha-filter-count">
-            {{c.getFilteredIntegrationItems().length}} / {{c.getIntegrationItems().length}} ${items}
+            {{c.getFilteredIntegrationItems().length}} / {{c.items.integration.length}} ${items}
           </span>
-      </div>
+        </div>
         
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getIntegrationItems().length > 0">
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.items.integration.length > 0">
           <table class="fha-data-table">
             <thead>
               <tr>
@@ -1575,7 +1253,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="item in c.getFilteredIntegrationItems()" ng-class="{'fha-row-inactive': !item.active}">
+              <tr ng-repeat="item in c.getFilteredIntegrationItems() track by item.sys_id || $index" ng-class="{'fha-row-inactive': !item.active}">
                 <td><span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)">{{item.type}}</span></td>
                 <td>{{item.name}}</td>
                 <td>
@@ -1591,23 +1269,23 @@
               </tr>
             </tbody>
           </table>
-  </div>
-        <div class="fha-card-body" ng-if="c.getIntegrationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+        </div>
+        <div class="fha-card-body" ng-if="c.items.integration.length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No integration items found for this table.}</p>
+        </div>
       </div>
     </div>
-  </div>
 
     <!-- ==================== SECURITY TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'security'">
       <div class="fha-card">
         <div class="fha-card-header">
-          <h4><i class="fa fa-shield-alt"></i> ${Security Items} ({{c.getSecurityItems().length}})</h4>
+          <h4><i class="fa fa-shield-alt"></i> ${Security Items} ({{c.items.security.length}})</h4>
         </div>
         
         <!-- Filter Bar -->
-        <div class="fha-filter-bar" ng-if="c.getSecurityItems().length > 0">
+        <div class="fha-filter-bar" ng-if="c.items.security.length > 0">
           <div class="fha-filter-group">
             <label>${Operation}:</label>
             <select ng-model="c.securityFilter.operation">
@@ -1634,11 +1312,11 @@
             <i class="fa fa-refresh"></i> ${Reset}
           </button>
           <span class="fha-filter-count">
-            {{c.getFilteredSecurityItems().length}} / {{c.getSecurityItems().length}} ${items}
+            {{c.getFilteredSecurityItems().length}} / {{c.items.security.length}} ${items}
           </span>
         </div>
         
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getSecurityItems().length > 0">
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.items.security.length > 0">
           <table class="fha-data-table">
             <thead>
               <tr>
@@ -1649,7 +1327,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="item in c.getFilteredSecurityItems()">
+              <tr ng-repeat="item in c.getFilteredSecurityItems() track by item.sys_id || $index">
                 <td><span class="fha-type-badge">{{item.operation || 'N/A'}}</span></td>
                 <td>{{item.name}}</td>
                 <td>
@@ -1666,7 +1344,7 @@
             </tbody>
           </table>
         </div>
-        <div class="fha-card-body" ng-if="c.getSecurityItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+        <div class="fha-card-body" ng-if="c.items.security.length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No security items found for this table.}</p>
         </div>
@@ -1721,152 +1399,6 @@
             <tbody>
               <tr ng-repeat="issue in c.getLdapIssues()">
                 <td><span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity | uppercase}}</span></td>
-                <td>{{issue.message}}</td>
-                <td>
-                  <a class="fha-link" ng-click="c.openRecord(issue.record_table, issue.record_sys_id)" ng-if="issue.record_sys_id">
-                    <i class="fa fa-external-link"></i>
-                  </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- LDAP Data Sources -->
-      <div class="fha-card" style="margin-bottom: 20px;">
-        <div class="fha-card-header">
-          <h4><i class="fa fa-database"></i> ${LDAP Data Sources}</h4>
-        </div>
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getLdapDataSources().length > 0">
-          <table class="fha-data-table">
-            <thead>
-              <tr>
-                <th>${Name}</th>
-                <th>${Import Set Table}</th>
-                <th>${Last Run}</th>
-                <th width="100">${Status}</th>
-                <th width="80">${Action}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr ng-repeat="ds in c.getLdapDataSources()" ng-class="{'fha-row-inactive': !ds.active}">
-                <td><strong>{{ds.name}}</strong></td>
-                <td><code>{{ds.import_set_table}}</code></td>
-                <td>{{ds.last_run || 'Never'}}</td>
-                <td>
-                  <span class="fha-status-badge" ng-class="ds.active ? 'active' : 'inactive'">
-                    {{ds.active ? '${Active}' : '${Inactive}'}}
-                  </span>
-                </td>
-                <td>
-                  <a class="fha-link" ng-click="c.openRecord('sys_data_source', ds.sys_id)">
-                    <i class="fa fa-external-link"></i>
-                  </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="fha-card-body" ng-if="c.getLdapDataSources().length === 0" style="text-align: center; padding: 30px; color: #666;">
-          <i class="fa fa-info-circle"></i> ${No LDAP data sources found}
-        </div>
-      </div>
-
-      <!-- LDAP Transform Maps -->
-      <div class="fha-card" style="margin-bottom: 20px;">
-        <div class="fha-card-header">
-          <h4><i class="fa fa-random"></i> ${LDAP Transform Maps}</h4>
-        </div>
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getLdapTransformMaps().length > 0">
-          <table class="fha-data-table">
-            <thead>
-              <tr>
-                <th>${Name}</th>
-                <th>${Source Table}</th>
-                <th>${Target Table}</th>
-                <th>${Coalesce Field}</th>
-                <th>${Field Maps}</th>
-                <th width="100">${Status}</th>
-                <th width="80">${Action}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr ng-repeat="tm in c.getLdapTransformMaps()" ng-class="{'fha-row-inactive': !tm.active}">
-                <td><strong>{{tm.name}}</strong></td>
-                <td><code>{{tm.source_table}}</code></td>
-                <td><code>{{tm.target_table}}</code></td>
-                <td>{{tm.coalesce_field || '-'}}</td>
-                <td><span class="badge">{{tm.field_maps.length}}</span></td>
-                <td>
-                  <span class="fha-status-badge" ng-class="tm.active ? 'active' : 'inactive'">
-                    {{tm.active ? '${Active}' : '${Inactive}'}}
-                  </span>
-                </td>
-                <td>
-                  <a class="fha-link" ng-click="c.openRecord('sys_transform_map', tm.sys_id)">
-                    <i class="fa fa-external-link"></i>
-                  </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="fha-card-body" ng-if="c.getLdapTransformMaps().length === 0" style="text-align: center; padding: 30px; color: #666;">
-          <i class="fa fa-info-circle"></i> ${No LDAP transform maps found}
-        </div>
-      </div>
-
-      <!-- LDAP Attribute Mappings -->
-      <div class="fha-card">
-        <div class="fha-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h4><i class="fa fa-arrows-h"></i> ${LDAP Attribute Mappings}</h4>
-          <div class="fha-filter-group fha-filter-search" style="margin: 0;" ng-if="c.getLdapAttributeMappings().length > 5">
-            <input type="text" ng-model="c.ldapFilter.search" placeholder="${Search attributes...}" style="width: 200px;">
-          </div>
-        </div>
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getLdapAttributeMappings().length > 0">
-          <table class="fha-data-table">
-            <thead>
-              <tr>
-                <th>${LDAP Attribute}</th>
-                <th><i class="fa fa-arrow-right"></i></th>
-                <th>${ServiceNow Field}</th>
-                <th>${Transform Map}</th>
-                <th>${Coalesce}</th>
-                <th>${Uses Script}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr ng-repeat="m in c.getFilteredLdapMappings()">
-                <td><code style="background: #e0f2fe; color: #0369a1;">{{m.ldap_attribute}}</code></td>
-                <td style="text-align: center; color: #9ca3af;"><i class="fa fa-arrow-right"></i></td>
-                <td><code style="background: #dcfce7; color: #166534;">{{m.servicenow_field}}</code></td>
-                <td>{{m.transform_map}}</td>
-                <td>
-                  <span ng-if="m.coalesce" style="color: #059669;"><i class="fa fa-check"></i></span>
-                  <span ng-if="!m.coalesce" style="color: #9ca3af;">-</span>
-                </td>
-                <td>
-                  <span ng-if="m.uses_script" style="color: #d97706;"><i class="fa fa-code"></i> ${Yes}</span>
-                  <span ng-if="!m.uses_script" style="color: #9ca3af;">-</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div style="padding: 10px 15px; background: #f8fafc; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-            ${Showing} {{c.getFilteredLdapMappings().length}} ${of} {{c.getLdapAttributeMappings().length}} ${attribute mappings}
-          </div>
-        </div>
-        <div class="fha-card-body" ng-if="c.getLdapAttributeMappings().length === 0" style="text-align: center; padding: 30px; color: #666;">
-          <i class="fa fa-info-circle"></i> ${No LDAP attribute mappings found}
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-</div>
-]]></template>
+                <td>{{issue.message}}</td>]]></template>
     </sp_widget>
 </record_update>

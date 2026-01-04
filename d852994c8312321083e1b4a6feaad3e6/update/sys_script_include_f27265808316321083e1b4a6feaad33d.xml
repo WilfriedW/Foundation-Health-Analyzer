@@ -49,7 +49,11 @@ FHAnalyzer.prototype = {
                 };
             }
         }
-        return { name: '', label: '', sys_id: '' };
+        return {
+            name: '',
+            label: '',
+            sys_id: ''
+        };
     },
 
     /**
@@ -70,7 +74,7 @@ FHAnalyzer.prototype = {
                 display_name: gr.getValue('name') || '',
                 table_name: tableInfo.name,
                 table_label: tableInfo.label,
-				table_ref: tableInfo.table_reference.sys_id.toString(),
+                table_ref: tableInfo.table_reference.sys_id.toString(),
                 description: gr.getValue('description') || ''
             });
         }
@@ -102,6 +106,48 @@ FHAnalyzer.prototype = {
             };
         }
         return null;
+    },
+    /**
+     * getAnalysisResult(sysId)
+     */
+    getAnalysisResult: function(sysId) {
+        if (!sysId) {
+            return {
+                success: false,
+                error: 'Missing analysis sys_id'
+            };
+        }
+        var gr = new GlideRecord(this.resultsTable);
+        if (!gr.get(sysId)) {
+            return {
+                success: false,
+                error: 'Analysis not found'
+            };
+        }
+        var resultObj = null;
+        try {
+            var detailJson = gr.getValue('detail_json') || '';
+            resultObj = detailJson ? JSON.parse(detailJson) : {};
+        } catch (e) {
+            return {
+                success: false,
+                error: 'Invalid detail_json: ' + e.message
+            };
+        }
+
+        // Compléter quelques champs utiles (fallback)
+        resultObj.table_name = resultObj.table_name || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('name') || '') : '');
+        resultObj.table_label = resultObj.table_label || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('label') || '') : '');
+        resultObj.number = resultObj.number || gr.getValue('number') || '';
+        resultObj.health_score = resultObj.health_score || parseInt(gr.getValue('health_score'), 10) || 0;
+        resultObj.issue_found = resultObj.issue_found || parseInt(gr.getValue('issue_found'), 10) || 0;
+        resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
+        resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
+
+        return {
+            success: true,
+            result: resultObj
+        };
     },
 
     /**
@@ -148,18 +194,18 @@ FHAnalyzer.prototype = {
 
         // Set table_name reference (sys_db_object)
         gr.setValue('table_name', config.table_sys_id);
-        
+
         // Set status
         gr.setValue('status', 'completed');
-        
+
         // Calculate and set health score
         var healthScore = this._calculateHealthScore(result);
         gr.setValue('health_score', healthScore);
-        
+
         // Set issue count
         var issueCount = result.issues ? result.issues.length : 0;
         gr.setValue('issue_found', issueCount);
-        
+
         // Store full details as JSON in detail_json field
         var detailObj = {
             issues: result.issues || [],
@@ -176,7 +222,7 @@ FHAnalyzer.prototype = {
 
         throw new Error('Failed to save analysis result');
     },
-    
+
     /**
      * Calculate health score based on issues
      * @private
@@ -185,31 +231,30 @@ FHAnalyzer.prototype = {
      */
     _calculateHealthScore: function(result) {
         if (!result || !result.issues) return 100;
-        
+
         var score = 100;
         result.issues.forEach(function(issue) {
             if (issue.severity === 'high') score -= 15;
             else if (issue.severity === 'medium') score -= 5;
             else score -= 2;
         });
-        
+
         return Math.max(0, Math.min(100, score));
     },
 
     type: 'FHAnalyzer'
-};
-]]></script>
+};]]></script>
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>46</sys_mod_count>
+        <sys_mod_count>47</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 08:03:41</sys_updated_on>
+        <sys_updated_on>2026-01-04 23:27:02</sys_updated_on>
     </sys_script_include>
 </record_update>
