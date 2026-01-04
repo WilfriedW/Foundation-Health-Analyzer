@@ -3,15 +3,19 @@
         <category>custom</category>
         <client_script><![CDATA[function($scope, spUtil, $location, $window) {
   var c = this;
-
+    
   // State
-  c.analysisId = $location.search().sys_id || c.data.analysisId || '';
-  c.loading = !c.data.result;
-  c.error = c.data.error || null;
-  c.result = c.data.result || null;
-  c.activeTab = 'overview';
+    c.analysisId = $location.search().sys_id || c.data.analysisId || '';
+    c.loading = !c.data.result;
+    c.error = c.data.error || null;
+    c.result = c.data.result || null;
+    c.activeTab = 'overview';
   c.expandedSections = { fields: false, business_rules: false, automation: false, integration: false };
   c.items = { automation: [], integration: [], security: [], business_rules: [], table_summary: null };
+  c.automationFilter = { type: 'all', status: 'all', search: '' };
+  c.integrationFilter = { type: 'all', status: 'all', search: '' };
+  c.securityFilter = { operation: 'all', inherited: 'all', search: '' };
+  c.ldapFilter = { search: '' };
 
   // UI helpers
   c.toggleSection = function(section) { c.expandedSections[section] = !c.expandedSections[section]; };
@@ -28,7 +32,7 @@
     var cats = c.getCategories();
     var cat = cats[categoryId];
     if (!cat || !cat.items) return [];
-    var items = [];
+        var items = [];
     cat.items.forEach(function(it) {
       var records = it.records || [];
       records.forEach(function(rec) {
@@ -40,8 +44,8 @@
         }, rec));
       });
     });
-    return items;
-  };
+        return items;
+    };
 
   c.getTableSummary = function() {
     var cats = c.getCategories();
@@ -129,30 +133,133 @@
 
   // Initial build if data preloaded
   if (c.result) c.buildAll();
-	
-	c.init = function() {
-  if (!c.result && c.analysisId) {
-    c.loading = true;
-    c.server.get({ action: 'get_result', analysisId: c.analysisId })
-      .then(function(resp) {
-        if (resp.data && resp.data.success && resp.data.analysisResult) {
-          c.result = resp.data.analysisResult;
-          c.analysisId = c.analysisId; // déjà là
-          c.buildAll(); // reconstruire c.items.*
-        } else {
-          c.error = resp.data.error || 'Analysis not found';
-        }
-        c.loading = false;
-      }, function() {
-        c.error = '${Server communication error}';
-        c.loading = false;
-      });
-  } else if (c.result) {
-    c.buildAll(); // si le résultat est déjà injecté via data
-    c.loading = false;
+
+  // Navigation
+  c.setActiveTab = function(tab) { c.activeTab = tab; };
+  c.goBack = function() { $window.history.back(); };
+
+  // Data loading
+  c.init = function() {
+    if (!c.result && c.analysisId) {
+      c.loading = true;
+      c.server.get({ action: 'get_result', analysisId: c.analysisId })
+        .then(function(resp) {
+          if (resp.data && resp.data.success && resp.data.analysisResult) {
+            c.result = resp.data.analysisResult;
+            c.buildAll();
+          } else {
+            c.error = (resp.data && resp.data.error) ? resp.data.error : 'Analysis not found';
+          }
+          c.loading = false;
+        }, function() {
+          c.error = '${Server communication error}';
+          c.loading = false;
+        });
+    } else if (c.result) {
+      c.buildAll();
+      c.loading = false;
+    }
+  };
+
+  // Openers
+  c.openRecord = function(table, sysId) {
+    if (!table || !sysId) return;
+    $window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
+  };
+
+  c.openList = function(table, filter) {
+    if (!table || !filter) return;
+    $window.open('/' + table + '_list.do?sysparm_query=' + encodeURIComponent(filter), '_blank');
+  };
+
+  // Export helpers (basic)
+  c.exportJSON = function() {
+    if (!c.result) return;
+    var blob = new Blob([JSON.stringify(c.result, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = (c.result.table_name || 'analysis') + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  c.exportPDF = function() {
+    $window.print(); // fallback simple
+  };
+
+  // Filters helpers
+  function matchSearch(item, term) {
+    if (!term) return true;
+    var t = (term || '').toString().toLowerCase();
+    return (item.name && item.name.toLowerCase().indexOf(t) !== -1) ||
+           (item.type && item.type.toLowerCase().indexOf(t) !== -1) ||
+           (item.trigger_table && item.trigger_table.toLowerCase().indexOf(t) !== -1);
   }
-};
-c.init();
+
+  c.getAutomationTypes = function() {
+    var set = {};
+    c.items.automation.forEach(function(it){ if (it.type) set[it.type] = true; });
+    return Object.keys(set).sort();
+  };
+
+  c.getIntegrationTypes = function() {
+    var set = {};
+    c.items.integration.forEach(function(it){ if (it.type) set[it.type] = true; });
+    return Object.keys(set).sort();
+  };
+
+    c.resetAutomationFilter = function() {
+        c.automationFilter = { type: 'all', status: 'all', search: '' };
+    };
+    c.resetIntegrationFilter = function() {
+        c.integrationFilter = { type: 'all', status: 'all', search: '' };
+    };
+    c.resetSecurityFilter = function() {
+        c.securityFilter = { operation: 'all', inherited: 'all', search: '' };
+    };
+
+  c.getFilteredAutomationItems = function() {
+    return c.items.automation.filter(function(it){
+      if (c.automationFilter.type !== 'all' && it.type !== c.automationFilter.type) return false;
+      if (c.automationFilter.status === 'active' && it.active === false) return false;
+      if (c.automationFilter.status === 'inactive' && it.active !== false) return false;
+      if (!matchSearch(it, c.automationFilter.search)) return false;
+      return true;
+    });
+  };
+
+  c.getFilteredIntegrationItems = function() {
+    return c.items.integration.filter(function(it){
+      if (c.integrationFilter.type !== 'all' && it.type !== c.integrationFilter.type) return false;
+      if (c.integrationFilter.status === 'active' && it.active === false) return false;
+      if (c.integrationFilter.status === 'inactive' && it.active !== false) return false;
+      if (!matchSearch(it, c.integrationFilter.search)) return false;
+      return true;
+    });
+  };
+
+  c.getFilteredSecurityItems = function() {
+    return c.items.security.filter(function(it){
+      if (c.securityFilter.operation !== 'all' && it.operation !== c.securityFilter.operation) return false;
+      if (c.securityFilter.inherited === 'direct' && it.inherited) return false;
+      if (c.securityFilter.inherited === 'inherited' && !it.inherited) return false;
+      if (!matchSearch(it, c.securityFilter.search)) return false;
+      return true;
+    });
+  };
+
+  // LDAP helpers (safe fallbacks)
+  c.hasLdapAnalysis = function() { return false; };
+  c.getLdapDataSources = function() { return []; };
+  c.getLdapTransformMaps = function() { return []; };
+  c.getLdapAttributeMappings = function() { return []; };
+  c.getLdapServers = function() { return []; };
+  c.getLdapIssues = function() { return []; };
+  c.getFilteredLdapMappings = function() { return []; };
+
+  // Init
+  c.init();
 
 }]]></client_script>
         <controller_as>c</controller_as>
@@ -821,7 +928,7 @@ c.init();
                     var tblName = '';
                     
                     // Method 1: Try reference field
-                    if (gr.table_name && !gr.table_name.nil()) {
+                if (gr.table_name && !gr.table_name.nil()) {
                         var tblRef = gr.table_name.getRefRecord();
                         if (tblRef) {
                             tblName = tblRef.getValue('label') || tblRef.getValue('name') || '';
@@ -842,11 +949,11 @@ c.init();
                     }
                     
                     data.analyses.push({
-                        sys_id: gr.getUniqueValue(),
-                        number: gr.getValue('number'),
+                    sys_id: gr.getUniqueValue(),
+                    number: gr.getValue('number'),
                         table_name: tblName,
-                        health_score: parseInt(gr.getValue('health_score'), 10) || 0,
-                        issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                    health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                    issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
                         created_on: gr.getValue('sys_created_on')
                     });
                 }
@@ -894,7 +1001,7 @@ c.init();
 
   <!-- Loading State -->
   <div ng-if="c.loading && !c.error" style="text-align: center; padding: 80px;">
-    <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
+        <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
     <h3 style="margin-top: 20px; color: #666;">${Loading analysis results...}</h3>
   </div>
 
@@ -908,26 +1015,26 @@ c.init();
           {{c.result.health_score}}
         </div>
         <div class="fha-stat-label">${Health Score}</div>
-      </div>
+          </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value" ng-class="c.countBySeverity('high') > 0 ? 'poor' : 'good'">
           {{c.countBySeverity('high')}}
-        </div>
+          </div>
         <div class="fha-stat-label">${High Severity Issues}</div>
       </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value medium">{{c.countBySeverity('medium')}}</div>
         <div class="fha-stat-label">${Medium Severity Issues}</div>
-      </div>
+          </div>
       <div class="fha-stat-card">
         <div class="fha-stat-value" style="color: #17A2B8;">{{c.countBySeverity('low')}}</div>
         <div class="fha-stat-label">${Low Severity Issues}</div>
+        </div>
       </div>
-    </div>
       
     <!-- Actions Bar -->
-    <div class="fha-card">
-      <div class="fha-card-body">
+      <div class="fha-card">
+        <div class="fha-card-body">
         <div class="fha-actions-panel">
           <button class="fha-btn fha-btn-primary" ng-click="c.exportPDF()">
             <i class="fa fa-file-pdf-o"></i> ${Export PDF}
@@ -974,11 +1081,11 @@ c.init();
     <div class="fha-tab-content" ng-show="c.activeTab === 'overview'">
       <div class="row">
         <div class="col-md-6">
-          <div class="fha-card">
-            <div class="fha-card-header">
+      <div class="fha-card">
+        <div class="fha-card-header">
               <h4><i class="fa fa-table"></i> ${Table Information}</h4>
-            </div>
-            <div class="fha-card-body">
+        </div>
+        <div class="fha-card-body">
               <table class="fha-data-table">
                 <tr>
                   <td><strong>${Table Name}</strong></td>
@@ -1001,9 +1108,9 @@ c.init();
                   <td>{{c.getBusinessRuleCount()}} ({{c.getActiveBusinessRuleCount()}} ${active})</td>
                 </tr>
               </table>
+              </div>
             </div>
           </div>
-        </div>
         <div class="col-md-6">
           <div class="fha-card">
             <div class="fha-card-header">
@@ -1028,11 +1135,11 @@ c.init();
                   <td>{{c.countBySeverity('low')}}</td>
                 </tr>
               </table>
-            </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== ISSUES TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'issues'">
@@ -1075,22 +1182,22 @@ c.init();
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
       <div class="fha-card" ng-if="c.result.issues.length === 0">
         <div class="fha-card-body" style="text-align: center; padding: 50px;">
           <i class="fa fa-check-circle fa-3x" style="color: #28A745;"></i>
           <h3 style="margin-top: 15px; color: #28A745;">${No Issues Found!}</h3>
           <p style="color: #666;">${This table is in excellent health.}</p>
-        </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== FIELDS TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'fields'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>
-        </div>
+          </div>
         <div class="fha-card-body" style="padding: 0;" ng-if="c.getCustomFields().length > 0">
           <table class="fha-data-table">
             <thead>
@@ -1129,16 +1236,16 @@ c.init();
         <div class="fha-card-body" ng-if="c.getCustomFields().length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No custom fields found on this table.}</p>
-        </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== AUTOMATION TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'automation'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-cogs"></i> ${Automation Items} ({{c.items.automation.length}})</h4>
-        </div>
+          </div>
         
         <!-- Filter Bar -->
         <div class="fha-filter-bar" ng-if="c.items.automation.length > 0">
@@ -1148,7 +1255,7 @@ c.init();
               <option value="all">${All Types}</option>
               <option ng-repeat="type in c.getAutomationTypes() track by type" value="{{type}}">{{type}}</option>
             </select>
-          </div>
+        </div>
           <div class="fha-filter-group">
             <label>${Status}:</label>
             <select ng-model="c.automationFilter.status">
@@ -1156,18 +1263,18 @@ c.init();
               <option value="active">${Active}</option>
               <option value="inactive">${Inactive}</option>
             </select>
-          </div>
+            </div>
           <div class="fha-filter-group fha-filter-search">
             <label>${Search}:</label>
             <input type="text" ng-model="c.automationFilter.search" placeholder="${Filter by name...}">
           </div>
           <button class="fha-filter-reset" ng-click="c.resetAutomationFilter()">
             <i class="fa fa-refresh"></i> ${Reset}
-          </button>
+                </button>
           <span class="fha-filter-count">
             {{c.getFilteredAutomationItems().length}} / {{c.items.automation.length}} ${items}
-          </span>
-        </div>
+                  </span>
+              </div>
         
         <div class="fha-card-body" style="padding: 0;" ng-if="c.items.automation.length > 0">
           <table class="fha-data-table">
@@ -1189,7 +1296,7 @@ c.init();
                     {{item.active ? '${Active}' : '${Inactive}'}}
                   </span>
                 </td>
-                <td>{{item.trigger_table}}</td>
+                                <td>{{item.trigger_table}}</td>
                 <td>
                   <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
                     <i class="fa fa-external-link"></i>
@@ -1198,13 +1305,13 @@ c.init();
               </tr>
             </tbody>
           </table>
-        </div>
+            </div>
         <div class="fha-card-body" ng-if="c.items.automation.length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No automation items found for this table.}</p>
-        </div>
-      </div>
-    </div>
+              </div>
+            </div>
+          </div>
 
     <!-- ==================== INTEGRATIONS TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'integration'">
@@ -1221,7 +1328,7 @@ c.init();
               <option value="all">${All Types}</option>
               <option ng-repeat="type in c.getIntegrationTypes() track by type" value="{{type}}">{{type}}</option>
             </select>
-          </div>
+      </div>
           <div class="fha-filter-group">
             <label>${Status}:</label>
             <select ng-model="c.integrationFilter.status">
@@ -1229,18 +1336,18 @@ c.init();
               <option value="active">${Active}</option>
               <option value="inactive">${Inactive}</option>
             </select>
-          </div>
+    </div>
           <div class="fha-filter-group fha-filter-search">
             <label>${Search}:</label>
             <input type="text" ng-model="c.integrationFilter.search" placeholder="${Filter by name...}">
-          </div>
+  </div>
           <button class="fha-filter-reset" ng-click="c.resetIntegrationFilter()">
             <i class="fa fa-refresh"></i> ${Reset}
-          </button>
+        </button>
           <span class="fha-filter-count">
             {{c.getFilteredIntegrationItems().length}} / {{c.items.integration.length}} ${items}
           </span>
-        </div>
+      </div>
         
         <div class="fha-card-body" style="padding: 0;" ng-if="c.items.integration.length > 0">
           <table class="fha-data-table">
@@ -1269,13 +1376,13 @@ c.init();
               </tr>
             </tbody>
           </table>
-        </div>
+  </div>
         <div class="fha-card-body" ng-if="c.items.integration.length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
           <p style="margin-top: 10px;">${No integration items found for this table.}</p>
-        </div>
       </div>
     </div>
+  </div>
 
     <!-- ==================== SECURITY TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'security'">
