@@ -315,17 +315,18 @@ FHScanUtils.prototype = {
 
     /**
      * addCategoryAndMetrics(ctx, categoryKey, itemKey, label, items, options)
+     * Simplified version: uses only categories structure, no metrics
      *
-     * - categoryKey: 'automation' | 'integration' ...
-     * - itemKey: short key for this item group, becomes metrics key (e.g. 'rest_apis', 'transform_maps')
+     * - categoryKey: 'automation' | 'integration' | 'table' | 'security' ...
+     * - itemKey: short key for this item group (e.g. 'rest_apis', 'transform_maps')
      * - label: human label shown in UI (e.g. 'REST APIs')
      * - items: array of plain objects representing records
-     * - options: { table, icon, color, countKeys: { total:'count', active:'active_count', inactive:'inactive_count', direct:'direct_count', inherited:'inherited_count' } }
+     * - options: { table, icon, color }
      *
      * This will:
-     *  - call ctx.registerCategory(categoryKey, Title, icon) if category not present (best-effort)
-     *  - call ctx.addCategoryItems(categoryKey, itemKey, label, items, meta)
-     *  - write metrics: ctx.metrics[itemKey] = items; and also ctx.metrics[itemKey + '_count'] etc.
+     *  - call ctx.registerCategory(categoryKey, label, icon) if category not present
+     *  - call ctx.addCategoryItems(categoryKey, itemKey, label, items, options)
+     *  - All counts and stats are handled by ctx.addCategoryItems internally
      */
     addCategoryAndMetrics: function(ctx, categoryKey, itemKey, label, items, options) {
         options = options || {};
@@ -333,143 +334,54 @@ FHScanUtils.prototype = {
             table: options.table || '',
             icon: options.icon || '',
             color: options.color || '',
-            success: false,
-            writtenKeys: {},
-            counts: {}
+            success: false
         };
 
         try {
-            ctx.registerCategory && typeof ctx.registerCategory === 'function' && ctx.registerCategory(categoryKey, label);
-
-            ctx.metrics = ctx.metrics || {};
-            var ns = options.metricNamespace || categoryKey;
-            ctx.metrics[ns] = ctx.metrics[ns] || {};
-
             // Normalize items array
-            itemsArray = itemsArray || [];
+            var itemsArray = items || [];
             if (!Array.isArray(itemsArray)) itemsArray = [itemsArray];
 
-            // Add UI items (category)
+            // Register category if not exists
+            if (ctx.registerCategory && typeof ctx.registerCategory === 'function') {
+                ctx.registerCategory(categoryKey, label || categoryKey, options.icon || 'fa-folder');
+            }
+
+            // Add items to category (this handles all counts internally)
             if (ctx.addCategoryItems && typeof ctx.addCategoryItems === 'function') {
-                try {
-                    ctx.addCategoryItems(categoryKey, itemKey, label, itemsArray, {
-                        table: options.table,
-                        icon: options.icon,
-                        color: options.color
-                    });
-                } catch (uiErr) {
-                    // fallback silent; we'll still attempt to write metrics
-                    gs.error('addCategoryAndMetrics: addCategoryItems failed: ' + uiErr);
+                ctx.addCategoryItems(categoryKey, itemKey, label, itemsArray, {
+                    table: options.table,
+                    icon: options.icon,
+                    color: options.color
+                });
+                meta.success = true;
+            } else {
+                gs.error('addCategoryAndMetrics: ctx.addCategoryItems is not available');
+                meta.success = false;
+                meta.error = 'addCategoryItems not available';
+            }
+
+            // Special handling for table_summary: store exists and record_count in category metadata
+            if (itemKey === 'table_summary' && itemsArray.length === 1) {
+                var summary = itemsArray[0];
+                var category = ctx.getCategory && ctx.getCategory(categoryKey);
+                if (category) {
+                    if (typeof summary.exists !== 'undefined') {
+                        category.exists = !!summary.exists;
+                    }
+                    if (typeof summary.record_count !== 'undefined') {
+                        category.record_count = summary.record_count;
+                    }
                 }
             }
 
-            var total = itemsArray.length;
-            var active = null,
-                inactive = null,
-                direct = null,
-                inherited = null;
-
-            // Detect common boolean fields inside items: active, direct, inherited
-            try {
-                active = 0;
-                inactive = 0;
-                direct = 0;
-                inherited = 0;
-                for (var i = 0; i < itemsArray.length; i++) {
-                    var it = itemsArray[i];
-                    // handle GlideRecord-like objects -> try safeGetValue wrapper if provided
-                    var valActive = (it && (typeof it.active !== 'undefined')) ? it.active : null;
-                    if (valActive === true || valActive === 'true' || valActive === 1 || valActive === '1') active++;
-                    if (valActive === false || valActive === 'false' || valActive === 0 || valActive === '0') inactive++;
-
-                    var valDirect = (it && (typeof it.direct !== 'undefined')) ? it.direct : null;
-                    if (valDirect === true || valDirect === 'true' || valDirect === 1 || valDirect === '1') direct++;
-
-                    var valInherited = (it && (typeof it.inherited !== 'undefined')) ? it.inherited : null;
-                    if (valInherited === true || valInherited === 'true' || valInherited === 1 || valInherited === '1') inherited++;
-                }
-                // If nobody had the fields, set to null to avoid misleading zeros
-                if (active === 0 && itemsArray.some(function(x) {
-                        return typeof x.active !== 'undefined';
-                    }) === false) active = null;
-                if (inactive === 0 && itemsArray.some(function(x) {
-                        return typeof x.active !== 'undefined';
-                    }) === false) inactive = null;
-                if (direct === 0 && itemsArray.some(function(x) {
-                        return typeof x.direct !== 'undefined';
-                    }) === false) direct = null;
-                if (inherited === 0 && itemsArray.some(function(x) {
-                        return typeof x.inherited !== 'undefined';
-                    }) === false) inherited = null;
-            } catch (cErr) {
-                // ignore computation errors, leave nils
-                active = inactive = direct = inherited = null;
-            }
-
-            // Decide metric key names
-            var countKeys = options.countKeys || {};
-            var totalKey = countKeys.total || (itemKey + '_count');
-            var activeKey = countKeys.active || (itemKey + '_active_count');
-            var inactiveKey = countKeys.inactive || (itemKey + '_inactive_count');
-            var directKey = countKeys.direct || (itemKey + '_direct_count');
-            var inheritedKey = countKeys.inherited || (itemKey + '_inherited_count');
-
-            // Write into ctx.metrics namespace
-            ctx.metrics[ns][totalKey] = total;
-            meta.writtenKeys.total = ns + '.' + totalKey;
-            meta.counts.total = total;
-
-            if (active !== null) {
-                ctx.metrics[ns][activeKey] = active;
-                meta.writtenKeys.active = ns + '.' + activeKey;
-                meta.counts.active = active;
-            }
-            if (inactive !== null) {
-                ctx.metrics[ns][inactiveKey] = inactive;
-                meta.writtenKeys.inactive = ns + '.' + inactiveKey;
-                meta.counts.inactive = inactive;
-            }
-            if (direct !== null) {
-                ctx.metrics[ns][directKey] = direct;
-                meta.writtenKeys.direct = ns + '.' + directKey;
-                meta.counts.direct = direct;
-            }
-            if (inherited !== null) {
-                ctx.metrics[ns][inheritedKey] = inherited;
-                meta.writtenKeys.inherited = ns + '.' + inheritedKey;
-                meta.counts.inherited = inherited;
-            }
-
-            // Also write a convenience flat boolean/exists and a flat record_count if itemKey === 'table_summary'
-            if (itemKey === 'table_summary' || options.writeConvenienceKeys) {
-                // write ctx.metrics[ns].exists if item contains exists property; else infer from total>0
-                var existsVal = null;
-                if (itemsArray.length === 1 && typeof itemsArray[0].exists !== 'undefined') existsVal = !!itemsArray[0].exists;
-                else existsVal = (total > 0);
-                ctx.metrics[ns].exists = existsVal;
-                meta.writtenKeys.exists = ns + '.exists';
-                meta.counts.exists = existsVal;
-
-                // if item had record_count property, propagate as record_count on namespace
-                if (itemsArray.length === 1 && typeof itemsArray[0].record_count !== 'undefined') {
-                    ctx.metrics[ns].record_count = itemsArray[0].record_count;
-                    meta.writtenKeys.record_count = ns + '.record_count';
-                    meta.counts.record_count = itemsArray[0].record_count;
-                }
-            }
-
-            meta.success = true;
         } catch (e) {
             gs.error('addCategoryAndMetrics error: ' + e);
             meta.success = false;
             meta.error = '' + e;
-            // ensure ctx.metrics exists minimally so callers don't NPE
-            ctx.metrics = ctx.metrics || {};
-            ctx.metrics[categoryKey] = ctx.metrics[categoryKey] || {};
         }
 
         return meta;
-
     },
 
 

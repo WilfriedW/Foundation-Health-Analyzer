@@ -22,7 +22,6 @@ var FHAnalysisContext = Class.create();
 FHAnalysisContext.prototype = {
     initialize: function(config) {
         this.config = config;
-        this.metrics = {};
         this.issues = [];
 
         // Initialize options with defaults
@@ -33,11 +32,13 @@ FHAnalysisContext.prototype = {
             include_ldap: this._isTrue(config.include_ldap)
         };
 
-        // Store options in metrics for reference
-        //this.metrics.options = this.options;
-
         // Initialize categories structure for standardized output
         this.categories = {};
+
+        // Store execution metadata (duration, etc.) - minimal, no metrics structure
+        this._executionMetadata = {
+            duration_ms: 0
+        };
 
         // Cache for table hierarchy (computed once, reused)
         this._tableHierarchyCache = null;
@@ -379,6 +380,39 @@ FHAnalysisContext.prototype = {
     // ==================== RESULT GENERATION ====================
 
     /**
+     * Helper to check if table exists (from categories.table)
+     * @returns {Boolean} True if table exists
+     */
+    isTableExists: function() {
+        var tableCategory = this.getCategory('table');
+        if (tableCategory && tableCategory.items && tableCategory.items.length > 0) {
+            for (var i = 0; i < tableCategory.items.length; i++) {
+                var item = tableCategory.items[i];
+                if (item.type === 'table_summary' && item.records && item.records.length > 0) {
+                    return item.records[0].exists === true;
+                }
+            }
+        }
+        return false;
+    },
+
+    /**
+     * Get execution metadata (duration, etc.)
+     * @returns {Object} Execution metadata
+     */
+    getExecutionMetadata: function() {
+        return this._executionMetadata;
+    },
+
+    /**
+     * Set execution duration
+     * @param {Number} durationMs - Duration in milliseconds
+     */
+    setDuration: function(durationMs) {
+        this._executionMetadata.duration_ms = durationMs;
+    },
+
+    /**
      * Convert context to result object
      * @returns {Object} Result object
      */
@@ -386,14 +420,14 @@ FHAnalysisContext.prototype = {
         var self = this;
         return {
             table: this.config.table_name,
-            metrics: this.metrics,
             issues: this.issues,
             categories: this.categories,
+            execution_metadata: this._executionMetadata,
             hasBlockingIssues: function() {
                 return self.issues.some(function(issue) {
                     return issue.severity === 'high';
                 });
-            },
+            }
         };
     },
 

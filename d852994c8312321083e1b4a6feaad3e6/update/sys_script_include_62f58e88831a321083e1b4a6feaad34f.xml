@@ -36,7 +36,7 @@ FHAnalysisEngine.prototype = {
             }
         }
 
-        ctx.metrics.duration_ms = new Date().getTime() - start;
+        ctx.setDuration(new Date().getTime() - start);
 
         return ctx.toResult();
     },

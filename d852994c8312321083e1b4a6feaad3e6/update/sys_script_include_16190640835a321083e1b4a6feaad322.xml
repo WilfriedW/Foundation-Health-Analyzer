@@ -17,11 +17,10 @@ FHCheckIntegration.prototype = {
     },
 
     execute: function(ctx) {
-        if (!ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
 
         ctx.registerCategory('integration', 'Integrations', 'fa-plug');
         var tablesToCheck = ctx.getTablesToCheck();
-        ctx.metrics.integration_tables_checked = tablesToCheck;
 
         this._checkDataSources(ctx, tablesToCheck);
         this._checkImportSets(ctx, tablesToCheck);
@@ -74,28 +73,31 @@ FHCheckIntegration.prototype = {
 
     _checkImportSets: function(ctx, tablesToCheck) {
         var tableName = ctx.getTableName();
+        var importSets = [];
         try {
+            var thirtyDaysAgo = new GlideDateTime();
+            thirtyDaysAgo.addDaysUTC(-30);
+            
             var ga = new GlideAggregate('sys_import_set_run');
             ga.addQuery('set.table_name', tableName);
             ga.addAggregate('COUNT');
             ga.query();
             var importRunCount = 0;
             if (ga.next()) importRunCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
-            ctx.metrics.import_run_count = importRunCount;
-        } catch (e) {
-            ctx.metrics.import_run_count = 0;
-        }
-
-        try {
-            var thirtyDaysAgo = new GlideDateTime();
-            thirtyDaysAgo.addDaysUTC(-30);
+            
             var failedGr = new GlideRecord('sys_import_set_run');
             failedGr.addQuery('set.table_name', tableName);
             failedGr.addQuery('state', 'error');
             failedGr.addQuery('sys_created_on', '>=', thirtyDaysAgo);
             failedGr.query();
             var failedCount = failedGr.getRowCount();
-            ctx.metrics.failed_import_count = failedCount;
+            
+            importSets.push({
+                table_name: tableName,
+                total_runs: importRunCount,
+                failed_runs_last_30_days: failedCount
+            });
+            
             if (failedCount > 0) {
                 ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium', {
                     record_table: 'sys_import_set_run',
@@ -104,6 +106,14 @@ FHCheckIntegration.prototype = {
                 });
             }
         } catch (e) {
+        }
+        
+        if (importSets.length > 0) {
+            ctx.addCategoryItems('integration', 'import_sets', 'Import Sets', importSets, {
+                table: 'sys_import_set_run',
+                icon: 'fa-download',
+                color: '#17a2b8'
+            });
         }
     },
 
@@ -134,22 +144,11 @@ FHCheckIntegration.prototype = {
             }
         }
 
-        // ctx.addCategoryItems('integration', 'transform_map', 'Transform Maps', transformMaps, {
-        //     table: 'sys_transform_map',
-        //     icon: 'fa-exchange-alt',
-        //     color: '#17a2b8'
-        // });
-        // ctx.metrics.transform_maps = transformMaps;
-        // ctx.metrics.transform_maps.transform_map_count = transformMaps.length;
-        // ctx.metrics.transform_maps.active_transform_map_count = activeCount;
-        // ctx.metrics.transform_maps.inactive_transform_map_count = inactiveCount;
-
-        var meta = {
+        ctx.addCategoryItems('integration', 'transform_map', 'Transform Maps', transformMaps, {
             table: 'sys_transform_map',
             icon: 'fa-exchange-alt',
             color: '#17a2b8'
-        };
-        this.utils.addCategoryAndMetrics(ctx, 'integration', 'transform_map', 'Transform Maps', transformMaps, meta);
+        });
     },
 
     _checkRestMessages: function(ctx, tablesToCheck) {

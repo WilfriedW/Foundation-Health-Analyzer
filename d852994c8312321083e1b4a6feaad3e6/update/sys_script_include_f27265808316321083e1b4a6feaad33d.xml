@@ -163,13 +163,9 @@ FHAnalyzer.prototype = {
         // Store full details as JSON in detail_json field
         var detailObj = {
             issues: result.issues || [],
-            metrics: result.metrics || {},
             categories: result.categories || {},
-            // table_name: config.table_name,
-            // table_label: config.table_label || config.table_name,
-            options: config,
-            // parameters: parameters || {},
-            // analysis_date: new GlideDateTime().toString()
+            execution_metadata: result.execution_metadata || {},
+            options: config
         };
         gr.setValue('detail_json', JSON.stringify(detailObj));
 

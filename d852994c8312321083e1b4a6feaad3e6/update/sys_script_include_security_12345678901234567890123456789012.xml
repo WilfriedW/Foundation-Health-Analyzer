@@ -21,14 +21,13 @@ FHCheckSecurity.prototype = {
      * @param {Object} ctx - Analysis context (FHAnalysisContext)
      */
     execute: function(ctx) {
-        if (!ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
 
         // Register the security category
         ctx.registerCategory('security', 'Security', 'fa-shield-alt');
 
         // Get tables to check from context (uses centralized logic)
         var tablesToCheck = ctx.getTablesToCheck();
-        ctx.metrics.security_tables_checked = tablesToCheck;
 
         this._checkACLs(ctx, tablesToCheck);
     },
@@ -93,16 +92,6 @@ FHCheckSecurity.prototype = {
             icon: 'fa-lock',
             color: '#dc3545'
         });
-
-        ctx.metrics.acls = acls;
-        ctx.metrics.acl_count = acls.length;
-        ctx.metrics.acl_direct_count = acls.filter(function(a) {
-            return !a.inherited;
-        }).length;
-        ctx.metrics.acl_inherited_count = acls.filter(function(a) {
-            return a.inherited;
-        }).length;
-        ctx.metrics.acls_by_operation = aclsByOperation;
 
         // Check for missing ACLs (only warn if no ACL at all in hierarchy)
         if (aclsByOperation.read === 0) {

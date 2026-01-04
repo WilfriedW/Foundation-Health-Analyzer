@@ -21,7 +21,7 @@ FHOptionsHandler.prototype = {
      * Called by other checks when deep scan option is enabled.
      */
     deepScanScripts: function(ctx) {
-        if (!ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
         var sampleLimit = ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0;
 
@@ -40,7 +40,7 @@ FHOptionsHandler.prototype = {
             issues = issues.concat(scriptIssues);
         }
 
-        ctx.metrics.script_issues = issues;
+        // Issues are added to ctx via addIssue
         // Add each issue to context for consistent UI/records usage
         for (i=0;i<issues.length;i++) {
             var it = issues[i];
@@ -57,7 +57,7 @@ FHOptionsHandler.prototype = {
      * Kept as public for compatibility: deepScanAutomations(ctx)
      */
     deepScanAutomations: function(ctx) {
-        if (!ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
         var types = ['scheduled', 'transform_map', 'transform_entry', 'scripted_rest', 'business_rule', 'client_script'];
         var scripts = this.utils.scanScriptsForTables(tables, { types: types, sampleLimit: ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0 });
@@ -72,7 +72,7 @@ FHOptionsHandler.prototype = {
             }
             allIssues = allIssues.concat(scriptIssues);
         }
-        ctx.metrics.automation_script_issues = allIssues;
+        // Issues are added to ctx via addIssue
         for (i=0;i<allIssues.length;i++) {
             var issue = allIssues[i];
             ctx.addIssue(issue.code || 'AUTOMATION_SCRIPT_ISSUE', issue.message, issue.severity || 'low', {
@@ -88,7 +88,7 @@ FHOptionsHandler.prototype = {
      * Kept for compatibility: analyze transform map scripts only
      */
     deepScanTransformMaps: function(ctx) {
-        if (!ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
         var scripts = this.utils.scanScriptsForTables(tables, { types: ['transform_map', 'transform_entry'] });
         var issues = [];
@@ -102,7 +102,7 @@ FHOptionsHandler.prototype = {
             }
             issues = issues.concat(scriptIssues);
         }
-        ctx.metrics.transform_map_script_issues = issues;
+        // Issues are added to ctx via addIssue
         for (i=0;i<issues.length;i++) {
             var it = issues[i];
             ctx.addIssue(it.code || 'TRANSFORM_SCRIPT_ISSUE', it.message, it.severity || 'low', {
@@ -119,7 +119,7 @@ FHOptionsHandler.prototype = {
      */
     analyzeIntegrationDependencies: function(ctx) {
         // Example: check rest messages, transform maps and import sets referencing tables
-        if (!ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
         // Use utils to get rest scripts that reference the tables
         var scripts = this.utils.scanScriptsForTables(tables, { types: ['scripted_rest'] });
@@ -135,7 +135,7 @@ FHOptionsHandler.prototype = {
             }
             issues = issues.concat(scriptIssues);
         }
-        ctx.metrics.integration_script_issues = issues;
+        // Issues are added to ctx via addIssue
         for (i=0;i<issues.length;i++) {
             var it = issues[i];
             ctx.addIssue(it.code || 'INTEGRATION_SCRIPT_ISSUE', it.message, it.severity || 'low', {
@@ -151,14 +151,25 @@ FHOptionsHandler.prototype = {
      * Kept as public for compatibility. Uses memoized queries and is safe if LDAP tables do not exist.
      */
     analyzeLdapConfiguration: function(ctx) {
-        if (!ctx.metrics.table_exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
+        
+        // Register LDAP category if not exists
+        ctx.registerCategory('ldap', 'LDAP', 'fa-sitemap');
+        
         try {
-            var ldapConn = this.utils.getRecords('ldap_server', function(gr){
-                // example: list configured LDAP servers
+            var ldapServers = this.utils.getRecords('ldap_server', function(gr){
+                // list configured LDAP servers
             }, ['name','host'], 0, 'ldap:all');
-            ctx.metrics.ldap_servers = ldapConn;
+            
+            if (ldapServers && ldapServers.length > 0) {
+                ctx.addCategoryItems('ldap', 'ldap_servers', 'LDAP Servers', ldapServers, {
+                    table: 'ldap_server',
+                    icon: 'fa-server',
+                    color: '#17a2b8'
+                });
+            }
         } catch (e) {
-            ctx.metrics.ldap_servers = [];
+            // Table may not exist, ignore
         }
     },
 

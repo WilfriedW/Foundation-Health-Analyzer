@@ -22,17 +22,22 @@ FHCheckTable.prototype = {
      * ctx is the FHAnalysisContext instance used across the analyzer.
      */
     execute: function(ctx) {
-        // _checkTableSummary doit être appelé en tout premier car il expose ctx.metrics.table (namespace)
+        // Register table category first
+        ctx.registerCategory('table', 'Table', 'fa-table');
+
+        // _checkTableSummary doit être appelé en tout premier car il crée la catégorie table
         this._checkTableSummary(ctx);
 
-        // Ensuite les autres checks peuvent s'appuyer sur ctx.metrics.table.exists / record_count
-        this._checkFieldUsage(ctx);
-        this._checkReferenceFields(ctx);
-        this._checkBusinessRules(ctx);
-        this._checkClientScripts(ctx);
+        // Ensuite les autres checks peuvent s'appuyer sur ctx.isTableExists()
+        if (ctx.isTableExists && ctx.isTableExists()) {
+            this._checkFieldUsage(ctx);
+            this._checkReferenceFields(ctx);
+            this._checkBusinessRules(ctx);
+            this._checkClientScripts(ctx);
+        }
 
         if (ctx.isDeepScanEnabled && ctx.isDeepScanEnabled()) {
-            this.optionsHandler.deepScanTransformMaps(ctx);
+            this.optionsHandler.deepScanScripts(ctx);
         }
 
         if (ctx.isAnalyzeReferencesEnabled && ctx.isAnalyzeReferencesEnabled()) {
@@ -47,14 +52,9 @@ FHCheckTable.prototype = {
     /**
      * Check table existence + record count, raise issues,
      * and add a "Table Summary" item in the 'table' category for UI.
-     * THIS function uses addCategoryAndMetrics as unique writer of metrics.
+     * Uses categories structure only, no metrics.
      */
     _checkTableSummary: function(ctx) {
-        ctx.metrics = ctx.metrics || {};
-        // We'll store metrics under ctx.metrics.table namespace
-        var metricNs = 'table';
-        ctx.metrics[metricNs] = ctx.metrics[metricNs] || {};
-
         var tableName = (ctx.getTableName && ctx.getTableName()) || (ctx.config && ctx.config.table_name);
         var tableLabel = null;
         var recordCount = 0;
@@ -62,43 +62,18 @@ FHCheckTable.prototype = {
 
         if (!tableName) {
             ctx.addIssue('INVALID_CONFIG', 'Table name is not defined in configuration', 'high');
-            // create missing summary object
             var missingSummary = {
                 table: null,
                 label: null,
                 exists: false,
                 record_count: 0
             };
-
-            // call helper to add category/UI and write metrics
-            var meta = {};
-            try {
-                if (this.utils && typeof this.utils.addCategoryAndMetrics === 'function') {
-                    meta = this.utils.addCategoryAndMetrics(ctx, 'table', 'table_summary', 'Table Summary', [missingSummary], {
-                        table: 'sys_db_object',
-                        icon: 'fa-table',
-                        color: '#d9534f',
-                        metricNamespace: metricNs,
-                        countKeys: {
-                            total: 'table_summary_count'
-                        },
-                        writeConvenienceKeys: true
-                    });
-                } else if (ctx.addCategoryItems) {
-                    ctx.addCategoryItems('table', 'table_summary', 'Table Summary', [missingSummary], {
-                        table: 'sys_db_object',
-                        icon: 'fa-table'
-                    });
-                    ctx.metrics[metricNs].exists = false;
-                    ctx.metrics[metricNs].record_count = 0;
-                    meta.success = true;
-                }
-            } catch (e) {
-                gs.error('FHCheckTable._checkTableSummary (missing) addCategory error: ' + e);
-                ctx.metrics[metricNs].exists = false;
-                ctx.metrics[metricNs].record_count = 0;
-            }
-            return; // nothing else to do
+            this.utils.addCategoryAndMetrics(ctx, 'table', 'table_summary', 'Table Summary', [missingSummary], {
+                table: 'sys_db_object',
+                icon: 'fa-table',
+                color: '#d9534f'
+            });
+            return;
         }
 
         // Query sys_db_object to verify existence and get label (if any)
@@ -106,15 +81,13 @@ FHCheckTable.prototype = {
             var gr = new GlideRecord('sys_db_object');
             if (gr.get('name', tableName)) {
                 exists = true;
-                // prefer user-friendly label if available
-                tableLabel = gr.getValue('label') || gr.getValue('name');
+                tableLabel = ctx.safeGetValue(gr, 'label') || ctx.safeGetValue(gr, 'name') || tableName;
             } else {
                 exists = false;
                 ctx.addIssue('TABLE_NOT_FOUND', 'Table "' + tableName + '" does not exist in the system', 'high');
             }
         } catch (e) {
             gs.error('FHCheckTable._checkTableSummary error checking sys_db_object: ' + e);
-            // fallback: treat as not existing
             exists = false;
         }
 
@@ -139,14 +112,14 @@ FHCheckTable.prototype = {
                 ctx.addIssue('EMPTY_TABLE', 'Table "' + tableName + '" contains no records.', 'low', {
                     record_table: tableName
                 });
-            } else if (recordCount > 100000) { // seuil configurable si besoin
+            } else if (recordCount > 100000) {
                 ctx.addIssue('LARGE_TABLE', 'Table "' + tableName + '" has ' + recordCount + ' records — consider archiving.', 'medium', {
                     record_table: tableName
                 });
             }
         }
 
-        // Build summary object and hand to helper which will write metrics under ctx.metrics.table.*
+        // Build summary object and add to category
         var tableSummary = {
             table: tableName,
             label: tableLabel || tableName,
@@ -154,121 +127,75 @@ FHCheckTable.prototype = {
             record_count: recordCount
         };
 
-        try {
-            if (this.utils && typeof this.utils.addCategoryAndMetrics === 'function') {
-                var meta = this.utils.addCategoryAndMetrics(ctx, 'table', 'table_summary', 'Table Summary', [tableSummary], {
-                    table: 'sys_db_object',
-                    icon: 'fa-table',
-                    color: exists ? '#17a2b8' : '#d9534f',
-                    metricNamespace: metricNs,
-                    countKeys: {
-                        total: 'table_summary_count'
-                    },
-                    writeConvenienceKeys: true
-                });
-                // meta contient les clés écrites si besoin
-            } else if (ctx.addCategoryItems) {
-                ctx.addCategoryItems('table', 'table_summary', 'Table Summary', [tableSummary], {
-                    table: 'sys_db_object',
-                    icon: 'fa-table'
-                });
-                // fallback: write minimal metrics so subsequent checks can run
-                ctx.metrics[metricNs].table_summary_count = 1;
-                ctx.metrics[metricNs].exists = !!exists;
-                ctx.metrics[metricNs].record_count = recordCount;
-            }
-        } catch (e) {
-            gs.error('FHCheckTable._checkTableSummary addCategory error: ' + e);
-            // ensure fallback metrics exist
-            ctx.metrics[metricNs].exists = !!exists;
-            ctx.metrics[metricNs].record_count = recordCount;
-        }
+        this.utils.addCategoryAndMetrics(ctx, 'table', 'table_summary', 'Table Summary', [tableSummary], {
+            table: 'sys_db_object',
+            icon: 'fa-table',
+            color: exists ? '#17a2b8' : '#d9534f'
+        });
     },
 
     /**
-     * Example: Check field usage (starts only if table exists)
-     * (I leave implementations minimal — tu as déjà les versions précédentes)
+     * Check field usage (starts only if table exists)
      */
     _checkFieldUsage: function(ctx) {
-        var metricNs = 'table';
-        if (!ctx.metrics || !ctx.metrics[metricNs] || !ctx.metrics[metricNs].exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
 
-        var tableName = (ctx.getTableName && ctx.getTableName()) || (ctx.config && ctx.config.table_name);
-        // Implémentation de ta logique de vérification des champs...
-        // Exemple minimal (remplacer par ton code complet)
-        // ...
+        var tableName = ctx.getTableName();
+        // TODO: Implement field usage checks if needed
     },
 
     _checkReferenceFields: function(ctx) {
-        var metricNs = 'table';
-        if (!ctx.metrics || !ctx.metrics[metricNs] || !ctx.metrics[metricNs].exists) return;
-        // Implémentation...
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
+        // TODO: Implement reference field checks if needed
     },
 
     _checkBusinessRules: function(ctx) {
-        var metricNs = 'table';
-        if (!ctx.metrics || !ctx.metrics[metricNs] || !ctx.metrics[metricNs].exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
 
-        var tableName = (ctx.getTableName && ctx.getTableName()) || (ctx.config && ctx.config.table_name);
+        var tableName = ctx.getTableName();
+        var tablesToCheck = ctx.getTablesToCheck();
+        var businessRules = [];
 
-        // Example: count active/inactive business rules for the table
         try {
-            var activeBR = 0,
-                inactiveBR = 0;
             var gr = new GlideRecord('sys_script');
-            gr.addQuery('collection', tableName);
+            this.utils.addInQuery(gr, 'collection', tablesToCheck);
             gr.query();
             while (gr.next()) {
-                if (gr.getValue('active') === 'true' || gr.getValue('active') === true) activeBR++;
-                else inactiveBR++;
-            }
-
-            // Create list items to show in UI (optional)
-            var brSummary = [{
-                    key: tableName + ':active_business_rules',
-                    name: 'Active Business Rules',
-                    count: activeBR
-                },
-                {
-                    key: tableName + ':inactive_business_rules',
-                    name: 'Inactive Business Rules',
-                    count: inactiveBR
-                }
-            ];
-
-            // Use helper to write metrics under ctx.metrics.table.*
-            if (this.utils && typeof this.utils.addCategoryAndMetrics === 'function') {
-                // Add as separate category items (category 'business_rule'), helper will create metrics under metricNamespace 'business_rule' by default
-                this.utils.addCategoryAndMetrics(ctx, 'business_rule', 'business_rule_summary', 'Business Rules', brSummary, {
+                var brName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
+                var brTable = ctx.safeGetValue(gr, 'collection');
+                var isActive = this.utils.toBool(gr.getValue('active'));
+                businessRules.push({
+                    sys_id: gr.getUniqueValue(),
+                    name: brName,
                     table: 'sys_script',
-                    icon: 'fa-cog',
-                    metricNamespace: 'business_rule',
-                    countKeys: {
-                        total: 'business_rule_count',
-                        active: 'business_rule_active_count',
-                        inactive: 'business_rule_inactive_count'
-                    }
+                    collection: brTable,
+                    active: isActive,
+                    inherited: (brTable !== tableName),
+                    when: ctx.safeGetValue(gr, 'when'),
+                    order: ctx.safeGetValue(gr, 'order')
                 });
-            } else {
-                // fallback minimal metrics
-                ctx.metrics.business_rule = ctx.metrics.business_rule || {};
-                ctx.metrics.business_rule.business_rule_count = activeBR + inactiveBR;
-                ctx.metrics.business_rule.business_rule_active_count = activeBR;
-                ctx.metrics.business_rule.business_rule_inactive_count = inactiveBR;
+
+                if (!isActive) {
+                    ctx.addIssue('INACTIVE_BUSINESS_RULE', 'Inactive business rule: "' + brName + '"', 'low', {
+                        record_table: 'sys_script',
+                        record_sys_id: gr.getUniqueValue(),
+                        category: 'business_rule'
+                    });
+                }
             }
 
-            if (activeBR > 50) {
-                ctx.addIssue('MANY_BUSINESS_RULES', 'Table has ' + (activeBR + inactiveBR) + ' business rules, ' + activeBR + ' active. This may impact performance.', 'medium', {
+            ctx.registerCategory('business_rule', 'Business Rules', 'fa-cogs');
+            ctx.addCategoryItems('business_rule', 'business_rule', 'Business Rules', businessRules, {
+                table: 'sys_script',
+                icon: 'fa-cogs',
+                color: '#6c757d'
+            });
+
+            var activeCount = businessRules.filter(function(br) { return br.active; }).length;
+            if (activeCount > 50) {
+                ctx.addIssue('MANY_BUSINESS_RULES', 'Table has ' + businessRules.length + ' business rules, ' + activeCount + ' active. This may impact performance.', 'medium', {
                     record_table: 'sys_script',
                     record_filter: 'collection=' + tableName + '^active=true',
-                    category: 'business_rule'
-                });
-            }
-
-            if (inactiveBR > 10) {
-                ctx.addIssue('INACTIVE_BUSINESS_RULES', 'Table has ' + inactiveBR + ' inactive business rules. Consider removing them.', 'low', {
-                    record_table: 'sys_script',
-                    record_filter: 'collection=' + tableName + '^active=false',
                     category: 'business_rule'
                 });
             }
@@ -278,56 +205,45 @@ FHCheckTable.prototype = {
     },
 
     _checkClientScripts: function(ctx) {
-        var metricNs = 'table';
-        if (!ctx.metrics || !ctx.metrics[metricNs] || !ctx.metrics[metricNs].exists) return;
+        if (!ctx.isTableExists || !ctx.isTableExists()) return;
 
-        var tableName = (ctx.getTableName && ctx.getTableName()) || (ctx.config && ctx.config.table_name);
-
+        var tableName = ctx.getTableName();
+        var tablesToCheck = ctx.getTablesToCheck();
         var clientScripts = [];
+
         try {
             var gr = new GlideRecord('sys_script_client');
-            gr.addQuery('table', tableName);
+            this.utils.addInQuery(gr, 'table', tablesToCheck);
             gr.addQuery('active', true);
             gr.query();
             while (gr.next()) {
                 clientScripts.push({
-                    name: ctx.safeGetValue ? ctx.safeGetValue(gr, 'name') || 'Unnamed' : gr.getValue('name') || 'Unnamed',
-                    type: ctx.safeGetValue ? ctx.safeGetValue(gr, 'type') : gr.getValue('type'),
-                    ui_type: ctx.safeGetValue ? ctx.safeGetValue(gr, 'ui_type') : gr.getValue('ui_type')
+                    sys_id: gr.getUniqueValue(),
+                    name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
+                    table: 'sys_script_client',
+                    target_table: ctx.safeGetValue(gr, 'table'),
+                    type: ctx.safeGetValue(gr, 'type'),
+                    ui_type: ctx.safeGetValue(gr, 'ui_type'),
+                    active: true,
+                    inherited: (ctx.safeGetValue(gr, 'table') !== tableName)
+                });
+            }
+
+            ctx.addCategoryItems('table', 'client_scripts', 'Client Scripts', clientScripts, {
+                table: 'sys_script_client',
+                icon: 'fa-desktop',
+                color: '#6c757d'
+            });
+
+            if (clientScripts.length > 15) {
+                ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
+                    record_table: 'sys_script_client',
+                    record_filter: 'table=' + tableName + '^active=true',
+                    category: 'client_script'
                 });
             }
         } catch (e) {
             gs.error('FHCheckTable._checkClientScripts query error: ' + e);
-        }
-
-        try {
-            if (this.utils && typeof this.utils.addCategoryAndMetrics === 'function') {
-                this.utils.addCategoryAndMetrics(ctx, 'table', 'client_scripts', 'Client Scripts', clientScripts, {
-                    table: 'sys_script_client',
-                    icon: 'fa-desktop',
-                    metricNamespace: 'table', // on veut que ces compteurs soient accessibles sous ctx.metrics.table.*
-                    countKeys: {
-                        total: 'client_script_count'
-                    }
-                });
-            } else if (ctx.addCategoryItems) {
-                ctx.addCategoryItems('table', 'client_scripts', 'Client Scripts', clientScripts, {
-                    table: 'sys_script_client',
-                    icon: 'fa-desktop'
-                });
-                ctx.metrics.table.client_script_count = clientScripts.length;
-            }
-        } catch (e) {
-            gs.error('FHCheckTable._checkClientScripts addCategory error: ' + e);
-            ctx.metrics.table.client_script_count = clientScripts.length;
-        }
-
-        if (clientScripts.length > 15) {
-            ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
-                record_table: 'sys_script_client',
-                record_filter: 'table=' + tableName + '^active=true',
-                category: 'client_script'
-            });
         }
     },
 

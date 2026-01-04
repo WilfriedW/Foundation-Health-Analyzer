@@ -24,14 +24,13 @@ FHCheckAutomation.prototype = {
      * @param {Object} ctx - FHAnalysisContext
      */
     run: function(ctx) {
-        if (!ctx || !ctx.metrics || !ctx.metrics.table_exists) return;
+        if (!ctx || !ctx.isTableExists || !ctx.isTableExists()) return;
 
         // Register the automation category once
         ctx.registerCategory('automation', 'Automation', 'fa-cogs');
 
         // Get tables to check from centralized context logic
         var tablesToCheck = ctx.getTablesToCheck();
-        ctx.metrics.automation_tables_checked = tablesToCheck;
 
         // Run individual checks (all implemented to use utils and toBool)
         this.checkScheduledJobs(ctx, tablesToCheck);
@@ -114,9 +113,6 @@ FHCheckAutomation.prototype = {
             icon: 'fa-clock',
             color: '#6f42c1'
         });
-
-        ctx.metrics.scheduled_jobs = scheduledJobs;
-        ctx.metrics.scheduled_jobs.scheduled_job_count = scheduledJobs.length;
     },
 
     /**
@@ -163,15 +159,6 @@ FHCheckAutomation.prototype = {
             icon: 'fa-project-diagram',
             color: '#17a2b8'
         });
-
-        ctx.metrics.flows = flows;
-        ctx.metrics.flows.flow_count = flows.length;
-        ctx.metrics.flows.flow_direct_count = flows.filter(function(f) {
-            return !f.inherited;
-        }).length;
-        ctx.metrics.flows.flow_inherited_count = flows.filter(function(f) {
-            return f.inherited;
-        }).length;
 
         if (flows.length > 10) {
             ctx.addIssue('MANY_FLOWS', 'Table has ' + flows.length + ' flows. Check for redundancy.', 'medium', {
@@ -229,15 +216,6 @@ FHCheckAutomation.prototype = {
             icon: 'fa-project-diagram',
             color: '#6610f2'
         });
-
-        ctx.metrics.workflows = workflows;
-        ctx.metrics.workflows.workflow_count = workflows.length;
-        ctx.metrics.workflows.workflow_direct_count = workflows.filter(function(w) {
-            return !w.inherited;
-        }).length;
-        ctx.metrics.workflows.workflow_inherited_count = workflows.filter(function(w) {
-            return w.inherited;
-        }).length;
 
         if (workflows.length > 10) {
             ctx.addIssue('MANY_WORKFLOWS', 'Table has ' + workflows.length + ' workflows. Review for consolidation.', 'medium', {
@@ -297,9 +275,6 @@ FHCheckAutomation.prototype = {
             icon: 'fa-bell',
             color: '#ffc107'
         });
-
-        ctx.metrics.notifications = notifications;
-        ctx.metrics.notifications.notification_count = notifications.length;
     },
 
     /**
@@ -347,22 +322,6 @@ FHCheckAutomation.prototype = {
             color: '#007bff'
         });
 
-        // metrics and counts
-        ctx.metrics.ui_actions = uiActions;
-        ctx.metrics.ui_actions.ui_action_count = uiActions.length;
-        ctx.metrics.ui_actions.ui_action_active_count = uiActions.filter(function(a) {
-            return a.active;
-        }).length;
-        ctx.metrics.ui_actions.ui_action_inactive_count = uiActions.filter(function(a) {
-            return !a.active;
-        }).length;
-        ctx.metrics.ui_actions.ui_action_direct_count = uiActions.filter(function(a) {
-            return !a.inherited;
-        }).length;
-        ctx.metrics.ui_actions.ui_action_inherited_count = uiActions.filter(function(a) {
-            return a.inherited;
-        }).length;
-
         if (uiActions.length > 25) {
             ctx.addIssue('MANY_UI_ACTIONS', 'Table has ' + uiActions.length + ' UI Actions. Interface may be overloaded.', 'medium', {
                 record_table: 'sys_ui_action',
@@ -409,15 +368,6 @@ FHCheckAutomation.prototype = {
             icon: 'fa-shield-alt',
             color: '#20c997'
         });
-
-        ctx.metrics.ui_policies = uiPolicies;
-        ctx.metrics.ui_policies.ui_policy_count = uiPolicies.length;
-        ctx.metrics.ui_policies.ui_policy_direct_count = uiPolicies.filter(function(p) {
-            return !p.inherited;
-        }).length;
-        ctx.metrics.ui_policies.ui_policy_inherited_count = uiPolicies.filter(function(p) {
-            return p.inherited;
-        }).length;
 
         if (uiPolicies.length > 15) {
             ctx.addIssue('MANY_UI_POLICIES', 'Table has ' + uiPolicies.length + ' active UI Policies. This may slow down form loading.', 'medium', {
@@ -521,15 +471,6 @@ FHCheckAutomation.prototype = {
             icon: 'fa-inbox',
             color: '#e83e8c'
         });
-
-        ctx.metrics.inbound_email_actions = inboundEmails;
-        ctx.metrics.inbound_email_actions.inbound_email_count = inboundEmails.length;
-        ctx.metrics.inbound_email_actions.inbound_email_active_count = inboundEmails.filter(function(e) {
-            return e.active;
-        }).length;
-        ctx.metrics.inbound_email_actions.inbound_email_direct_count = inboundEmails.filter(function(e) {
-            return !e.inherited;
-        }).length;
 
         if (inboundEmails.length > 10) {
             ctx.addIssue('MANY_INBOUND_EMAILS', 'Table has ' + inboundEmails.length + ' inbound email actions. Review for efficiency.', 'low', {
