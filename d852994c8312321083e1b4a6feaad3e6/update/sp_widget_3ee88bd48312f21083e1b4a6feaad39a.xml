@@ -122,48 +122,6 @@
         if (categoryItems.length > 0) {
             return categoryItems;
         }
-        
-        // Fallback to metrics (backward compatibility)
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        if (metrics.scheduled_jobs) {
-            metrics.scheduled_jobs.forEach(function(job) {
-                items.push({ type: 'Scheduled Job', name: job.name, active: job.active, sys_id: job.sys_id, table: 'sysauto_script', icon: 'fa-clock', color: '#6f42c1' });
-            });
-        }
-        if (metrics.flows) {
-            metrics.flows.forEach(function(flow) {
-                items.push({ type: 'Flow', name: flow.name, active: flow.active, sys_id: flow.sys_id, table: 'sys_hub_flow', icon: 'fa-project-diagram', color: '#17a2b8' });
-            });
-        }
-        if (metrics.workflows) {
-            metrics.workflows.forEach(function(wf) {
-                items.push({ type: 'Workflow', name: wf.name, active: wf.active, sys_id: wf.sys_id, table: 'wf_workflow', icon: 'fa-sitemap', color: '#fd7e14' });
-            });
-        }
-        if (metrics.notifications) {
-            metrics.notifications.forEach(function(n) {
-                items.push({ type: 'Notification', name: n.name, active: n.active, sys_id: n.sys_id, table: 'sysevent_email_action', icon: 'fa-envelope', color: '#28a745' });
-            });
-        }
-        if (metrics.ui_actions) {
-            metrics.ui_actions.forEach(function(a) {
-                items.push({ type: 'UI Action', name: a.name, active: a.active !== false, sys_id: a.sys_id, table: 'sys_ui_action', icon: 'fa-mouse-pointer', color: '#dc3545' });
-            });
-        }
-        if (metrics.ui_policies) {
-            metrics.ui_policies.forEach(function(p) {
-                items.push({ type: 'UI Policy', name: p.name, active: true, sys_id: p.sys_id, table: 'sys_ui_policy', icon: 'fa-shield-alt', color: '#20c997' });
-            });
-        }
-        if (metrics.inbound_email_actions) {
-            metrics.inbound_email_actions.forEach(function(e) {
-                items.push({ type: 'Inbound Email', name: e.name, active: e.active, sys_id: e.sys_id, table: 'sysevent_in_email_action', icon: 'fa-inbox', color: '#e83e8c' ,trigger_table:e.trigger_table});
-            });
-        }
-        
-        return items;
     };
 
     // Get integration items (uses categories if available, fallback to metrics)
@@ -173,28 +131,6 @@
         if (categoryItems.length > 0) {
             return categoryItems;
         }
-        
-        // Fallback to metrics (backward compatibility)
-        var metrics = c.getMetrics();
-        var items = [];
-        
-        if (metrics.data_sources) {
-            metrics.data_sources.forEach(function(ds) {
-                items.push({ type: 'Data Source', name: ds.name, active: ds.active, sys_id: ds.sys_id, table: 'sys_data_source', icon: 'fa-database', color: '#6f42c1' });
-            });
-        }
-        if (metrics.transform_maps) {
-            metrics.transform_maps.forEach(function(tm) {
-                items.push({ type: 'Transform Map', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map', icon: 'fa-exchange-alt', color: '#17a2b8' });
-            });
-        }
-        if (metrics.acls) {
-            metrics.acls.forEach(function(acl) {
-                items.push({ type: 'ACL', name: acl.name, active: acl.active !== false, sys_id: acl.sys_id, table: 'sys_security_acl', icon: 'fa-lock', color: '#dc3545' });
-            });
-        }
-        
-        return items;
     };
 
     // Get LDAP analysis data
@@ -1139,14 +1075,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>6</sys_mod_count>
+        <sys_mod_count>7</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 03:21:56</sys_updated_on>
+        <sys_updated_on>2026-01-04 04:23:13</sys_updated_on>
         <template><![CDATA[<div class="fha-results-page">
   
   <!-- Page Header -->
