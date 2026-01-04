@@ -22,7 +22,7 @@
  */
 var FHCheckTable = Class.create();
 FHCheckTable.prototype = {
-    
+
     /**
      * Safe getValue - returns empty string if null
      * Uses ctx.safeGetValue when available, fallback for compatibility
@@ -48,21 +48,23 @@ FHCheckTable.prototype = {
         this._checkReferenceFields(ctx);
         this._checkBusinessRules(ctx);
         this._checkClientScripts(ctx);
-        
+
         // Include children tables analysis if option is enabled
-        if (ctx.isIncludeChildrenEnabled()) {
+        if (ctx.include_children_tables)
             this._checkChildrenTables(ctx);
-        }
-        
+
         // Analyze reference field data quality if option is enabled
-        if (ctx.isAnalyzeReferencesEnabled()) {
+        if (ctx.options.analyze_references)
             this._analyzeReferenceData(ctx);
-        }
-        
+
         // Deep scan: analyze script quality if option is enabled
-        if (ctx.isDeepScanEnabled()) {
+        if (ctx.options.deep_scan)
             this._deepScanScripts(ctx);
-        }
+
+        // LDAP Analysis
+        if (ctx.options.include_ldap)
+            this._analyzeLdapConfiguration(ctx, tablesToCheck);
+
     },
 
     /**
@@ -72,13 +74,13 @@ FHCheckTable.prototype = {
      */
     _checkTableExists: function(ctx) {
         var tableName = ctx.getTableName();
-        
+
         if (!tableName) {
             ctx.addIssue('INVALID_CONFIG', 'Table name is not defined in configuration', 'high');
             ctx.metrics.table_exists = false;
             return;
         }
-        
+
         var gr = new GlideRecord('sys_db_object');
         if (!gr.get('name', tableName)) {
             ctx.addIssue('TABLE_NOT_FOUND', 'Table "' + tableName + '" does not exist in the system', 'high');
@@ -96,19 +98,19 @@ FHCheckTable.prototype = {
      */
     _checkRecordCount: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var ga = new GlideAggregate(tableName);
         ga.addAggregate('COUNT');
         ga.query();
-        
+
         var count = 0;
         if (ga.next()) {
             count = parseInt(ga.getAggregate('COUNT'), 10) || 0;
         }
-        
+
         ctx.metrics.record_count = count;
-        
+
         if (count === 0) {
             ctx.addIssue('EMPTY_TABLE', 'Table contains no records', 'medium');
         } else if (count > 1000000) {
@@ -123,13 +125,13 @@ FHCheckTable.prototype = {
      */
     _checkFieldUsage: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var customFields = [];
         var unusedFields = [];
         var lowUsageFields = [];
         var self = this;
-        
+
         // Get all custom fields (u_ prefix or from scoped app)
         var gr = new GlideRecord('sys_dictionary');
         gr.addQuery('name', tableName);
@@ -137,17 +139,17 @@ FHCheckTable.prototype = {
         gr.addQuery('internal_type', '!=', 'collection');
         gr.orderBy('element');
         gr.query();
-        
+
         while (gr.next()) {
             var fieldName = self._safeGetValue(gr, 'element');
             if (!fieldName) continue;
-            
+
             var fieldLabel = self._safeGetValue(gr, 'column_label') || fieldName;
             var fieldType = self._safeGetValue(gr, 'internal_type') || 'unknown';
-            
+
             // Calculate fill rate
             var fillRate = this._calculateFillRate(tableName, fieldName, ctx.metrics.record_count);
-            
+
             var fieldInfo = {
                 name: fieldName,
                 label: fieldLabel,
@@ -155,9 +157,9 @@ FHCheckTable.prototype = {
                 fill_rate: fillRate,
                 mandatory: self._safeGetValue(gr, 'mandatory') === 'true'
             };
-            
+
             customFields.push(fieldInfo);
-            
+
             // Check for issues
             if (fillRate === 0) {
                 unusedFields.push(fieldName);
@@ -174,7 +176,7 @@ FHCheckTable.prototype = {
                     category: 'field'
                 });
             }
-            
+
             // Check for potential OOTB duplicates
             if (fieldName.length > 2) {
                 var baseName = fieldName.substring(2); // Remove u_ prefix
@@ -187,16 +189,16 @@ FHCheckTable.prototype = {
                 }
             }
         }
-        
+
         ctx.metrics.custom_fields = customFields;
         ctx.metrics.custom_field_count = customFields.length;
         ctx.metrics.unused_field_count = unusedFields.length;
         ctx.metrics.low_usage_field_count = lowUsageFields.length;
-        
+
         if (customFields.length > 50) {
             ctx.addIssue('TOO_MANY_CUSTOM_FIELDS', 'Table has ' + customFields.length + ' custom fields. Consider consolidation.', 'medium');
         }
-        
+
         // Deep scan: analyze script quality if option is enabled
         if (ctx.isDeepScanEnabled()) {
             this._deepScanScripts(ctx);
@@ -213,7 +215,7 @@ FHCheckTable.prototype = {
         var tableName = String(ctx.config.table_name);
         var self = this;
         var fieldUpdaters = {};
-        
+
         // Initialize field updaters map
         customFields.forEach(function(field) {
             fieldUpdaters[field.name] = {
@@ -222,18 +224,18 @@ FHCheckTable.prototype = {
                 updated_by: []
             };
         });
-        
+
         // Check Business Rules
         var brGr = new GlideRecord('sys_script');
         brGr.addQuery('collection', tableName);
         brGr.addQuery('active', true);
         brGr.query();
-        
+
         while (brGr.next()) {
             var brScript = self._safeGetValue(brGr, 'script');
             var brName = self._safeGetValue(brGr, 'name') || 'Unnamed';
             var brSysId = brGr.getUniqueValue();
-            
+
             customFields.forEach(function(field) {
                 if (self._scriptUpdatesField(brScript, field.name)) {
                     fieldUpdaters[field.name].updated_by.push({
@@ -245,17 +247,17 @@ FHCheckTable.prototype = {
                 }
             });
         }
-        
+
         // Check Scheduled Jobs
         var jobGr = new GlideRecord('sysauto_script');
         jobGr.addQuery('active', true);
         jobGr.query();
-        
+
         while (jobGr.next()) {
             var jobScript = self._safeGetValue(jobGr, 'script');
             var jobName = self._safeGetValue(jobGr, 'name') || 'Unnamed';
             var jobSysId = jobGr.getUniqueValue();
-            
+
             // Check if job references our table AND updates our fields
             if (self._scriptContainsTable(jobScript, tableName)) {
                 customFields.forEach(function(field) {
@@ -270,7 +272,7 @@ FHCheckTable.prototype = {
                 });
             }
         }
-        
+
         // Check Flows (script actions)
         try {
             var flowGr = new GlideRecord('sys_hub_flow');
@@ -278,16 +280,16 @@ FHCheckTable.prototype = {
                 flowGr.addQuery('trigger_table', tableName);
                 flowGr.addQuery('active', true);
                 flowGr.query();
-                
+
                 while (flowGr.next()) {
                     var flowName = self._safeGetValue(flowGr, 'name') || 'Unnamed';
                     var flowSysId = flowGr.getUniqueValue();
-                    
+
                     // Check flow actions for field updates
                     var actionGr = new GlideRecord('sys_hub_action_instance');
                     actionGr.addQuery('flow', flowSysId);
                     actionGr.query();
-                    
+
                     while (actionGr.next()) {
                         var actionInputs = self._safeGetValue(actionGr, 'inputs');
                         customFields.forEach(function(field) {
@@ -312,22 +314,22 @@ FHCheckTable.prototype = {
         } catch (e) {
             // Flow Designer might not exist
         }
-        
+
         // Check Transform Maps
         var tmGr = new GlideRecord('sys_transform_map');
         tmGr.addQuery('target_table', tableName);
         tmGr.addQuery('active', true);
         tmGr.query();
-        
+
         while (tmGr.next()) {
             var tmName = self._safeGetValue(tmGr, 'name') || 'Unnamed';
             var tmSysId = tmGr.getUniqueValue();
-            
+
             // Check field maps
             var fmGr = new GlideRecord('sys_transform_entry');
             fmGr.addQuery('map', tmSysId);
             fmGr.query();
-            
+
             while (fmGr.next()) {
                 var targetField = self._safeGetValue(fmGr, 'target_field');
                 if (fieldUpdaters[targetField]) {
@@ -340,13 +342,13 @@ FHCheckTable.prototype = {
                 }
             }
         }
-        
+
         // Update custom fields with updater info
         ctx.metrics.custom_fields = ctx.metrics.custom_fields.map(function(field) {
             field.updated_by = fieldUpdaters[field.name] ? fieldUpdaters[field.name].updated_by : [];
             return field;
         });
-        
+
         // Store summary
         ctx.metrics.field_updaters = fieldUpdaters;
     },
@@ -360,7 +362,7 @@ FHCheckTable.prototype = {
      */
     _scriptUpdatesField: function(script, fieldName) {
         if (!script || !fieldName) return false;
-        
+
         // Patterns that indicate field update:
         // current.field_name = 
         // gr.field_name = 
@@ -370,13 +372,13 @@ FHCheckTable.prototype = {
             new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
             new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i")
         ];
-        
+
         for (var i = 0; i < patterns.length; i++) {
             if (patterns[i].test(script)) {
                 return true;
             }
         }
-        
+
         return false;
     },
 
@@ -386,19 +388,19 @@ FHCheckTable.prototype = {
      */
     _scriptContainsTable: function(script, tableName) {
         if (!script || !tableName) return false;
-        
+
         var patterns = [
             new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
             new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
             new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i")
         ];
-        
+
         for (var i = 0; i < patterns.length; i++) {
             if (patterns[i].test(script)) {
                 return true;
             }
         }
-        
+
         return false;
     },
 
@@ -408,19 +410,19 @@ FHCheckTable.prototype = {
      */
     _calculateFillRate: function(tableName, fieldName, totalRecords) {
         if (!totalRecords || totalRecords === 0) return 0;
-        
+
         try {
             var ga = new GlideAggregate(tableName);
             ga.addNotNullQuery(fieldName);
             ga.addQuery(fieldName, '!=', '');
             ga.addAggregate('COUNT');
             ga.query();
-            
+
             var filledCount = 0;
             if (ga.next()) {
                 filledCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
             }
-            
+
             return Math.round((filledCount / totalRecords) * 100);
         } catch (e) {
             return 0;
@@ -433,7 +435,7 @@ FHCheckTable.prototype = {
      */
     _ootbFieldExists: function(tableName, fieldName) {
         if (!fieldName) return false;
-        
+
         var gr = new GlideRecord('sys_dictionary');
         gr.addQuery('name', tableName);
         gr.addQuery('element', fieldName);
@@ -450,28 +452,28 @@ FHCheckTable.prototype = {
      */
     _checkReferenceFields: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var referenceFields = [];
         var self = this;
-        
+
         // Get all reference fields
         var gr = new GlideRecord('sys_dictionary');
         gr.addQuery('name', tableName);
         gr.addQuery('internal_type', 'reference');
         gr.query();
-        
+
         while (gr.next()) {
             var fieldName = self._safeGetValue(gr, 'element');
             var refTable = self._safeGetValue(gr, 'reference');
-            
+
             if (!fieldName || !refTable) continue;
-            
+
             referenceFields.push({
                 name: fieldName,
                 reference_table: refTable
             });
-            
+
             // Check if referenced table exists
             var tableGr = new GlideRecord('sys_db_object');
             if (!tableGr.get('name', refTable)) {
@@ -482,7 +484,7 @@ FHCheckTable.prototype = {
                 });
             }
         }
-        
+
         ctx.metrics.reference_field_count = referenceFields.length;
         ctx.metrics.reference_fields = referenceFields;
     },
@@ -494,23 +496,23 @@ FHCheckTable.prototype = {
      */
     _checkBusinessRules: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var businessRules = [];
         var activeBRCount = 0;
         var inactiveBRCount = 0;
         var self = this;
-        
+
         // Query business rules - collection field stores the table name
         var gr = new GlideRecord('sys_script');
         gr.addQuery('collection', tableName);
         gr.query();
-        
+
         while (gr.next()) {
             // Check active field - can be 'true', '1', or boolean
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-            
+
             var brInfo = {
                 sys_id: gr.getUniqueValue(),
                 name: self._safeGetValue(gr, 'name') || 'Unnamed',
@@ -518,20 +520,20 @@ FHCheckTable.prototype = {
                 when: self._safeGetValue(gr, 'when'),
                 order: self._safeGetValue(gr, 'order')
             };
-            
+
             businessRules.push(brInfo);
-            
+
             if (isActive) {
                 activeBRCount++;
             } else {
                 inactiveBRCount++;
             }
         }
-        
+
         ctx.metrics.business_rules = businessRules;
         ctx.metrics.active_br_count = activeBRCount;
         ctx.metrics.inactive_br_count = inactiveBRCount;
-        
+
         if (activeBRCount > 20) {
             ctx.addIssue('MANY_BUSINESS_RULES', 'Table has ' + activeBRCount + ' active business rules. This may impact performance.', 'medium', {
                 record_table: 'sys_script',
@@ -539,7 +541,7 @@ FHCheckTable.prototype = {
                 category: 'business_rule'
             });
         }
-        
+
         if (inactiveBRCount > 10) {
             ctx.addIssue('INACTIVE_BUSINESS_RULES', 'Table has ' + inactiveBRCount + ' inactive business rules. Consider removing them.', 'low', {
                 record_table: 'sys_script',
@@ -556,16 +558,16 @@ FHCheckTable.prototype = {
      */
     _checkClientScripts: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var clientScripts = [];
         var self = this;
-        
+
         var gr = new GlideRecord('sys_script_client');
         gr.addQuery('table', tableName);
         gr.addQuery('active', true);
         gr.query();
-        
+
         while (gr.next()) {
             clientScripts.push({
                 name: self._safeGetValue(gr, 'name') || 'Unnamed',
@@ -573,10 +575,10 @@ FHCheckTable.prototype = {
                 ui_type: self._safeGetValue(gr, 'ui_type')
             });
         }
-        
+
         ctx.metrics.client_scripts = clientScripts;
         ctx.metrics.client_script_count = clientScripts.length;
-        
+
         if (clientScripts.length > 15) {
             ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
                 record_table: 'sys_script_client',
@@ -593,26 +595,26 @@ FHCheckTable.prototype = {
      */
     _checkChildrenTables: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var childrenTables = [];
         var self = this;
-        
+
         // Get the sys_id of the parent table
         var parentGr = new GlideRecord('sys_db_object');
         if (!parentGr.get('name', tableName)) return;
-        
+
         var parentSysId = parentGr.getUniqueValue();
-        
+
         // Find all tables that extend this table
         var gr = new GlideRecord('sys_db_object');
         gr.addQuery('super_class', parentSysId);
         gr.query();
-        
+
         while (gr.next()) {
             var childName = self._safeGetValue(gr, 'name');
             var childLabel = self._safeGetValue(gr, 'label') || childName;
-            
+
             // Get record count for child table
             var childCount = 0;
             try {
@@ -622,10 +624,10 @@ FHCheckTable.prototype = {
                 if (ga.next()) {
                     childCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
                 }
-            } catch(e) {
+            } catch (e) {
                 // Table might not be accessible
             }
-            
+
             childrenTables.push({
                 sys_id: gr.getUniqueValue(),
                 name: childName,
@@ -634,10 +636,10 @@ FHCheckTable.prototype = {
                 scope: self._safeGetValue(gr, 'sys_scope')
             });
         }
-        
+
         ctx.metrics.children_tables = childrenTables;
         ctx.metrics.children_table_count = childrenTables.length;
-        
+
         if (childrenTables.length > 10) {
             ctx.addIssue('MANY_CHILD_TABLES', 'Table has ' + childrenTables.length + ' child tables. Consider reviewing table hierarchy.', 'low', {
                 record_table: 'sys_db_object',
@@ -655,20 +657,20 @@ FHCheckTable.prototype = {
     _analyzeReferenceData: function(ctx) {
         if (!ctx.metrics.table_exists) return;
         if (!ctx.metrics.reference_fields || ctx.metrics.reference_fields.length === 0) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var totalRecords = ctx.metrics.record_count || 0;
         var referenceAnalysis = [];
         var self = this;
-        
+
         ctx.metrics.reference_fields.forEach(function(refField) {
             var fieldName = refField.name;
             var refTable = refField.reference_table;
-            
+
             // Check for orphan references (references to deleted records)
             var orphanCount = 0;
             var nullCount = 0;
-            
+
             try {
                 // Count null references
                 var gaNulls = new GlideAggregate(tableName);
@@ -678,13 +680,13 @@ FHCheckTable.prototype = {
                 if (gaNulls.next()) {
                     nullCount = parseInt(gaNulls.getAggregate('COUNT'), 10) || 0;
                 }
-                
+
                 // Sample check for orphans (check first 1000 records)
                 var gr = new GlideRecord(tableName);
                 gr.addNotNullQuery(fieldName);
                 gr.setLimit(1000);
                 gr.query();
-                
+
                 while (gr.next()) {
                     var refValue = gr.getValue(fieldName);
                     if (refValue) {
@@ -694,10 +696,10 @@ FHCheckTable.prototype = {
                         }
                     }
                 }
-            } catch(e) {
+            } catch (e) {
                 // Skip on error
             }
-            
+
             var analysis = {
                 field: fieldName,
                 reference_table: refTable,
@@ -707,7 +709,7 @@ FHCheckTable.prototype = {
                 orphan_detected: orphanCount > 0
             };
             referenceAnalysis.push(analysis);
-            
+
             if (orphanCount > 0) {
                 ctx.addIssue('ORPHAN_REFERENCES', 'Field "' + fieldName + '" has orphan references (at least ' + orphanCount + ' found in sample)', 'medium', {
                     record_table: tableName,
@@ -716,7 +718,7 @@ FHCheckTable.prototype = {
                 });
             }
         });
-        
+
         ctx.metrics.reference_analysis = referenceAnalysis;
     },
 
@@ -727,40 +729,40 @@ FHCheckTable.prototype = {
      */
     _deepScanScripts: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         var tableName = String(ctx.config.table_name);
         var scriptIssues = [];
         var self = this;
-        
+
         // Scan Business Rules
         var gr = new GlideRecord('sys_script');
         gr.addQuery('collection', tableName);
         gr.addQuery('active', true);
         gr.query();
-        
+
         while (gr.next()) {
             var script = self._safeGetValue(gr, 'script');
             var brName = self._safeGetValue(gr, 'name') || 'Unnamed';
             var issues = self._analyzeScript(script, brName, 'Business Rule');
             scriptIssues = scriptIssues.concat(issues);
         }
-        
+
         // Scan Client Scripts
         var csGr = new GlideRecord('sys_script_client');
         csGr.addQuery('table', tableName);
         csGr.addQuery('active', true);
         csGr.query();
-        
+
         while (csGr.next()) {
             var csScript = self._safeGetValue(csGr, 'script');
             var csName = self._safeGetValue(csGr, 'name') || 'Unnamed';
             var csIssues = self._analyzeScript(csScript, csName, 'Client Script');
             scriptIssues = scriptIssues.concat(csIssues);
         }
-        
+
         ctx.metrics.script_issues = scriptIssues;
         ctx.metrics.script_issue_count = scriptIssues.length;
-        
+
         // Add issues for each script problem found
         scriptIssues.forEach(function(issue) {
             ctx.addIssue(issue.code, issue.message, issue.severity, {
@@ -776,7 +778,7 @@ FHCheckTable.prototype = {
     _analyzeScript: function(script, scriptName, scriptType) {
         var issues = [];
         if (!script) return issues;
-        
+
         // Check for GlideRecord without limit in loops
         if (script.indexOf('GlideRecord') > -1 && script.indexOf('.query()') > -1) {
             if (script.indexOf('setLimit') === -1 && script.indexOf('get(') === -1) {
@@ -790,7 +792,7 @@ FHCheckTable.prototype = {
                 }
             }
         }
-        
+
         // Check for current.update() in Business Rules (can cause infinite loops)
         if (scriptType === 'Business Rule' && script.indexOf('current.update()') > -1) {
             issues.push({
@@ -799,7 +801,7 @@ FHCheckTable.prototype = {
                 severity: 'high'
             });
         }
-        
+
         // Check for hardcoded sys_ids (32 hex characters)
         // Pattern matches: "abc123...", 'abc123...', or just abc123... in addQuery/get calls
         var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
@@ -811,7 +813,7 @@ FHCheckTable.prototype = {
                 severity: 'medium'
             });
         }
-        
+
         // Check for console.log (should use gs.log in ServiceNow)
         if (script.indexOf('console.log') > -1) {
             issues.push({
@@ -820,7 +822,7 @@ FHCheckTable.prototype = {
                 severity: 'low'
             });
         }
-        
+
         // Check for eval() usage (security risk)
         if (script.indexOf('eval(') > -1) {
             issues.push({
@@ -829,7 +831,7 @@ FHCheckTable.prototype = {
                 severity: 'high'
             });
         }
-        
+
         // Check for synchronous GlideAjax calls
         if (script.indexOf('GlideAjax') > -1 && script.indexOf('getXMLWait') > -1) {
             issues.push({
@@ -838,8 +840,209 @@ FHCheckTable.prototype = {
                 severity: 'medium'
             });
         }
-        
+
         return issues;
+    },
+
+	/**
+     * Analyze LDAP configuration for this table
+     * @private
+     * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
+     */
+    _analyzeLdapConfiguration: function(ctx, tablesToCheck) {
+        var tableName = String(ctx.config.table_name);
+        var self = this;
+        var ldapAnalysis = {
+            servers: [],
+            data_sources: [],
+            transform_maps: [],
+            field_maps: [],
+            attribute_mappings: [],
+            issues: []
+        };
+        
+        // 1. Find LDAP Data Sources for this table
+        var dsGr = new GlideRecord('sys_data_source');
+        dsGr.addQuery('type', 'LDAP');
+        dsGr.addQuery('ldap_target.table', 'IN', tablesToCheck.join(','));
+        dsGr.query();
+
+        while (dsGr.next()) {
+            var dsName = self._safeGetValue(dsGr, 'name');
+            var dsSysId = dsGr.getUniqueValue();
+            var activeVal = dsGr.getValue('active');
+            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
+            
+            var dsInfo = {
+                sys_id: dsSysId,
+                name: dsName,
+                active: isActive,
+                import_set_table: self._safeGetValue(dsGr, 'import_set_table_name'),
+                connection_url: self._safeGetValue(dsGr, 'connection_url'),
+                ldap_target: self._safeGetValue(dsGr, 'ldap_target'),
+                last_run: self._safeGetValue(dsGr, 'last_run_on'),
+                last_run_result: self._safeGetValue(dsGr, 'last_run_result')
+            };
+            ldapAnalysis.data_sources.push(dsInfo);
+            
+            if (!isActive) {
+                ldapAnalysis.issues.push({
+                    code: 'INACTIVE_LDAP_DATASOURCE',
+                    message: 'LDAP Data Source "' + dsName + '" is inactive',
+                    severity: 'low',
+                    record_table: 'sys_data_source',
+                    record_sys_id: dsSysId
+                });
+            }
+            
+            // Get associated Transform Maps
+            var tmGr = new GlideRecord('sys_transform_map');
+            tmGr.addQuery('source_table', dsInfo.import_set_table);
+            tmGr.addQuery('target_table', 'IN', tablesToCheck.join(','));
+            tmGr.query();
+            
+            while (tmGr.next()) {
+                var tmName = self._safeGetValue(tmGr, 'name');
+                var tmSysId = tmGr.getUniqueValue();
+                var tmActiveVal = tmGr.getValue('active');
+                var tmIsActive = (tmActiveVal === 'true' || tmActiveVal === '1' || tmActiveVal === true);
+                
+                var tmInfo = {
+                    sys_id: tmSysId,
+                    name: tmName,
+                    active: tmIsActive,
+                    source_table: self._safeGetValue(tmGr, 'source_table'),
+                    target_table: self._safeGetValue(tmGr, 'target_table'),
+                    data_source: dsName,
+                    coalesce_field: self._safeGetValue(tmGr, 'coalesce_field'),
+                    field_maps: []
+                };
+                
+                // Get Field Maps for this Transform Map
+                var fmGr = new GlideRecord('sys_transform_entry');
+                fmGr.addQuery('map', tmSysId);
+                fmGr.orderBy('order');
+                fmGr.query();
+                
+                while (fmGr.next()) {
+                    var sourceField = self._safeGetValue(fmGr, 'source_field');
+                    var targetField = self._safeGetValue(fmGr, 'target_field');
+                    var coalesce = self._safeGetValue(fmGr, 'coalesce') === 'true';
+                    var useSourceScript = self._safeGetValue(fmGr, 'use_source_script') === 'true';
+                    
+                    var fmInfo = {
+                        sys_id: fmGr.getUniqueValue(),
+                        source_field: sourceField,
+                        target_field: targetField,
+                        coalesce: coalesce,
+                        use_script: useSourceScript,
+                        source_script: useSourceScript ? self._safeGetValue(fmGr, 'source_script') : null,
+                        order: parseInt(self._safeGetValue(fmGr, 'order'), 10) || 0
+                    };
+                    tmInfo.field_maps.push(fmInfo);
+                    ldapAnalysis.field_maps.push(fmInfo);
+                    
+                    // Track attribute mapping
+                    if (sourceField) {
+                        ldapAnalysis.attribute_mappings.push({
+                            ldap_attribute: sourceField,
+                            servicenow_field: targetField,
+                            transform_map: tmName,
+                            coalesce: coalesce,
+                            uses_script: useSourceScript
+                        });
+                    }
+                }
+                
+                ldapAnalysis.transform_maps.push(tmInfo);
+                
+                // Check for issues
+                if (!tmIsActive) {
+                    ldapAnalysis.issues.push({
+                        code: 'INACTIVE_LDAP_TRANSFORM',
+                        message: 'LDAP Transform Map "' + tmName + '" is inactive',
+                        severity: 'low',
+                        record_table: 'sys_transform_map',
+                        record_sys_id: tmSysId
+                    });
+                }
+                
+                if (tmInfo.field_maps.length === 0) {
+                    ldapAnalysis.issues.push({
+                        code: 'NO_LDAP_FIELD_MAPS',
+                        message: 'LDAP Transform Map "' + tmName + '" has no field mappings',
+                        severity: 'medium',
+                        record_table: 'sys_transform_map',
+                        record_sys_id: tmSysId
+                    });
+                }
+                
+                if (!tmInfo.coalesce_field) {
+                    ldapAnalysis.issues.push({
+                        code: 'NO_LDAP_COALESCE',
+                        message: 'LDAP Transform Map "' + tmName + '" has no coalesce field (may create duplicates)',
+                        severity: 'medium',
+                        record_table: 'sys_transform_map',
+                        record_sys_id: tmSysId
+                    });
+                }
+            }
+        }
+        
+        // 2. Check for LDAP Servers
+        try {
+            var serverGr = new GlideRecord('ldap_server_config');
+            if (serverGr.isValid()) {
+                serverGr.addQuery('active', true);
+                serverGr.query();
+                
+                while (serverGr.next()) {
+                    ldapAnalysis.servers.push({
+                        sys_id: serverGr.getUniqueValue(),
+                        name: self._safeGetValue(serverGr, 'name'),
+                        server_url: self._safeGetValue(serverGr, 'server_url'),
+                        active: true
+                    });
+                }
+            }
+        } catch (e) {
+            // LDAP tables might not be accessible
+        }
+        
+        // 3. Summary metrics
+        ctx.metrics.ldap_analysis = ldapAnalysis;
+        ctx.metrics.ldap_data_source_count = ldapAnalysis.data_sources.length;
+        ctx.metrics.ldap_transform_map_count = ldapAnalysis.transform_maps.length;
+        ctx.metrics.ldap_field_map_count = ldapAnalysis.field_maps.length;
+        ctx.metrics.ldap_attribute_count = ldapAnalysis.attribute_mappings.length;
+        ctx.metrics.ldap_server_count = ldapAnalysis.servers.length;
+        
+        // Add issues to context
+        ldapAnalysis.issues.forEach(function(issue) {
+            ctx.addIssue(issue.code, issue.message, issue.severity, {
+                record_table: issue.record_table,
+                record_sys_id: issue.record_sys_id,
+                category: 'ldap'
+            });
+        });
+        
+        // Summary issues
+        if (ldapAnalysis.data_sources.length === 0 && ldapAnalysis.transform_maps.length === 0) {
+            ctx.addIssue('NO_LDAP_CONFIG', 'No LDAP configuration found for table "' + tableName + '"', 'low', {
+                category: 'ldap'
+            });
+        }
+        
+        // Check for unmapped LDAP attributes (common attributes that should be mapped)
+        var commonLdapAttributes = ['cn', 'sn', 'givenName', 'mail', 'telephoneNumber', 'department', 'title', 'manager', 'memberOf'];
+        var mappedAttributes = ldapAnalysis.attribute_mappings.map(function(m) { return m.ldap_attribute.toLowerCase(); });
+        
+        commonLdapAttributes.forEach(function(attr) {
+            if (mappedAttributes.indexOf(attr.toLowerCase()) === -1 && ldapAnalysis.transform_maps.length > 0) {
+                // Only add as info, not an issue - it's optional
+            }
+        });
     },
 
     type: 'FHCheckTable'
@@ -848,13 +1051,13 @@ FHCheckTable.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:20:59</sys_created_on>
         <sys_id>99f80240835a321083e1b4a6feaad361</sys_id>
-        <sys_mod_count>2</sys_mod_count>
+        <sys_mod_count>4</sys_mod_count>
         <sys_name>FHCheckTable</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_99f80240835a321083e1b4a6feaad361</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 03:26:13</sys_updated_on>
+        <sys_updated_on>2026-01-04 08:21:32</sys_updated_on>
     </sys_script_include>
 </record_update>

@@ -38,10 +38,8 @@ FHAnalyzer.prototype = {
      * @returns {String} Table name or empty string
      */
     _getTableInfoFromReference: function(gr) {
-        // table_reference is a reference to sys_db_object
         var tableRef = gr.table_reference;
         if (tableRef && !tableRef.nil()) {
-            // Get the referenced sys_db_object record
             var tableGr = tableRef.getRefRecord();
             if (tableGr) {
                 return {
@@ -167,11 +165,11 @@ FHAnalyzer.prototype = {
             issues: result.issues || [],
             metrics: result.metrics || {},
             categories: result.categories || {},
-            table_name: config.table_name,
-            table_label: config.table_label || config.table_name,
+            // table_name: config.table_name,
+            // table_label: config.table_label || config.table_name,
             options: config,
-            parameters: parameters || {},
-            analysis_date: new GlideDateTime().toString()
+            // parameters: parameters || {},
+            // analysis_date: new GlideDateTime().toString()
         };
         gr.setValue('detail_json', JSON.stringify(detailObj));
 
@@ -209,13 +207,13 @@ FHAnalyzer.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>44</sys_mod_count>
+        <sys_mod_count>46</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 06:12:40</sys_updated_on>
+        <sys_updated_on>2026-01-04 08:03:41</sys_updated_on>
     </sys_script_include>
 </record_update>

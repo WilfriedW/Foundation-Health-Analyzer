@@ -24,7 +24,7 @@ FHAnalysisContext.prototype = {
         this.config = config;
         this.metrics = {};
         this.issues = [];
-        
+
         // Initialize options with defaults
         this.options = {
             deep_scan: this._isTrue(config.deep_scan),
@@ -32,13 +32,13 @@ FHAnalysisContext.prototype = {
             analyze_references: this._isTrue(config.analyze_references),
             include_ldap: this._isTrue(config.include_ldap)
         };
-        
+
         // Store options in metrics for reference
         this.metrics.options = this.options;
-        
+
         // Initialize categories structure for standardized output
         this.categories = {};
-        
+
         // Cache for table hierarchy (computed once, reused)
         this._tableHierarchyCache = null;
         this._childrenTablesCache = null;
@@ -61,12 +61,12 @@ FHAnalysisContext.prototype = {
      * @param {*} defaultValue - Default value if option not set
      * @returns {*} Option value
      */
-    getOption: function(optionName, defaultValue) {
-        if (this.options.hasOwnProperty(optionName)) {
-            return this.options[optionName];
-        }
-        return defaultValue !== undefined ? defaultValue : false;
-    },
+    // getOption: function(optionName, defaultValue) {
+    //     if (this.options.hasOwnProperty(optionName)) {
+    //         return this.options[optionName];
+    //     }
+    //     return defaultValue !== undefined ? defaultValue : false;
+    // },
 
     /**
      * Check if deep scan is enabled
@@ -119,15 +119,15 @@ FHAnalysisContext.prototype = {
         if (this._tableHierarchyCache !== null) {
             return this._tableHierarchyCache;
         }
-        
+
         var tableName = this.getTableName();
         var tables = [tableName];
-        
+
         if (!tableName) {
             this._tableHierarchyCache = tables;
             return tables;
         }
-        
+
         try {
             var gr = new GlideRecord('sys_db_object');
             if (gr.get('name', tableName)) {
@@ -148,7 +148,7 @@ FHAnalysisContext.prototype = {
         } catch (e) {
             // Ignore errors
         }
-        
+
         this._tableHierarchyCache = tables;
         return tables;
     },
@@ -162,24 +162,24 @@ FHAnalysisContext.prototype = {
         if (this._childrenTablesCache !== null) {
             return this._childrenTablesCache;
         }
-        
+
         var tableName = this.getTableName();
         var children = [];
-        
+
         if (!tableName) {
             this._childrenTablesCache = children;
             return children;
         }
-        
+
         try {
             var parentGr = new GlideRecord('sys_db_object');
             if (parentGr.get('name', tableName)) {
                 var parentSysId = parentGr.getUniqueValue();
-                
+
                 var gr = new GlideRecord('sys_db_object');
                 gr.addQuery('super_class', parentSysId);
                 gr.query();
-                
+
                 while (gr.next()) {
                     var childName = gr.getValue('name');
                     if (childName && children.indexOf(childName) === -1) {
@@ -190,7 +190,7 @@ FHAnalysisContext.prototype = {
         } catch (e) {
             // Ignore errors
         }
-        
+
         this._childrenTablesCache = children;
         return children;
     },
@@ -205,9 +205,9 @@ FHAnalysisContext.prototype = {
         if (this._tablesToCheckCache !== null) {
             return this._tablesToCheckCache;
         }
-        
+
         var tables = this.getTableHierarchy().slice(); // Clone array
-        
+
         // Add children if option enabled
         if (this.isIncludeChildrenEnabled()) {
             var children = this.getChildrenTables();
@@ -217,7 +217,7 @@ FHAnalysisContext.prototype = {
                 }
             });
         }
-        
+
         this._tablesToCheckCache = tables;
         return tables;
     },
@@ -243,20 +243,20 @@ FHAnalysisContext.prototype = {
      */
     scriptContainsTable: function(script, tableName) {
         if (!script || !tableName) return false;
-        
+
         var patterns = [
             new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
             new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
             new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i"),
             new RegExp("setTableName\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i")
         ];
-        
+
         for (var i = 0; i < patterns.length; i++) {
             if (patterns[i].test(script)) {
                 return true;
             }
         }
-        
+
         return false;
     },
 
@@ -268,18 +268,18 @@ FHAnalysisContext.prototype = {
      */
     scriptUpdatesField: function(script, fieldName) {
         if (!script || !fieldName) return false;
-        
+
         var patterns = [
             new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
             new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i")
         ];
-        
+
         for (var i = 0; i < patterns.length; i++) {
             if (patterns[i].test(script)) {
                 return true;
             }
         }
-        
+
         return false;
     },
 
@@ -315,13 +315,13 @@ FHAnalysisContext.prototype = {
         if (!this.categories[categoryId]) {
             this.registerCategory(categoryId, categoryId, 'fa-folder');
         }
-        
+
         options = options || {};
         var activeCount = 0;
         var inactiveCount = 0;
         var directCount = 0;
         var inheritedCount = 0;
-        
+
         // Calculate counts
         records.forEach(function(r) {
             if (r.active === true || r.active === 'true') activeCount++;
@@ -329,7 +329,7 @@ FHAnalysisContext.prototype = {
             if (r.inherited) inheritedCount++;
             else directCount++;
         });
-        
+
         this.categories[categoryId].items.push({
             type: itemType,
             label: itemLabel,
@@ -378,7 +378,7 @@ FHAnalysisContext.prototype = {
             severity: severity || 'low',
             timestamp: new Date().toISOString()
         };
-        
+
         // Add metadata for record linking
         if (metadata) {
             if (metadata.record_table) issue.record_table = metadata.record_table;
@@ -386,7 +386,7 @@ FHAnalysisContext.prototype = {
             if (metadata.record_filter) issue.record_filter = metadata.record_filter;
             if (metadata.category) issue.category = metadata.category;
         }
-        
+
         this.issues.push(issue);
     },
 
@@ -417,13 +417,13 @@ FHAnalysisContext.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:27:30</sys_created_on>
         <sys_id>f17a0204835a321083e1b4a6feaad360</sys_id>
-        <sys_mod_count>11</sys_mod_count>
+        <sys_mod_count>13</sys_mod_count>
         <sys_name>FHAnalysisContext</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 06:40:00</sys_updated_on>
+        <sys_updated_on>2026-01-04 08:07:41</sys_updated_on>
     </sys_script_include>
 </record_update>

@@ -23,7 +23,7 @@
  */
 var FHCheckIntegration = Class.create();
 FHCheckIntegration.prototype = {
-    
+
     /**
      * Safe getValue - returns empty string if null
      * @private
@@ -42,34 +42,44 @@ FHCheckIntegration.prototype = {
      */
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-        
+
         // Register the integration category
         ctx.registerCategory('integration', 'Integrations', 'fa-plug');
-        
+
         // Get tables to check from context (uses centralized logic)
         var tablesToCheck = ctx.getTablesToCheck();
         ctx.metrics.integration_tables_checked = tablesToCheck;
-        
+
         this._checkDataSources(ctx, tablesToCheck);
         this._checkImportSets(ctx, tablesToCheck);
         this._checkTransformMaps(ctx, tablesToCheck);
         this._checkACLs(ctx);
         this._checkRestMessages(ctx, tablesToCheck);
-        
+
         // Deep scan: analyze transform map scripts
         if (ctx.isDeepScanEnabled()) {
             this._deepScanTransformMaps(ctx);
         }
-        
         // Analyze references: check integration dependencies
         if (ctx.isAnalyzeReferencesEnabled()) {
             this._analyzeIntegrationDependencies(ctx);
         }
-        
+
+        // Include children tables analysis if option is enabled
+        if (ctx.include_children_tables)
+            this._checkChildrenTables(ctx);
+
+        // Analyze reference field data quality if option is enabled
+        if (ctx.options.analyze_references)
+            this._analyzeReferenceData(ctx);
+
+        // Deep scan: analyze script quality if option is enabled
+        if (ctx.options.deep_scan)
+            this._deepScanScripts(ctx);
+
         // LDAP Analysis
-        if (ctx.isLdapEnabled()) {
+        if (ctx.options.include_ldap)
             this._analyzeLdapConfiguration(ctx, tablesToCheck);
-        }
     },
 
     /**
@@ -82,7 +92,7 @@ FHCheckIntegration.prototype = {
         var tableName = String(ctx.config.table_name);
         var dataSources = [];
         var self = this;
-        
+
         var gr = new GlideRecord('sys_data_source');
         if (tablesToCheck.length === 1) {
             gr.addQuery('import_set_table_name', 'CONTAINS', tablesToCheck[0]);
@@ -93,13 +103,13 @@ FHCheckIntegration.prototype = {
             }
         }
         gr.query();
-        
+
         while (gr.next()) {
             var dsName = self._safeGetValue(gr, 'name') || 'Unnamed';
             // Check active field - can be 'true', '1', or boolean
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-            
+
             var dsInfo = {
                 sys_id: gr.getUniqueValue(),
                 name: dsName,
@@ -108,7 +118,7 @@ FHCheckIntegration.prototype = {
                 last_run: self._safeGetValue(gr, 'last_run_on')
             };
             dataSources.push(dsInfo);
-            
+
             if (!isActive) {
                 ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
                     record_table: 'sys_data_source',
@@ -117,14 +127,14 @@ FHCheckIntegration.prototype = {
                 });
             }
         }
-        
+
         // Add to category
         ctx.addCategoryItems('integration', 'data_source', 'Data Sources', dataSources, {
             table: 'sys_data_source',
             icon: 'fa-database',
             color: '#6f42c1'
         });
-        
+
         ctx.metrics.data_sources = dataSources;
         ctx.metrics.data_source_count = dataSources.length;
     },
@@ -137,38 +147,38 @@ FHCheckIntegration.prototype = {
      */
     _checkImportSets: function(ctx, tablesToCheck) {
         var tableName = String(ctx.config.table_name);
-        
+
         // Check for recent import set runs
         try {
             var ga = new GlideAggregate('sys_import_set_run');
             ga.addQuery('set.table_name', tableName);
             ga.addAggregate('COUNT');
             ga.query();
-            
+
             var importRunCount = 0;
             if (ga.next()) {
                 importRunCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
             }
-            
+
             ctx.metrics.import_run_count = importRunCount;
         } catch (e) {
             ctx.metrics.import_run_count = 0;
         }
-        
+
         // Check for failed imports in last 30 days
         try {
             var thirtyDaysAgo = new GlideDateTime();
             thirtyDaysAgo.addDaysUTC(-30);
-            
+
             var failedGr = new GlideRecord('sys_import_set_run');
             failedGr.addQuery('set.table_name', tableName);
             failedGr.addQuery('state', 'error');
             failedGr.addQuery('sys_created_on', '>=', thirtyDaysAgo);
             failedGr.query();
-            
+
             var failedCount = failedGr.getRowCount();
             ctx.metrics.failed_import_count = failedCount;
-            
+
             if (failedCount > 0) {
                 ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium', {
                     record_table: 'sys_import_set_run',
@@ -193,7 +203,7 @@ FHCheckIntegration.prototype = {
         var activeCount = 0;
         var inactiveCount = 0;
         var self = this;
-        
+
         var gr = new GlideRecord('sys_transform_map');
         if (tablesToCheck.length === 1) {
             gr.addQuery('target_table', tablesToCheck[0]);
@@ -204,13 +214,13 @@ FHCheckIntegration.prototype = {
             }
         }
         gr.query();
-        
+
         while (gr.next()) {
             var tmName = self._safeGetValue(gr, 'name') || 'Unnamed';
             // Check active field - can be 'true', '1', or boolean
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-            
+
             var tmInfo = {
                 sys_id: gr.getUniqueValue(),
                 name: tmName,
@@ -218,7 +228,7 @@ FHCheckIntegration.prototype = {
                 source_table: self._safeGetValue(gr, 'source_table')
             };
             transformMaps.push(tmInfo);
-            
+
             if (isActive) {
                 activeCount++;
             } else {
@@ -230,14 +240,14 @@ FHCheckIntegration.prototype = {
                 });
             }
         }
-        
+
         // Add to category
         ctx.addCategoryItems('integration', 'transform_map', 'Transform Maps', transformMaps, {
             table: 'sys_transform_map',
             icon: 'fa-exchange-alt',
             color: '#17a2b8'
         });
-        
+
         ctx.metrics.transform_maps = transformMaps;
         ctx.metrics.transform_map_count = transformMaps.length;
         ctx.metrics.active_transform_map_count = activeCount;
@@ -252,12 +262,12 @@ FHCheckIntegration.prototype = {
      */
     _getTableHierarchy: function(tableName) {
         var tables = [tableName];
-        
+
         try {
             var tableGr = new GlideRecord('sys_db_object');
             tableGr.addQuery('name', tableName);
             tableGr.query();
-            
+
             if (tableGr.next()) {
                 var superClass = tableGr.getValue('super_class');
                 while (superClass) {
@@ -273,10 +283,10 @@ FHCheckIntegration.prototype = {
                     }
                 }
             }
-        } catch(e) {
+        } catch (e) {
             // If we can't get hierarchy, just use the table itself
         }
-        
+
         return tables;
     },
 
@@ -295,10 +305,10 @@ FHCheckIntegration.prototype = {
             delete: 0
         };
         var self = this;
-        
+
         // Get all tables in hierarchy
         var tablesToCheck = self._getTableHierarchy(tableName);
-        
+
         // Build query for ACLs on any table in hierarchy
         var gr = new GlideRecord('sys_security_acl');
         var qc = gr.addQuery('name', 'STARTSWITH', tableName);
@@ -307,11 +317,11 @@ FHCheckIntegration.prototype = {
         }
         gr.addQuery('active', true);
         gr.query();
-        
+
         while (gr.next()) {
             var aclName = self._safeGetValue(gr, 'name');
             var operation = self._safeGetValue(gr, 'operation');
-            
+
             // Determine which table this ACL is for
             var aclTable = tableName;
             for (var j = 0; j < tablesToCheck.length; j++) {
@@ -320,7 +330,7 @@ FHCheckIntegration.prototype = {
                     break;
                 }
             }
-            
+
             var aclInfo = {
                 sys_id: gr.getUniqueValue(),
                 name: aclName,
@@ -331,25 +341,29 @@ FHCheckIntegration.prototype = {
                 condition: self._safeGetValue(gr, 'condition') ? true : false
             };
             acls.push(aclInfo);
-            
+
             if (operation && aclsByOperation.hasOwnProperty(operation)) {
                 aclsByOperation[operation]++;
             }
         }
-        
+
         // Add to category
         ctx.addCategoryItems('integration', 'acl', 'ACLs', acls, {
             table: 'sys_security_acl',
             icon: 'fa-lock',
             color: '#dc3545'
         });
-        
+
         ctx.metrics.acls = acls;
         ctx.metrics.acl_count = acls.length;
-        ctx.metrics.acl_direct_count = acls.filter(function(a) { return !a.inherited; }).length;
-        ctx.metrics.acl_inherited_count = acls.filter(function(a) { return a.inherited; }).length;
+        ctx.metrics.acl_direct_count = acls.filter(function(a) {
+            return !a.inherited;
+        }).length;
+        ctx.metrics.acl_inherited_count = acls.filter(function(a) {
+            return a.inherited;
+        }).length;
         ctx.metrics.acls_by_operation = aclsByOperation;
-        
+
         // Check for missing ACLs (only warn if no ACL at all in hierarchy)
         if (aclsByOperation.read === 0) {
             ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
@@ -376,7 +390,7 @@ FHCheckIntegration.prototype = {
     _checkRestMessages: function(ctx, tablesToCheck) {
         var tableName = String(ctx.config.table_name);
         var self = this;
-        
+
         // Check for Scripted REST APIs targeting this table
         var restApis = [];
         var gr = new GlideRecord('sys_ws_operation');
@@ -389,7 +403,7 @@ FHCheckIntegration.prototype = {
             }
         }
         gr.query();
-        
+
         while (gr.next()) {
             restApis.push({
                 sys_id: gr.getUniqueValue(),
@@ -398,14 +412,14 @@ FHCheckIntegration.prototype = {
                 active: self._safeGetValue(gr, 'active') === 'true'
             });
         }
-        
+
         // Add to category
         ctx.addCategoryItems('integration', 'rest_api', 'REST APIs', restApis, {
             table: 'sys_ws_operation',
             icon: 'fa-plug',
             color: '#28a745'
         });
-        
+
         ctx.metrics.rest_apis = restApis;
         ctx.metrics.rest_api_count = restApis.length;
     },
@@ -417,10 +431,10 @@ FHCheckIntegration.prototype = {
      */
     _deepScanTransformMaps: function(ctx) {
         if (!ctx.metrics.transform_maps || ctx.metrics.transform_maps.length === 0) return;
-        
+
         var transformIssues = [];
         var self = this;
-        
+
         ctx.metrics.transform_maps.forEach(function(tm) {
             var gr = new GlideRecord('sys_transform_map');
             if (gr.get(tm.sys_id)) {
@@ -430,12 +444,12 @@ FHCheckIntegration.prototype = {
                     var issues = self._analyzeTransformScript(script, tm.name);
                     transformIssues = transformIssues.concat(issues);
                 }
-                
+
                 // Check transform entries for scripts
                 var entryGr = new GlideRecord('sys_transform_entry');
                 entryGr.addQuery('map', tm.sys_id);
                 entryGr.query();
-                
+
                 while (entryGr.next()) {
                     var entryScript = self._safeGetValue(entryGr, 'script');
                     if (entryScript) {
@@ -445,10 +459,10 @@ FHCheckIntegration.prototype = {
                 }
             }
         });
-        
+
         ctx.metrics.transform_script_issues = transformIssues;
         ctx.metrics.transform_script_issue_count = transformIssues.length;
-        
+
         // Add issues
         transformIssues.forEach(function(issue) {
             ctx.addIssue(issue.code, issue.message, issue.severity, {
@@ -464,7 +478,7 @@ FHCheckIntegration.prototype = {
     _analyzeTransformScript: function(script, scriptName) {
         var issues = [];
         if (!script) return issues;
-        
+
         // Check for hardcoded sys_ids (32 hex characters)
         var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
         var sysIdMatches = script.match(sysIdPattern);
@@ -475,7 +489,7 @@ FHCheckIntegration.prototype = {
                 severity: 'medium'
             });
         }
-        
+
         // Check for ignore() without condition
         if (script.indexOf('ignore') > -1 && script.indexOf('if') === -1) {
             issues.push({
@@ -484,7 +498,7 @@ FHCheckIntegration.prototype = {
                 severity: 'low'
             });
         }
-        
+
         // Check for error handling
         if (script.indexOf('GlideRecord') > -1 && script.indexOf('try') === -1) {
             issues.push({
@@ -493,7 +507,7 @@ FHCheckIntegration.prototype = {
                 severity: 'low'
             });
         }
-        
+
         return issues;
     },
 
@@ -509,7 +523,7 @@ FHCheckIntegration.prototype = {
         };
         var tableName = String(ctx.config.table_name);
         var self = this;
-        
+
         // Inbound: Data sources and transform maps targeting this table
         if (ctx.metrics.data_sources) {
             ctx.metrics.data_sources.forEach(function(ds) {
@@ -520,7 +534,7 @@ FHCheckIntegration.prototype = {
                 });
             });
         }
-        
+
         if (ctx.metrics.transform_maps) {
             ctx.metrics.transform_maps.forEach(function(tm) {
                 dependencies.inbound.push({
@@ -531,7 +545,7 @@ FHCheckIntegration.prototype = {
                 });
             });
         }
-        
+
         // Outbound: REST APIs that read from this table
         if (ctx.metrics.rest_apis) {
             ctx.metrics.rest_apis.forEach(function(api) {
@@ -543,11 +557,11 @@ FHCheckIntegration.prototype = {
                 });
             });
         }
-        
+
         // Check for outbound REST Messages that might use this table
         var restMsgGr = new GlideRecord('sys_rest_message');
         restMsgGr.query();
-        
+
         while (restMsgGr.next()) {
             // Check if any function references this table
             var funcGr = new GlideRecord('sys_rest_message_fn');
@@ -555,7 +569,7 @@ FHCheckIntegration.prototype = {
             funcGr.addQuery('content', 'CONTAINS', tableName);
             funcGr.setLimit(1);
             funcGr.query();
-            
+
             if (funcGr.hasNext()) {
                 dependencies.outbound.push({
                     type: 'REST Message',
@@ -564,11 +578,11 @@ FHCheckIntegration.prototype = {
                 });
             }
         }
-        
+
         ctx.metrics.integration_dependencies = dependencies;
         ctx.metrics.inbound_integration_count = dependencies.inbound.length;
         ctx.metrics.outbound_integration_count = dependencies.outbound.length;
-        
+
         // Add summary issue if many integrations
         var totalIntegrations = dependencies.inbound.length + dependencies.outbound.length;
         if (totalIntegrations > 10) {
@@ -577,6 +591,262 @@ FHCheckIntegration.prototype = {
             });
         }
     },
+    /**
+     * Check children tables (if include_children_tables option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _checkChildrenTables: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+
+        var tableName = String(ctx.config.table_name);
+        var childrenTables = [];
+        var self = this;
+
+        // Get the sys_id of the parent table
+        var parentGr = new GlideRecord('sys_db_object');
+        if (!parentGr.get('name', tableName)) return;
+
+        var parentSysId = parentGr.getUniqueValue();
+
+        // Find all tables that extend this table
+        var gr = new GlideRecord('sys_db_object');
+        gr.addQuery('super_class', parentSysId);
+        gr.query();
+
+        while (gr.next()) {
+            var childName = self._safeGetValue(gr, 'name');
+            var childLabel = self._safeGetValue(gr, 'label') || childName;
+
+            // Get record count for child table
+            var childCount = 0;
+            try {
+                var ga = new GlideAggregate(childName);
+                ga.addAggregate('COUNT');
+                ga.query();
+                if (ga.next()) {
+                    childCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
+                }
+            } catch (e) {
+                // Table might not be accessible
+            }
+
+            childrenTables.push({
+                sys_id: gr.getUniqueValue(),
+                name: childName,
+                label: childLabel,
+                record_count: childCount,
+                scope: self._safeGetValue(gr, 'sys_scope')
+            });
+        }
+
+        ctx.metrics.children_tables = childrenTables;
+        ctx.metrics.children_table_count = childrenTables.length;
+
+        if (childrenTables.length > 10) {
+            ctx.addIssue('MANY_CHILD_TABLES', 'Table has ' + childrenTables.length + ' child tables. Consider reviewing table hierarchy.', 'low', {
+                record_table: 'sys_db_object',
+                record_filter: 'super_class=' + parentSysId,
+                category: 'table'
+            });
+        }
+    },
+
+    /**
+     * Analyze reference field data quality (if analyze_references option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _analyzeReferenceData: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+        if (!ctx.metrics.reference_fields || ctx.metrics.reference_fields.length === 0) return;
+
+        var tableName = String(ctx.config.table_name);
+        var totalRecords = ctx.metrics.record_count || 0;
+        var referenceAnalysis = [];
+        var self = this;
+
+        ctx.metrics.reference_fields.forEach(function(refField) {
+            var fieldName = refField.name;
+            var refTable = refField.reference_table;
+
+            // Check for orphan references (references to deleted records)
+            var orphanCount = 0;
+            var nullCount = 0;
+
+            try {
+                // Count null references
+                var gaNulls = new GlideAggregate(tableName);
+                gaNulls.addNullQuery(fieldName);
+                gaNulls.addAggregate('COUNT');
+                gaNulls.query();
+                if (gaNulls.next()) {
+                    nullCount = parseInt(gaNulls.getAggregate('COUNT'), 10) || 0;
+                }
+
+                // Sample check for orphans (check first 1000 records)
+                var gr = new GlideRecord(tableName);
+                gr.addNotNullQuery(fieldName);
+                gr.setLimit(1000);
+                gr.query();
+
+                while (gr.next()) {
+                    var refValue = gr.getValue(fieldName);
+                    if (refValue) {
+                        var refGr = new GlideRecord(refTable);
+                        if (!refGr.get(refValue)) {
+                            orphanCount++;
+                        }
+                    }
+                }
+            } catch (e) {
+                // Skip on error
+            }
+
+            var analysis = {
+                field: fieldName,
+                reference_table: refTable,
+                null_count: nullCount,
+                null_percentage: totalRecords > 0 ? Math.round((nullCount / totalRecords) * 100) : 0,
+                orphan_count: orphanCount,
+                orphan_detected: orphanCount > 0
+            };
+            referenceAnalysis.push(analysis);
+
+            if (orphanCount > 0) {
+                ctx.addIssue('ORPHAN_REFERENCES', 'Field "' + fieldName + '" has orphan references (at least ' + orphanCount + ' found in sample)', 'medium', {
+                    record_table: tableName,
+                    record_filter: fieldName + 'ISNOTEMPTY',
+                    category: 'field'
+                });
+            }
+        });
+
+        ctx.metrics.reference_analysis = referenceAnalysis;
+    },
+
+    /**
+     * Deep scan scripts for quality issues (if deep_scan option is enabled)
+     * @private
+     * @param {Object} ctx - Analysis context
+     */
+    _deepScanScripts: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+
+        var tableName = String(ctx.config.table_name);
+        var scriptIssues = [];
+        var self = this;
+
+        // Scan Business Rules
+        var gr = new GlideRecord('sys_script');
+        gr.addQuery('collection', tableName);
+        gr.addQuery('active', true);
+        gr.query();
+
+        while (gr.next()) {
+            var script = self._safeGetValue(gr, 'script');
+            var brName = self._safeGetValue(gr, 'name') || 'Unnamed';
+            var issues = self._analyzeScript(script, brName, 'Business Rule');
+            scriptIssues = scriptIssues.concat(issues);
+        }
+
+        // Scan Client Scripts
+        var csGr = new GlideRecord('sys_script_client');
+        csGr.addQuery('table', tableName);
+        csGr.addQuery('active', true);
+        csGr.query();
+
+        while (csGr.next()) {
+            var csScript = self._safeGetValue(csGr, 'script');
+            var csName = self._safeGetValue(csGr, 'name') || 'Unnamed';
+            var csIssues = self._analyzeScript(csScript, csName, 'Client Script');
+            scriptIssues = scriptIssues.concat(csIssues);
+        }
+
+        ctx.metrics.script_issues = scriptIssues;
+        ctx.metrics.script_issue_count = scriptIssues.length;
+
+        // Add issues for each script problem found
+        scriptIssues.forEach(function(issue) {
+            ctx.addIssue(issue.code, issue.message, issue.severity, {
+                category: 'script'
+            });
+        });
+    },
+
+    /**
+     * Analyze a script for common issues
+     * @private
+     */
+    _analyzeScript: function(script, scriptName, scriptType) {
+        var issues = [];
+        if (!script) return issues;
+
+        // Check for GlideRecord without limit in loops
+        if (script.indexOf('GlideRecord') > -1 && script.indexOf('.query()') > -1) {
+            if (script.indexOf('setLimit') === -1 && script.indexOf('get(') === -1) {
+                // Check if it's in a while loop without limit
+                if (script.indexOf('while') > -1 && script.indexOf('.next()') > -1) {
+                    issues.push({
+                        code: 'QUERY_NO_LIMIT',
+                        message: scriptType + ' "' + scriptName + '" has GlideRecord query without setLimit()',
+                        severity: 'medium'
+                    });
+                }
+            }
+        }
+
+        // Check for current.update() in Business Rules (can cause infinite loops)
+        if (scriptType === 'Business Rule' && script.indexOf('current.update()') > -1) {
+            issues.push({
+                code: 'CURRENT_UPDATE',
+                message: scriptType + ' "' + scriptName + '" uses current.update() which can cause recursion',
+                severity: 'high'
+            });
+        }
+
+        // Check for hardcoded sys_ids (32 hex characters)
+        // Pattern matches: "abc123...", 'abc123...', or just abc123... in addQuery/get calls
+        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
+        var sysIdMatches = script.match(sysIdPattern);
+        if (sysIdMatches && sysIdMatches.length > 0) {
+            issues.push({
+                code: 'HARDCODED_SYSID',
+                message: scriptType + ' "' + scriptName + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s)',
+                severity: 'medium'
+            });
+        }
+
+        // Check for console.log (should use gs.log in ServiceNow)
+        if (script.indexOf('console.log') > -1) {
+            issues.push({
+                code: 'CONSOLE_LOG',
+                message: scriptType + ' "' + scriptName + '" uses console.log instead of gs.log',
+                severity: 'low'
+            });
+        }
+
+        // Check for eval() usage (security risk)
+        if (script.indexOf('eval(') > -1) {
+            issues.push({
+                code: 'EVAL_USAGE',
+                message: scriptType + ' "' + scriptName + '" uses eval() which is a security risk',
+                severity: 'high'
+            });
+        }
+
+        // Check for synchronous GlideAjax calls
+        if (script.indexOf('GlideAjax') > -1 && script.indexOf('getXMLWait') > -1) {
+            issues.push({
+                code: 'SYNC_AJAX',
+                message: scriptType + ' "' + scriptName + '" uses synchronous GlideAjax (getXMLWait)',
+                severity: 'medium'
+            });
+        }
+
+        return issues;
+    },
+
 
     /**
      * Analyze LDAP configuration for this table
@@ -595,7 +865,7 @@ FHCheckIntegration.prototype = {
             attribute_mappings: [],
             issues: []
         };
-        
+
         // 1. Find LDAP Data Sources for this table
         var dsGr = new GlideRecord('sys_data_source');
         dsGr.addQuery('type', 'LDAP');
@@ -607,7 +877,7 @@ FHCheckIntegration.prototype = {
             var dsSysId = dsGr.getUniqueValue();
             var activeVal = dsGr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-            
+
             var dsInfo = {
                 sys_id: dsSysId,
                 name: dsName,
@@ -619,7 +889,7 @@ FHCheckIntegration.prototype = {
                 last_run_result: self._safeGetValue(dsGr, 'last_run_result')
             };
             ldapAnalysis.data_sources.push(dsInfo);
-            
+
             if (!isActive) {
                 ldapAnalysis.issues.push({
                     code: 'INACTIVE_LDAP_DATASOURCE',
@@ -629,19 +899,19 @@ FHCheckIntegration.prototype = {
                     record_sys_id: dsSysId
                 });
             }
-            
+
             // Get associated Transform Maps
             var tmGr = new GlideRecord('sys_transform_map');
             tmGr.addQuery('source_table', dsInfo.import_set_table);
             tmGr.addQuery('target_table', 'IN', tablesToCheck.join(','));
             tmGr.query();
-            
+
             while (tmGr.next()) {
                 var tmName = self._safeGetValue(tmGr, 'name');
                 var tmSysId = tmGr.getUniqueValue();
                 var tmActiveVal = tmGr.getValue('active');
                 var tmIsActive = (tmActiveVal === 'true' || tmActiveVal === '1' || tmActiveVal === true);
-                
+
                 var tmInfo = {
                     sys_id: tmSysId,
                     name: tmName,
@@ -652,19 +922,19 @@ FHCheckIntegration.prototype = {
                     coalesce_field: self._safeGetValue(tmGr, 'coalesce_field'),
                     field_maps: []
                 };
-                
+
                 // Get Field Maps for this Transform Map
                 var fmGr = new GlideRecord('sys_transform_entry');
                 fmGr.addQuery('map', tmSysId);
                 fmGr.orderBy('order');
                 fmGr.query();
-                
+
                 while (fmGr.next()) {
                     var sourceField = self._safeGetValue(fmGr, 'source_field');
                     var targetField = self._safeGetValue(fmGr, 'target_field');
                     var coalesce = self._safeGetValue(fmGr, 'coalesce') === 'true';
                     var useSourceScript = self._safeGetValue(fmGr, 'use_source_script') === 'true';
-                    
+
                     var fmInfo = {
                         sys_id: fmGr.getUniqueValue(),
                         source_field: sourceField,
@@ -676,7 +946,7 @@ FHCheckIntegration.prototype = {
                     };
                     tmInfo.field_maps.push(fmInfo);
                     ldapAnalysis.field_maps.push(fmInfo);
-                    
+
                     // Track attribute mapping
                     if (sourceField) {
                         ldapAnalysis.attribute_mappings.push({
@@ -688,9 +958,9 @@ FHCheckIntegration.prototype = {
                         });
                     }
                 }
-                
+
                 ldapAnalysis.transform_maps.push(tmInfo);
-                
+
                 // Check for issues
                 if (!tmIsActive) {
                     ldapAnalysis.issues.push({
@@ -701,7 +971,7 @@ FHCheckIntegration.prototype = {
                         record_sys_id: tmSysId
                     });
                 }
-                
+
                 if (tmInfo.field_maps.length === 0) {
                     ldapAnalysis.issues.push({
                         code: 'NO_LDAP_FIELD_MAPS',
@@ -711,7 +981,7 @@ FHCheckIntegration.prototype = {
                         record_sys_id: tmSysId
                     });
                 }
-                
+
                 if (!tmInfo.coalesce_field) {
                     ldapAnalysis.issues.push({
                         code: 'NO_LDAP_COALESCE',
@@ -723,14 +993,14 @@ FHCheckIntegration.prototype = {
                 }
             }
         }
-        
+
         // 2. Check for LDAP Servers
         try {
             var serverGr = new GlideRecord('ldap_server_config');
             if (serverGr.isValid()) {
                 serverGr.addQuery('active', true);
                 serverGr.query();
-                
+
                 while (serverGr.next()) {
                     ldapAnalysis.servers.push({
                         sys_id: serverGr.getUniqueValue(),
@@ -743,7 +1013,7 @@ FHCheckIntegration.prototype = {
         } catch (e) {
             // LDAP tables might not be accessible
         }
-        
+
         // 3. Summary metrics
         ctx.metrics.ldap_analysis = ldapAnalysis;
         ctx.metrics.ldap_data_source_count = ldapAnalysis.data_sources.length;
@@ -751,7 +1021,7 @@ FHCheckIntegration.prototype = {
         ctx.metrics.ldap_field_map_count = ldapAnalysis.field_maps.length;
         ctx.metrics.ldap_attribute_count = ldapAnalysis.attribute_mappings.length;
         ctx.metrics.ldap_server_count = ldapAnalysis.servers.length;
-        
+
         // Add issues to context
         ldapAnalysis.issues.forEach(function(issue) {
             ctx.addIssue(issue.code, issue.message, issue.severity, {
@@ -760,18 +1030,20 @@ FHCheckIntegration.prototype = {
                 category: 'ldap'
             });
         });
-        
+
         // Summary issues
         if (ldapAnalysis.data_sources.length === 0 && ldapAnalysis.transform_maps.length === 0) {
             ctx.addIssue('NO_LDAP_CONFIG', 'No LDAP configuration found for table "' + tableName + '"', 'low', {
                 category: 'ldap'
             });
         }
-        
+
         // Check for unmapped LDAP attributes (common attributes that should be mapped)
         var commonLdapAttributes = ['cn', 'sn', 'givenName', 'mail', 'telephoneNumber', 'department', 'title', 'manager', 'memberOf'];
-        var mappedAttributes = ldapAnalysis.attribute_mappings.map(function(m) { return m.ldap_attribute.toLowerCase(); });
-        
+        var mappedAttributes = ldapAnalysis.attribute_mappings.map(function(m) {
+            return m.ldap_attribute.toLowerCase();
+        });
+
         commonLdapAttributes.forEach(function(attr) {
             if (mappedAttributes.indexOf(attr.toLowerCase()) === -1 && ldapAnalysis.transform_maps.length > 0) {
                 // Only add as info, not an issue - it's optional
@@ -785,13 +1057,13 @@ FHCheckIntegration.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:21:25</sys_created_on>
         <sys_id>16190640835a321083e1b4a6feaad322</sys_id>
-        <sys_mod_count>6</sys_mod_count>
+        <sys_mod_count>7</sys_mod_count>
         <sys_name>FHCheckIntegration</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_16190640835a321083e1b4a6feaad322</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 02:03:35</sys_updated_on>
+        <sys_updated_on>2026-01-04 08:21:30</sys_updated_on>
     </sys_script_include>
 </record_update>
