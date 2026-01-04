@@ -778,6 +778,28 @@
   opacity: 0.9;
 }
 
+/* Back button - uniform style */
+.fha-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.fha-back-btn:hover {
+  background: #f5f7fa;
+  border-color: #1a5a96;
+  color: #1a5a96;
+}
+
 .fha-type-badge {
   padding: 4px 10px;
   border-radius: 6px;
@@ -1091,11 +1113,13 @@
   </div>
 
   <!-- Error Message -->
+  <!-- Back Button -->
+  <button class="fha-back-btn" ng-click="c.goBack()" style="margin-bottom: 20px;">
+    <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
+  </button>
+
   <div class="alert alert-danger" ng-if="c.error" style="margin-bottom: 20px;">
     <i class="fa fa-exclamation-triangle"></i> {{c.error}}
-    <button class="fha-btn fha-btn-secondary" ng-click="c.goBack()" style="margin-left: 20px;">
-      <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
-    </button>
   </div>
 
   <!-- Loading State -->
