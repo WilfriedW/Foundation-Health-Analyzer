@@ -405,7 +405,7 @@
 }
 ]]></client_script>
         <controller_as>c</controller_as>
-        <css><![CDATA[/* FHA Dashboard Widget Styles */
+        <css>/* FHA Dashboard Widget Styles */
 .fha-dashboard {
   padding: 20px;
 }
@@ -726,7 +726,7 @@
   gap: 15px;
 }
 
-.fha-section-actions > i {
+.fha-section-actions &gt; i {
   color: #666;
   font-size: 14px;
 }
@@ -1013,7 +1013,7 @@
 .fha-issue-link-list {
   background: linear-gradient(135deg, #28A745 0%, #1e7e34 100%);
 }
-]]></css>
+</css>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -1071,24 +1071,10 @@
         // Get table display name from reference or detail_json
         var tableDisplayName = '';
         
-        // Method 1: Try reference field
         if (resultsGr.table_name && !resultsGr.table_name.nil()) {
             var tableRefGr = resultsGr.table_name.getRefRecord();
             if (tableRefGr) {
                 tableDisplayName = tableRefGr.getValue('label') || tableRefGr.getValue('name') || '';
-            }
-        }
-        
-        // Method 2: Fallback to detail_json
-        if (!tableDisplayName) {
-            try {
-                var detailJson = resultsGr.getValue('detail_json');
-                if (detailJson) {
-                    var detail = JSON.parse(detailJson);
-                    tableDisplayName = detail.table_label || detail.table_name || '';
-                }
-            } catch(e) {
-                // Ignore parse errors
             }
         }
         
@@ -1190,14 +1176,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 19:41:08</sys_created_on>
         <sys_id>223611488392321083e1b4a6feaad3db</sys_id>
-        <sys_mod_count>24</sys_mod_count>
+        <sys_mod_count>25</sys_mod_count>
         <sys_name>FHA Dashboard</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_223611488392321083e1b4a6feaad3db</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-03 07:53:42</sys_updated_on>
+        <sys_updated_on>2026-01-04 01:55:40</sys_updated_on>
         <template><![CDATA[<div class="fha-dashboard">
   
   <!-- Page Header -->

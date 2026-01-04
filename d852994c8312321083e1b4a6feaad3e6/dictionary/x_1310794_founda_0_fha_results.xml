@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><database>
     <element db_object_id="6e33954c8352321083e1b4a6feaad311" label="FHA Results" max_length="40" name="x_1310794_founda_0_fha_results" type="collection">
-        <element label="Table Name" max_length="32" name="table_name" reference="x_1310794_founda_0_fha_configuration" type="reference"/>
+        <element label="Table Name" max_length="32" name="table_name" reference="sys_db_object" type="reference"/>
         <element choice="1" label="Status" max_length="40" name="status" type="choice">
             <choice>
                 <element inactive_on_update="false" label="Completed" sequence="1" value="completed"/>
@@ -9,16 +9,11 @@
             </choice>
         </element>
         <element label="Report Generated" max_length="40" name="report_generated" type="boolean"/>
-        <element label="Report ID" max_length="32" name="report_document_id" reference="sys_attachment" type="reference"/>
         <element default="javascript:getNextObjNumberPadded();" display="true" dynamic_default_value="fdcb83a85f220100a9ad2572f2b4773c" label="Number" max_length="40" name="number" type="string" use_dynamic_default="true"/>
         <element label="Issue Found" max_length="40" name="issue_found" type="integer"/>
         <element label="Health Score" max_length="40" name="health_score" type="string"/>
-        <element label="Summary" max_length="40" name="summary" type="string"/>
         <element label="Detail Json" max_length="4000" name="detail_json" type="string"/>
         <index name="index">
-            <element name="report_document_id"/>
-        </index>
-        <index name="index2">
             <element name="table_name"/>
         </index>
     </element>

@@ -130,7 +130,6 @@ FHAnalyzer.prototype = {
             success: true,
             analysis_id: resultSysId,  // This is now the sys_id of fha_results record
             sys_id: resultSysId,       // Explicit sys_id for clarity
-            summary: engineResult.getSummary(),
             details: engineResult
         };
     },
@@ -182,10 +181,6 @@ FHAnalyzer.prototype = {
         var issueCount = result.issues ? result.issues.length : 0;
         gr.setValue('issue_found', issueCount);
         
-        // Set summary
-        var summary = result.getSummary ? result.getSummary() : '';
-        gr.setValue('summary', summary);
-        
         // Store full details as JSON in detail_json field
         var detailObj = {
             issues: result.issues || [],
@@ -231,13 +226,13 @@ FHAnalyzer.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>38</sys_mod_count>
+        <sys_mod_count>40</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 00:56:50</sys_updated_on>
+        <sys_updated_on>2026-01-04 01:46:09</sys_updated_on>
     </sys_script_include>
 </record_update>
