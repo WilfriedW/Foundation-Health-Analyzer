@@ -50,23 +50,11 @@ FHCheckSecurity.prototype = {
         };
 
         // Build query for ACLs on any table in hierarchy
-        // ACL names can be: table_name, table_name.field_name, or table_name.*
-        // We need to match exactly to avoid false positives (e.g., sys_user_has_role when querying sys_user)
         var gr = new GlideRecord('sys_security_acl');
-        
-        // Create OR conditions for each table in the hierarchy
-        // For each table, we match: exact name OR name followed by a dot
-        var firstTable = tablesToCheck[0];
-        var qc = gr.addQuery('name', firstTable);
-        qc.addOrCondition('name', 'STARTSWITH', firstTable + '.');
-        
-        // Add OR conditions for remaining tables
+        var qc = gr.addQuery('name', 'STARTSWITH', tableName);
         for (var i = 1; i < tablesToCheck.length; i++) {
-            var currentTable = tablesToCheck[i];
-            qc.addOrCondition('name', currentTable);
-            qc.addOrCondition('name', 'STARTSWITH', currentTable + '.');
+            qc.addOrCondition('name', 'STARTSWITH', tablesToCheck[i]);
         }
-        
         gr.addQuery('active', true);
         gr.query();
 
@@ -75,12 +63,10 @@ FHCheckSecurity.prototype = {
             var operation = ctx.safeGetValue(gr, 'operation');
 
             // Determine which table this ACL is for
-            // Check exact match first, then check if it starts with table name followed by a dot
             var aclTable = tableName;
             for (var j = 0; j < tablesToCheck.length; j++) {
-                var checkTable = tablesToCheck[j];
-                if (aclName === checkTable || aclName.indexOf(checkTable + '.') === 0) {
-                    aclTable = checkTable;
+                if (aclName.indexOf(tablesToCheck[j]) === 0) {
+                    aclTable = tablesToCheck[j];
                     break;
                 }
             }
@@ -119,20 +105,17 @@ FHCheckSecurity.prototype = {
         ctx.metrics.acls_by_operation = aclsByOperation;
 
         // Check for missing ACLs (only warn if no ACL at all in hierarchy)
-        // Build filter for issues (using exact match or dot pattern)
-        var aclFilter = 'name=' + tableName + '^ORnameSTARTSWITH' + tableName + '.';
-        
         if (aclsByOperation.read === 0) {
             ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
                 record_table: 'sys_security_acl',
-                record_filter: aclFilter,
+                record_filter: 'nameSTARTSWITH' + tableName,
                 category: 'security'
             });
         }
         if (aclsByOperation.write === 0) {
             ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
                 record_table: 'sys_security_acl',
-                record_filter: aclFilter,
+                record_filter: 'nameSTARTSWITH' + tableName,
                 category: 'security'
             });
         }
@@ -143,13 +126,13 @@ FHCheckSecurity.prototype = {
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 09:00:00</sys_created_on>
-        <sys_id>3f5a6b8c83def21083e1b4a6feaad3ef</sys_id>
+        <sys_id>security_12345678901234567890123456789012</sys_id>
         <sys_mod_count>0</sys_mod_count>
         <sys_name>FHCheckSecurity</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
-        <sys_update_name>sys_script_include_3f5a6b8c83def21083e1b4a6feaad3ef</sys_update_name>
+        <sys_update_name>sys_script_include_security_12345678901234567890123456789012</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
         <sys_updated_on>2026-01-04 09:00:00</sys_updated_on>
     </sys_script_include>
