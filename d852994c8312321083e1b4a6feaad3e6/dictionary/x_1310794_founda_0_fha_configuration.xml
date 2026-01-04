@@ -6,6 +6,7 @@
         <element label="Name" max_length="40" name="name" type="string"/>
         <element label="Active" max_length="40" name="active" type="boolean"/>
         <element label="Description" max_length="40" name="description" type="string"/>
+        <element label="Include LDAP" max_length="40" name="include_ldap" type="boolean"/>
         <element label="Table Reference" max_length="32" name="table_reference" reference="sys_db_object" type="reference"/>
         <index name="index">
             <element name="table_reference"/>

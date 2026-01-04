@@ -4,13 +4,13 @@
             <element>deep_scan</element>
             <position>0</position>
             <sys_created_by>admin</sys_created_by>
-            <sys_created_on>2026-01-03 23:10:44</sys_created_on>
-            <sys_id>37305fd48352f21083e1b4a6feaad305</sys_id>
+            <sys_created_on>2026-01-04 00:41:04</sys_created_on>
+            <sys_id>4fe4ef908316f21083e1b4a6feaad366</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_ui_formatter/>
             <sys_ui_section caption="Options" display_value="Options" name="x_1310794_founda_0_fha_configuration" sys_domain="global" view="Default view">6e201fd48352f21083e1b4a6feaad350</sys_ui_section>
             <sys_updated_by>admin</sys_updated_by>
-            <sys_updated_on>2026-01-03 23:10:44</sys_updated_on>
+            <sys_updated_on>2026-01-04 00:41:04</sys_updated_on>
             <sys_user/>
             <type/>
         </sys_ui_element>
@@ -18,13 +18,13 @@
             <element>include_children_tables</element>
             <position>1</position>
             <sys_created_by>admin</sys_created_by>
-            <sys_created_on>2026-01-03 23:10:44</sys_created_on>
-            <sys_id>b3305fd48352f21083e1b4a6feaad306</sys_id>
+            <sys_created_on>2026-01-04 00:41:04</sys_created_on>
+            <sys_id>07e4ef908316f21083e1b4a6feaad368</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_ui_formatter/>
             <sys_ui_section caption="Options" display_value="Options" name="x_1310794_founda_0_fha_configuration" sys_domain="global" view="Default view">6e201fd48352f21083e1b4a6feaad350</sys_ui_section>
             <sys_updated_by>admin</sys_updated_by>
-            <sys_updated_on>2026-01-03 23:10:44</sys_updated_on>
+            <sys_updated_on>2026-01-04 00:41:04</sys_updated_on>
             <sys_user/>
             <type/>
         </sys_ui_element>
@@ -32,13 +32,27 @@
             <element>analyze_references</element>
             <position>2</position>
             <sys_created_by>admin</sys_created_by>
-            <sys_created_on>2026-01-03 23:10:44</sys_created_on>
-            <sys_id>33305fd48352f21083e1b4a6feaad307</sys_id>
+            <sys_created_on>2026-01-04 00:41:04</sys_created_on>
+            <sys_id>83e4ef908316f21083e1b4a6feaad369</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_ui_formatter/>
             <sys_ui_section caption="Options" display_value="Options" name="x_1310794_founda_0_fha_configuration" sys_domain="global" view="Default view">6e201fd48352f21083e1b4a6feaad350</sys_ui_section>
             <sys_updated_by>admin</sys_updated_by>
-            <sys_updated_on>2026-01-03 23:10:44</sys_updated_on>
+            <sys_updated_on>2026-01-04 00:41:04</sys_updated_on>
+            <sys_user/>
+            <type/>
+        </sys_ui_element>
+        <sys_ui_element action="INSERT_OR_UPDATE">
+            <element>include_ldap</element>
+            <position>3</position>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-01-04 00:41:04</sys_created_on>
+            <sys_id>03e4ef908316f21083e1b4a6feaad36a</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_ui_formatter/>
+            <sys_ui_section caption="Options" display_value="Options" name="x_1310794_founda_0_fha_configuration" sys_domain="global" view="Default view">6e201fd48352f21083e1b4a6feaad350</sys_ui_section>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-01-04 00:41:04</sys_updated_on>
             <sys_user/>
             <type/>
         </sys_ui_element>
