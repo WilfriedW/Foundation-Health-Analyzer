@@ -13,46 +13,35 @@
  * FHCheckTable - Check for table-specific issues
  * Analyzes custom fields, reference fields, and business rules
  * 
- * Supports configuration options:
- * - deep_scan: Perform deeper analysis (script content, performance)
- * - include_children_tables: Include child tables in analysis
- * - analyze_references: Analyze reference field targets
+ * Options are managed centrally by FHAnalysisContext:
+ * - ctx.isDeepScanEnabled()
+ * - ctx.isIncludeChildrenEnabled()
+ * - ctx.isAnalyzeReferencesEnabled()
+ * - ctx.getTableHierarchy()
+ * - ctx.getTablesToCheck()
  */
 var FHCheckTable = Class.create();
 FHCheckTable.prototype = {
     
     /**
      * Safe getValue - returns empty string if null
+     * Uses ctx.safeGetValue when available, fallback for compatibility
      * @private
      */
-    _safeGetValue: function(gr, field) {
+    _safeGetValue: function(gr, field, ctx) {
+        if (ctx && ctx.safeGetValue) {
+            return ctx.safeGetValue(gr, field);
+        }
         var val = gr.getValue(field);
         return (val === null || val === undefined) ? '' : String(val);
     },
 
     /**
-     * Get configuration option with default value
-     * @private
-     */
-    _getOption: function(ctx, optionName, defaultValue) {
-        if (ctx.config && ctx.config[optionName] !== undefined) {
-            return ctx.config[optionName];
-        }
-        return defaultValue;
-    },
-
-    /**
      * Execute the check
-     * @param {Object} ctx - Analysis context
+     * @param {Object} ctx - Analysis context (FHAnalysisContext)
      */
     execute: function(ctx) {
-        // Store options in metrics for reference
-        ctx.metrics.options = {
-            deep_scan: this._getOption(ctx, 'deep_scan', false),
-            include_children_tables: this._getOption(ctx, 'include_children_tables', false),
-            analyze_references: this._getOption(ctx, 'analyze_references', false)
-        };
-        
+        // Run standard checks
         this._checkTableExists(ctx);
         this._checkRecordCount(ctx);
         this._checkFieldUsage(ctx);
@@ -61,17 +50,17 @@ FHCheckTable.prototype = {
         this._checkClientScripts(ctx);
         
         // Include children tables analysis if option is enabled
-        if (ctx.metrics.options.include_children_tables) {
+        if (ctx.isIncludeChildrenEnabled()) {
             this._checkChildrenTables(ctx);
         }
         
-        // Deep scan: analyze reference field data quality
-        if (ctx.metrics.options.analyze_references) {
+        // Analyze reference field data quality if option is enabled
+        if (ctx.isAnalyzeReferencesEnabled()) {
             this._analyzeReferenceData(ctx);
         }
         
-        // Deep scan: analyze script quality
-        if (ctx.metrics.options.deep_scan) {
+        // Deep scan: analyze script quality if option is enabled
+        if (ctx.isDeepScanEnabled()) {
             this._deepScanScripts(ctx);
         }
     },
@@ -82,7 +71,7 @@ FHCheckTable.prototype = {
      * @param {Object} ctx - Analysis context
      */
     _checkTableExists: function(ctx) {
-        var tableName = ctx.config && ctx.config.table_name ? String(ctx.config.table_name) : '';
+        var tableName = ctx.getTableName();
         
         if (!tableName) {
             ctx.addIssue('INVALID_CONFIG', 'Table name is not defined in configuration', 'high');

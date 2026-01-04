@@ -13,9 +13,11 @@
  * FHCheckAutomation - Check for automation issues
  * Analyzes scheduled jobs, flows, workflows, and notifications
  * 
- * Supports configuration options:
- * - deep_scan: Analyze script content in automations
- * - include_children_tables: Include automations from child tables
+ * Options are managed centrally by FHAnalysisContext:
+ * - ctx.isDeepScanEnabled()
+ * - ctx.isIncludeChildrenEnabled()
+ * - ctx.getTablesToCheck()
+ * - ctx.getTableHierarchy()
  */
 var FHCheckAutomation = Class.create();
 FHCheckAutomation.prototype = {
@@ -24,35 +26,23 @@ FHCheckAutomation.prototype = {
      * Safe getValue - returns empty string if null
      * @private
      */
-    _safeGetValue: function(gr, field) {
+    _safeGetValue: function(gr, field, ctx) {
+        if (ctx && ctx.safeGetValue) {
+            return ctx.safeGetValue(gr, field);
+        }
         var val = gr.getValue(field);
         return (val === null || val === undefined) ? '' : String(val);
     },
 
     /**
-     * Get configuration option with default value
-     * @private
-     */
-    _getOption: function(ctx, optionName, defaultValue) {
-        if (ctx.config && ctx.config[optionName] !== undefined) {
-            return ctx.config[optionName];
-        }
-        return defaultValue;
-    },
-
-    /**
      * Execute the check
-     * @param {Object} ctx - Analysis context
+     * @param {Object} ctx - Analysis context (FHAnalysisContext)
      */
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
         
-        // Get options
-        var includeChildren = this._getOption(ctx, 'include_children_tables', false);
-        var deepScan = this._getOption(ctx, 'deep_scan', false);
-        
-        // Get tables to check (main table + children if option enabled)
-        var tablesToCheck = this._getTablesToCheck(ctx, includeChildren);
+        // Get tables to check from context (uses centralized logic)
+        var tablesToCheck = ctx.getTablesToCheck();
         ctx.metrics.automation_tables_checked = tablesToCheck;
         
         this._checkScheduledJobs(ctx, tablesToCheck);
@@ -64,49 +54,25 @@ FHCheckAutomation.prototype = {
         this._checkInboundEmailActions(ctx, tablesToCheck);
         
         // Deep scan: analyze automation scripts
-        if (deepScan) {
+        if (ctx.isDeepScanEnabled()) {
             this._deepScanAutomations(ctx);
         }
     },
 
     /**
-     * Get tables to check based on configuration
-     * @private
-     */
-    _getTablesToCheck: function(ctx, includeChildren) {
-        var tableName = String(ctx.config.table_name);
-        var tables = [tableName];
-        
-        if (includeChildren) {
-            // Get child tables
-            var parentGr = new GlideRecord('sys_db_object');
-            if (parentGr.get('name', tableName)) {
-                var parentSysId = parentGr.getUniqueValue();
-                
-                var gr = new GlideRecord('sys_db_object');
-                gr.addQuery('super_class', parentSysId);
-                gr.query();
-                
-                while (gr.next()) {
-                    var childName = this._safeGetValue(gr, 'name');
-                    if (childName && tables.indexOf(childName) === -1) {
-                        tables.push(childName);
-                    }
-                }
-            }
-        }
-        
-        return tables;
-    },
-
-    /**
      * Check if script contains exact table reference (not partial match)
+     * Uses ctx.scriptContainsTable when available
      * @private
      * @param {String} script - Script content
      * @param {String} tableName - Table name to search
+     * @param {Object} ctx - Analysis context (optional)
      * @returns {Boolean} True if exact match found
      */
-    _scriptContainsTable: function(script, tableName) {
+    _scriptContainsTable: function(script, tableName, ctx) {
+        // Use centralized method if available
+        if (ctx && ctx.scriptContainsTable) {
+            return ctx.scriptContainsTable(script, tableName);
+        }
         if (!script || !tableName) return false;
         
         // Patterns that indicate exact table usage:

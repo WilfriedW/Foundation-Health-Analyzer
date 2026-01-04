@@ -51,9 +51,18 @@ Foundation Health Analyzer is a ServiceNow scoped application designed to analyz
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    FHAnalysisContext                             │
-│  - Stores issues, metrics, and analysis state                    │
+│  CENTRALIZED OPTIONS MANAGEMENT:                                 │
+│  - isDeepScanEnabled(), isIncludeChildrenEnabled()               │
+│  - isAnalyzeReferencesEnabled(), isLdapEnabled()                 │
+│  TABLE HIERARCHY UTILITIES (cached):                             │
+│  - getTableName(), getTableHierarchy(), getTablesToCheck()       │
+│  - getChildrenTables()                                           │
+│  UTILITY HELPERS:                                                │
+│  - safeGetValue(gr, field)                                       │
+│  - scriptContainsTable(script, tableName)                        │
+│  - scriptUpdatesField(script, fieldName)                         │
+│  ISSUE MANAGEMENT:                                               │
 │  - addIssue(code, message, severity, metadata)                   │
-│  - addMetric(key, value)                                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,7 +79,7 @@ Foundation Health Analyzer is a ServiceNow scoped application designed to analyz
 | `sys_script_include_f27265808316321083e1b4a6feaad33d.xml` | **FHAnalyzer** | Main entry point for analysis | ✅ Active |
 | `sys_script_include_62f58e88831a321083e1b4a6feaad34f.xml` | **FHAnalysisEngine** | Orchestrates check execution | ✅ Active |
 | `sys_script_include_820602c8831a321083e1b4a6feaad34d.xml` | **FHCheckRegistry** | Registry for check modules | ✅ Active |
-| `sys_script_include_f17a0204835a321083e1b4a6feaad360.xml` | **FHAnalysisContext** | Stores analysis results/issues | ✅ Active |
+| `sys_script_include_f17a0204835a321083e1b4a6feaad360.xml` | **FHAnalysisContext** | Centralized options, utilities & issues | ✅ Active |
 | `sys_script_include_99f80240835a321083e1b4a6feaad361.xml` | **FHCheckTable** | Table-specific checks (fields, BR, CS) | ✅ Active |
 | `sys_script_include_7209c240835a321083e1b4a6feaad310.xml` | **FHCheckAutomation** | Automation checks (jobs, flows, WF) | ✅ Active |
 | `sys_script_include_16190640835a321083e1b4a6feaad322.xml` | **FHCheckIntegration** | Integration checks (DS, TM) | ✅ Active |

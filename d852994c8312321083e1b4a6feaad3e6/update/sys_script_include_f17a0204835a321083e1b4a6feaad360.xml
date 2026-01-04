@@ -11,6 +11,12 @@
         <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[/**
  * FHAnalysisContext - Context for analysis execution
+ * 
+ * Centralizes:
+ * - Configuration options management
+ * - Table hierarchy utilities
+ * - Issue tracking
+ * - Metrics collection
  */
 var FHAnalysisContext = Class.create();
 FHAnalysisContext.prototype = {
@@ -18,7 +24,263 @@ FHAnalysisContext.prototype = {
         this.config = config;
         this.metrics = {};
         this.issues = [];
+        
+        // Initialize options with defaults
+        this.options = {
+            deep_scan: this._isTrue(config.deep_scan),
+            include_children_tables: this._isTrue(config.include_children_tables),
+            analyze_references: this._isTrue(config.analyze_references),
+            include_ldap: this._isTrue(config.include_ldap)
+        };
+        
+        // Store options in metrics for reference
+        this.metrics.options = this.options;
+        
+        // Cache for table hierarchy (computed once, reused)
+        this._tableHierarchyCache = null;
+        this._childrenTablesCache = null;
+        this._tablesToCheckCache = null;
     },
+
+    /**
+     * Check if a value is truthy (handles 'true', '1', true, 1)
+     * @private
+     */
+    _isTrue: function(val) {
+        return val === 'true' || val === '1' || val === true || val === 1;
+    },
+
+    // ==================== OPTIONS HELPERS ====================
+
+    /**
+     * Get an option value
+     * @param {String} optionName - Option name
+     * @param {*} defaultValue - Default value if option not set
+     * @returns {*} Option value
+     */
+    getOption: function(optionName, defaultValue) {
+        if (this.options.hasOwnProperty(optionName)) {
+            return this.options[optionName];
+        }
+        return defaultValue !== undefined ? defaultValue : false;
+    },
+
+    /**
+     * Check if deep scan is enabled
+     * @returns {Boolean}
+     */
+    isDeepScanEnabled: function() {
+        return this.options.deep_scan === true;
+    },
+
+    /**
+     * Check if children tables should be included
+     * @returns {Boolean}
+     */
+    isIncludeChildrenEnabled: function() {
+        return this.options.include_children_tables === true;
+    },
+
+    /**
+     * Check if reference analysis is enabled
+     * @returns {Boolean}
+     */
+    isAnalyzeReferencesEnabled: function() {
+        return this.options.analyze_references === true;
+    },
+
+    /**
+     * Check if LDAP analysis is enabled
+     * @returns {Boolean}
+     */
+    isLdapEnabled: function() {
+        return this.options.include_ldap === true;
+    },
+
+    // ==================== TABLE HIERARCHY HELPERS ====================
+
+    /**
+     * Get table name from config
+     * @returns {String} Table name
+     */
+    getTableName: function() {
+        return this.config && this.config.table_name ? String(this.config.table_name) : '';
+    },
+
+    /**
+     * Get table hierarchy (current table + all parent tables)
+     * Results are cached for performance
+     * @returns {Array} Array of table names [current, parent1, parent2, ...]
+     */
+    getTableHierarchy: function() {
+        if (this._tableHierarchyCache !== null) {
+            return this._tableHierarchyCache;
+        }
+        
+        var tableName = this.getTableName();
+        var tables = [tableName];
+        
+        if (!tableName) {
+            this._tableHierarchyCache = tables;
+            return tables;
+        }
+        
+        try {
+            var gr = new GlideRecord('sys_db_object');
+            if (gr.get('name', tableName)) {
+                var superClass = gr.super_class;
+                while (superClass && !superClass.nil()) {
+                    var parentGr = superClass.getRefRecord();
+                    if (parentGr) {
+                        var parentName = parentGr.getValue('name');
+                        if (parentName && tables.indexOf(parentName) === -1) {
+                            tables.push(parentName);
+                        }
+                        superClass = parentGr.super_class;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignore errors
+        }
+        
+        this._tableHierarchyCache = tables;
+        return tables;
+    },
+
+    /**
+     * Get children tables (tables that extend the current table)
+     * Results are cached for performance
+     * @returns {Array} Array of child table names
+     */
+    getChildrenTables: function() {
+        if (this._childrenTablesCache !== null) {
+            return this._childrenTablesCache;
+        }
+        
+        var tableName = this.getTableName();
+        var children = [];
+        
+        if (!tableName) {
+            this._childrenTablesCache = children;
+            return children;
+        }
+        
+        try {
+            var parentGr = new GlideRecord('sys_db_object');
+            if (parentGr.get('name', tableName)) {
+                var parentSysId = parentGr.getUniqueValue();
+                
+                var gr = new GlideRecord('sys_db_object');
+                gr.addQuery('super_class', parentSysId);
+                gr.query();
+                
+                while (gr.next()) {
+                    var childName = gr.getValue('name');
+                    if (childName && children.indexOf(childName) === -1) {
+                        children.push(childName);
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignore errors
+        }
+        
+        this._childrenTablesCache = children;
+        return children;
+    },
+
+    /**
+     * Get all tables to check based on options
+     * Combines: current table + parents + children (if option enabled)
+     * Results are cached for performance
+     * @returns {Array} Array of table names to check
+     */
+    getTablesToCheck: function() {
+        if (this._tablesToCheckCache !== null) {
+            return this._tablesToCheckCache;
+        }
+        
+        var tables = this.getTableHierarchy().slice(); // Clone array
+        
+        // Add children if option enabled
+        if (this.isIncludeChildrenEnabled()) {
+            var children = this.getChildrenTables();
+            children.forEach(function(child) {
+                if (tables.indexOf(child) === -1) {
+                    tables.push(child);
+                }
+            });
+        }
+        
+        this._tablesToCheckCache = tables;
+        return tables;
+    },
+
+    // ==================== UTILITY HELPERS ====================
+
+    /**
+     * Safely get a value from a GlideRecord, returning empty string if null
+     * @param {GlideRecord} gr - GlideRecord
+     * @param {String} field - Field name
+     * @returns {String} Field value or empty string
+     */
+    safeGetValue: function(gr, field) {
+        var val = gr.getValue(field);
+        return (val === null || val === undefined) ? '' : String(val);
+    },
+
+    /**
+     * Check if a script contains an exact table reference
+     * @param {String} script - Script content
+     * @param {String} tableName - Table name to search
+     * @returns {Boolean} True if exact match found
+     */
+    scriptContainsTable: function(script, tableName) {
+        if (!script || !tableName) return false;
+        
+        var patterns = [
+            new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i"),
+            new RegExp("setTableName\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i")
+        ];
+        
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+        
+        return false;
+    },
+
+    /**
+     * Check if a script updates a specific field
+     * @param {String} script - Script content
+     * @param {String} fieldName - Field name to check
+     * @returns {Boolean} True if script updates the field
+     */
+    scriptUpdatesField: function(script, fieldName) {
+        if (!script || !fieldName) return false;
+        
+        var patterns = [
+            new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
+            new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i")
+        ];
+        
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+        
+        return false;
+    },
+
+    // ==================== ISSUE MANAGEMENT ====================
 
     /**
      * Add an issue to the context
@@ -45,6 +307,8 @@ FHAnalysisContext.prototype = {
         
         this.issues.push(issue);
     },
+
+    // ==================== RESULT GENERATION ====================
 
     /**
      * Convert context to result object

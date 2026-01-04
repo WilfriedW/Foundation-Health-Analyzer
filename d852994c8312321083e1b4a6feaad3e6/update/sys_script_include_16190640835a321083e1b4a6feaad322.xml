@@ -13,10 +13,13 @@
  * FHCheckIntegration - Check for integration issues
  * Analyzes data sources, import sets, web services, and REST integrations
  * 
- * Supports configuration options:
- * - deep_scan: Analyze integration script content
- * - include_children_tables: Include integrations for child tables
- * - analyze_references: Analyze integration dependencies
+ * Options are managed centrally by FHAnalysisContext:
+ * - ctx.isDeepScanEnabled()
+ * - ctx.isIncludeChildrenEnabled()
+ * - ctx.isAnalyzeReferencesEnabled()
+ * - ctx.isLdapEnabled()
+ * - ctx.getTablesToCheck()
+ * - ctx.getTableHierarchy()
  */
 var FHCheckIntegration = Class.create();
 FHCheckIntegration.prototype = {
@@ -25,37 +28,23 @@ FHCheckIntegration.prototype = {
      * Safe getValue - returns empty string if null
      * @private
      */
-    _safeGetValue: function(gr, field) {
+    _safeGetValue: function(gr, field, ctx) {
+        if (ctx && ctx.safeGetValue) {
+            return ctx.safeGetValue(gr, field);
+        }
         var val = gr.getValue(field);
         return (val === null || val === undefined) ? '' : String(val);
     },
 
     /**
-     * Get configuration option with default value
-     * @private
-     */
-    _getOption: function(ctx, optionName, defaultValue) {
-        if (ctx.config && ctx.config[optionName] !== undefined) {
-            return ctx.config[optionName];
-        }
-        return defaultValue;
-    },
-
-    /**
      * Execute the check
-     * @param {Object} ctx - Analysis context
+     * @param {Object} ctx - Analysis context (FHAnalysisContext)
      */
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
         
-        // Get options
-        var includeChildren = this._getOption(ctx, 'include_children_tables', false);
-        var deepScan = this._getOption(ctx, 'deep_scan', false);
-        var analyzeReferences = this._getOption(ctx, 'analyze_references', false);
-        var includeLdap = this._getOption(ctx, 'include_ldap', false);
-        
-        // Get tables to check
-        var tablesToCheck = this._getTablesToCheck(ctx, includeChildren);
+        // Get tables to check from context (uses centralized logic)
+        var tablesToCheck = ctx.getTablesToCheck();
         ctx.metrics.integration_tables_checked = tablesToCheck;
         
         this._checkDataSources(ctx, tablesToCheck);
@@ -65,49 +54,19 @@ FHCheckIntegration.prototype = {
         this._checkRestMessages(ctx, tablesToCheck);
         
         // Deep scan: analyze transform map scripts
-        if (deepScan) {
+        if (ctx.isDeepScanEnabled()) {
             this._deepScanTransformMaps(ctx);
         }
         
         // Analyze references: check integration dependencies
-        if (analyzeReferences) {
+        if (ctx.isAnalyzeReferencesEnabled()) {
             this._analyzeIntegrationDependencies(ctx);
         }
         
         // LDAP Analysis
-        if (includeLdap) {
+        if (ctx.isLdapEnabled()) {
             this._analyzeLdapConfiguration(ctx, tablesToCheck);
         }
-    },
-
-    /**
-     * Get tables to check based on configuration
-     * @private
-     */
-    _getTablesToCheck: function(ctx, includeChildren) {
-        var tableName = String(ctx.config.table_name);
-        var tables = [tableName];
-        
-        if (includeChildren) {
-            // Get child tables
-            var parentGr = new GlideRecord('sys_db_object');
-            if (parentGr.get('name', tableName)) {
-                var parentSysId = parentGr.getUniqueValue();
-                
-                var gr = new GlideRecord('sys_db_object');
-                gr.addQuery('super_class', parentSysId);
-                gr.query();
-                
-                while (gr.next()) {
-                    var childName = this._safeGetValue(gr, 'name');
-                    if (childName && tables.indexOf(childName) === -1) {
-                        tables.push(childName);
-                    }
-                }
-            }
-        }
-        
-        return tables;
     },
 
     /**
