@@ -9,32 +9,17 @@
         <mobile_callable>false</mobile_callable>
         <name>FHCheckIntegration</name>
         <sandbox_callable>false</sandbox_callable>
-        <script><![CDATA[/**
- * FHCheckIntegration - Check for integration issues
- * Analyzes data sources, import sets, web services, and REST integrations
- * 
- * Options are managed centrally by FHAnalysisContext:
- * - ctx.isDeepScanEnabled()
- * - ctx.isIncludeChildrenEnabled()
- * - ctx.isAnalyzeReferencesEnabled()
- * - ctx.isLdapEnabled()
- * - ctx.getTablesToCheck()
- * - ctx.getTableHierarchy()
- */
-var FHCheckIntegration = Class.create();
+        <script><![CDATA[var FHCheckIntegration = Class.create();
 FHCheckIntegration.prototype = {
+    initialize: function() {
+        this.optionsHandler = new FHOptionsHandler();
+        this.utils = new FHScanUtils();
+    },
 
-    /**
-     * Execute the check
-     * @param {Object} ctx - Analysis context (FHAnalysisContext)
-     */
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
 
-        // Register the integration category
         ctx.registerCategory('integration', 'Integrations', 'fa-plug');
-
-        // Get tables to check from context (uses centralized logic)
         var tablesToCheck = ctx.getTablesToCheck();
         ctx.metrics.integration_tables_checked = tablesToCheck;
 
@@ -43,59 +28,34 @@ FHCheckIntegration.prototype = {
         this._checkTransformMaps(ctx, tablesToCheck);
         this._checkRestMessages(ctx, tablesToCheck);
 
-        // Option-based checks are handled by FHOptionsHandler
-        var optionsHandler = new FHOptionsHandler();
-
-        // Deep scan: analyze transform map scripts
-        if (ctx.isDeepScanEnabled()) {
-            optionsHandler.deepScanTransformMaps(ctx);
+        if (ctx.isDeepScanEnabled && ctx.isDeepScanEnabled()) {
+            this.optionsHandler.deepScanTransformMaps(ctx);
         }
 
-        // Analyze references: check integration dependencies
-        if (ctx.isAnalyzeReferencesEnabled()) {
-            optionsHandler.analyzeIntegrationDependencies(ctx);
+        if (ctx.isAnalyzeReferencesEnabled && ctx.isAnalyzeReferencesEnabled()) {
+            this.optionsHandler.analyzeIntegrationDependencies(ctx);
         }
 
-        // LDAP Analysis
-        if (ctx.isLdapEnabled()) {
-            optionsHandler.analyzeLdapConfiguration(ctx, tablesToCheck);
+        if (ctx.isLdapEnabled && ctx.isLdapEnabled()) {
+            this.optionsHandler.analyzeLdapConfiguration(ctx);
         }
     },
 
-    /**
-     * Check data sources targeting this table
-     * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
-     */
     _checkDataSources: function(ctx, tablesToCheck) {
         var dataSources = [];
-
         var gr = new GlideRecord('sys_data_source');
-        if (tablesToCheck.length === 1) {
-            gr.addQuery('import_set_table_name', 'CONTAINS', tablesToCheck[0]);
-        } else {
-            var qc = gr.addQuery('import_set_table_name', 'CONTAINS', tablesToCheck[0]);
-            for (var i = 1; i < tablesToCheck.length; i++) {
-                qc.addOrCondition('import_set_table_name', 'CONTAINS', tablesToCheck[i]);
-            }
-        }
+        this.utils.addInQuery(gr, 'import_set_table_name', tablesToCheck);
         gr.query();
-
         while (gr.next()) {
             var dsName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
-            var activeVal = gr.getValue('active');
-            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-
-            var dsInfo = {
+            var isActive = this.utils.toBool(gr.getValue('active'));
+            dataSources.push({
                 sys_id: gr.getUniqueValue(),
                 name: dsName,
                 type: ctx.safeGetValue(gr, 'type'),
                 active: isActive,
                 last_run: ctx.safeGetValue(gr, 'last_run_on')
-            };
-            dataSources.push(dsInfo);
-
+            });
             if (!isActive) {
                 ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
                     record_table: 'sys_data_source',
@@ -105,57 +65,37 @@ FHCheckIntegration.prototype = {
             }
         }
 
-        // Add to category
         ctx.addCategoryItems('integration', 'data_source', 'Data Sources', dataSources, {
             table: 'sys_data_source',
             icon: 'fa-database',
             color: '#6f42c1'
         });
-
-        ctx.metrics.data_sources = dataSources;
-        ctx.metrics.data_source_count = dataSources.length;
     },
 
-    /**
-     * Check import sets related to this table
-     * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
-     */
     _checkImportSets: function(ctx, tablesToCheck) {
         var tableName = ctx.getTableName();
-
-        // Check for recent import set runs
         try {
             var ga = new GlideAggregate('sys_import_set_run');
             ga.addQuery('set.table_name', tableName);
             ga.addAggregate('COUNT');
             ga.query();
-
             var importRunCount = 0;
-            if (ga.next()) {
-                importRunCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
-            }
-
+            if (ga.next()) importRunCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
             ctx.metrics.import_run_count = importRunCount;
         } catch (e) {
             ctx.metrics.import_run_count = 0;
         }
 
-        // Check for failed imports in last 30 days
         try {
             var thirtyDaysAgo = new GlideDateTime();
             thirtyDaysAgo.addDaysUTC(-30);
-
             var failedGr = new GlideRecord('sys_import_set_run');
             failedGr.addQuery('set.table_name', tableName);
             failedGr.addQuery('state', 'error');
             failedGr.addQuery('sys_created_on', '>=', thirtyDaysAgo);
             failedGr.query();
-
             var failedCount = failedGr.getRowCount();
             ctx.metrics.failed_import_count = failedCount;
-
             if (failedCount > 0) {
                 ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium', {
                     record_table: 'sys_import_set_run',
@@ -164,48 +104,27 @@ FHCheckIntegration.prototype = {
                 });
             }
         } catch (e) {
-            ctx.metrics.failed_import_count = 0;
         }
     },
 
-    /**
-     * Check transform maps for this table
-     * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
-     */
     _checkTransformMaps: function(ctx, tablesToCheck) {
         var transformMaps = [];
-        var activeCount = 0;
-        var inactiveCount = 0;
-
         var gr = new GlideRecord('sys_transform_map');
-        if (tablesToCheck.length === 1) {
-            gr.addQuery('target_table', tablesToCheck[0]);
-        } else {
-            var qc = gr.addQuery('target_table', tablesToCheck[0]);
-            for (var i = 1; i < tablesToCheck.length; i++) {
-                qc.addOrCondition('target_table', tablesToCheck[i]);
-            }
-        }
+        this.utils.addInQuery(gr, 'target_table', tablesToCheck);
         gr.query();
-
+        var activeCount = 0,
+            inactiveCount = 0;
         while (gr.next()) {
             var tmName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
-            var activeVal = gr.getValue('active');
-            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-
-            var tmInfo = {
+            var isActive = this.utils.toBool(gr.getValue('active'));
+            transformMaps.push({
                 sys_id: gr.getUniqueValue(),
                 name: tmName,
                 active: isActive,
                 source_table: ctx.safeGetValue(gr, 'source_table')
-            };
-            transformMaps.push(tmInfo);
-
-            if (isActive) {
-                activeCount++;
-            } else {
+            });
+            if (isActive) activeCount++;
+            else {
                 inactiveCount++;
                 ctx.addIssue('INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low', {
                     record_table: 'sys_transform_map',
@@ -215,57 +134,53 @@ FHCheckIntegration.prototype = {
             }
         }
 
-        // Add to category
-        ctx.addCategoryItems('integration', 'transform_map', 'Transform Maps', transformMaps, {
+        // ctx.addCategoryItems('integration', 'transform_map', 'Transform Maps', transformMaps, {
+        //     table: 'sys_transform_map',
+        //     icon: 'fa-exchange-alt',
+        //     color: '#17a2b8'
+        // });
+        // ctx.metrics.transform_maps = transformMaps;
+        // ctx.metrics.transform_maps.transform_map_count = transformMaps.length;
+        // ctx.metrics.transform_maps.active_transform_map_count = activeCount;
+        // ctx.metrics.transform_maps.inactive_transform_map_count = inactiveCount;
+
+        var meta = {
             table: 'sys_transform_map',
             icon: 'fa-exchange-alt',
             color: '#17a2b8'
-        });
-
-        ctx.metrics.transform_maps = transformMaps;
-        ctx.metrics.transform_map_count = transformMaps.length;
-        ctx.metrics.active_transform_map_count = activeCount;
-        ctx.metrics.inactive_transform_map_count = inactiveCount;
+        };
+        this.utils.addCategoryAndMetrics(ctx, 'integration', 'transform_map', 'Transform Maps', transformMaps, meta);
     },
 
-    /**
-     * Check REST messages that might interact with this table
-     * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
-     */
     _checkRestMessages: function(ctx, tablesToCheck) {
-        // Check for Scripted REST APIs targeting this table
         var restApis = [];
         var gr = new GlideRecord('sys_ws_operation');
-        if (tablesToCheck.length === 1) {
-            gr.addQuery('operation_script', 'CONTAINS', tablesToCheck[0]);
-        } else {
-            var qc = gr.addQuery('operation_script', 'CONTAINS', tablesToCheck[0]);
-            for (var i = 1; i < tablesToCheck.length; i++) {
-                qc.addOrCondition('operation_script', 'CONTAINS', tablesToCheck[i]);
-            }
-        }
+        gr.addNotNullQuery('operation_script');
         gr.query();
-
         while (gr.next()) {
+            var opScript = ctx.safeGetValue(gr, 'operation_script') || '';
+            var include = false;
+            for (var i = 0; i < tablesToCheck.length; i++) {
+                if (opScript.indexOf(tablesToCheck[i]) > -1) {
+                    include = true;
+                    break;
+                }
+            }
+            if (!include) continue;
             restApis.push({
                 sys_id: gr.getUniqueValue(),
                 name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
                 http_method: ctx.safeGetValue(gr, 'http_method'),
-                active: ctx.safeGetValue(gr, 'active') === 'true'
+                active: this.utils.toBool(gr.getValue('active'))
             });
         }
 
-        // Add to category
-        ctx.addCategoryItems('integration', 'rest_api', 'REST APIs', restApis, {
+        var meta = {
             table: 'sys_ws_operation',
             icon: 'fa-plug',
             color: '#28a745'
-        });
-
-        ctx.metrics.rest_apis = restApis;
-        ctx.metrics.rest_api_count = restApis.length;
+        };
+        this.utils.addCategoryAndMetrics(ctx, 'integration', 'rest_apis', 'REST APIs', restApis, meta);
     },
 
     type: 'FHCheckIntegration'
@@ -274,13 +189,13 @@ FHCheckIntegration.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:21:25</sys_created_on>
         <sys_id>16190640835a321083e1b4a6feaad322</sys_id>
-        <sys_mod_count>7</sys_mod_count>
+        <sys_mod_count>13</sys_mod_count>
         <sys_name>FHCheckIntegration</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_16190640835a321083e1b4a6feaad322</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 08:21:30</sys_updated_on>
+        <sys_updated_on>2026-01-04 20:55:31</sys_updated_on>
     </sys_script_include>
 </record_update>

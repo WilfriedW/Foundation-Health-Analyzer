@@ -1,0 +1,491 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHScanUtils</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHScanUtils</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHScanUtils = Class.create();
+FHScanUtils.prototype = {
+    initialize: function() {
+        // Cache per execution instance
+        this.cache = {
+            bySysId: {}, // { table: { sys_id: plainObject } }
+            query: {} // { cacheKey: [plainObjects] }
+        };
+    },
+
+    // === Basic helpers ===
+    toBool: function(value) {
+        return value === true || value === 'true' || value === '1' || value === 1;
+    },
+
+    safeGet: function(gr, field) {
+        try {
+            if (!gr) return '';
+            var v = gr.getValue(field);
+            return v === null || typeof v === 'undefined' ? '' : String(v);
+        } catch (e) {
+            return '';
+        }
+    },
+
+    // === Memoized single record get by sys_id ===
+    getRecordBySysId: function(table, sysId, fields) {
+        if (!table || !sysId) return null;
+        this.cache.bySysId[table] = this.cache.bySysId[table] || {};
+        if (this.cache.bySysId[table][sysId]) return this.cache.bySysId[table][sysId];
+
+        var gr = new GlideRecord(table);
+        var out = null;
+        try {
+            if (gr.get(sysId)) {
+                out = {
+                    sys_id: sysId
+                };
+                if (fields && Array.isArray(fields)) {
+                    for (var i = 0; i < fields.length; i++) {
+                        out[fields[i]] = this.safeGet(gr, fields[i]);
+                    }
+                } else {
+                    // return a few common fields conservatively
+                    out['name'] = this.safeGet(gr, 'name');
+                }
+            }
+        } catch (e) {
+            out = null;
+        }
+        this.cache.bySysId[table][sysId] = out;
+        return out;
+    },
+
+    // === Generic query with optional memoization ===
+    // buildQueryFn(gr) should modify the GlideRecord (addQuery, addNotNullQuery, setLimit, etc)
+    getRecords: function(table, buildQueryFn, fields, limit, cacheKey) {
+        cacheKey = cacheKey || table + '|' + (buildQueryFn ? '' : 'all');
+        if (this.cache.query[cacheKey]) return this.cache.query[cacheKey].slice(0);
+
+        var results = [];
+        var gr = new GlideRecord(table);
+        try {
+            if (typeof buildQueryFn === 'function') buildQueryFn(gr);
+            if (limit && typeof gr.setLimit === 'function') gr.setLimit(limit);
+            gr.query();
+            while (gr.next()) {
+                var obj = {
+                    sys_id: gr.getUniqueValue()
+                };
+                if (fields && Array.isArray(fields)) {
+                    for (var i = 0; i < fields.length; i++) {
+                        try {
+                            obj[fields[i]] = this.safeGet(gr, fields[i]);
+                        } catch (e) {
+                            obj[fields[i]] = '';
+                        }
+                    }
+                } else {
+                    // minimal shape
+                    obj.name = this.safeGet(gr, 'name') || '';
+                }
+                results.push(obj);
+            }
+        } catch (e) {
+            // swallow errors to keep scanning resilient
+            results = [];
+        }
+        this.cache.query[cacheKey] = results;
+        return results.slice(0);
+    },
+
+    // Helper to build an "IN" query safely for an array of values (prevents empty IN)
+    addInQuery: function(gr, field, values) {
+        if (!values || !values.length) return;
+        if (values.length === 1) {
+            gr.addQuery(field, values[0]);
+        } else {
+            var qc = gr.addQuery(field, values[0]);
+            for (var i = 1; i < values.length; i++) qc.addOrCondition(field, values[i]);
+        }
+    },
+
+    // === Centralized script scanning: returns array of {kind, sys_id, name, script, source_table, record_table, ...} ===
+    scanScriptsForTables: function(tables, options) {
+        options = options || {};
+        var types = options.types || ['business_rule', 'client_script', 'scheduled', 'transform_map', 'transform_entry', 'scripted_rest'];
+        var results = [];
+
+        // Business Rules (sys_script)
+        if (types.indexOf('business_rule') > -1) {
+            var brs = this.getRecords('sys_script', function(gr) {
+                gr.addQuery('collection', 'IN', tables.join(','));
+                gr.addQuery('active', true);
+                gr.addNotNullQuery('script');
+            }, ['name', 'script', 'collection'], 0, 'brs:' + tables.join(','));
+            for (var i = 0; i < brs.length; i++) {
+                results.push({
+                    kind: 'Business Rule',
+                    record_table: 'sys_script',
+                    sys_id: brs[i].sys_id,
+                    name: brs[i].name || 'Unnamed',
+                    script: brs[i].script || '',
+                    source_table: brs[i].collection || ''
+                });
+            }
+        }
+
+        // Client Scripts (sys_script_client)
+        if (types.indexOf('client_script') > -1) {
+            var css = this.getRecords('sys_script_client', function(gr) {
+                gr.addQuery('table', 'IN', tables.join(','));
+                gr.addQuery('active', true);
+                gr.addNotNullQuery('script');
+            }, ['name', 'script', 'table'], 0, 'csc:' + tables.join(','));
+            for (var j = 0; j < css.length; j++) {
+                results.push({
+                    kind: 'Client Script',
+                    record_table: 'sys_script_client',
+                    sys_id: css[j].sys_id,
+                    name: css[j].name || 'Unnamed',
+                    script: css[j].script || '',
+                    source_table: css[j].table || ''
+                });
+            }
+        }
+
+        // Scheduled jobs with scripts (sysauto_script)
+        if (types.indexOf('scheduled') > -1) {
+            var jobs = this.getRecords('sysauto_script', function(gr) {
+                gr.addNotNullQuery('script');
+            }, ['name', 'script', 'active'], options.sampleLimit || 0, 'jobs:script');
+            for (var k = 0; k < jobs.length; k++) {
+                results.push({
+                    kind: 'Scheduled Job',
+                    record_table: 'sysauto_script',
+                    sys_id: jobs[k].sys_id,
+                    name: jobs[k].name || 'Unnamed',
+                    script: jobs[k].script || '',
+                    active: jobs[k].active || 'false'
+                });
+            }
+        }
+
+        // Transform maps (sys_transform_map) -> map scripts (onBefore/onAfter) and transform entries
+        if (types.indexOf('transform_map') > -1 || types.indexOf('transform_entry') > -1) {
+            var tms = this.getRecords('sys_transform_map', function(gr) {
+                gr.addQuery('target_table', 'IN', tables.join(','));
+                gr.addNotNullQuery('script');
+            }, ['name', 'script', 'target_table', 'active'], 0, 'transform:map:' + tables.join(','));
+            for (var m = 0; m < tms.length; m++) {
+                results.push({
+                    kind: 'Transform Map',
+                    record_table: 'sys_transform_map',
+                    sys_id: tms[m].sys_id,
+                    name: tms[m].name || 'Unnamed',
+                    script: tms[m].script || '',
+                    source_table: tms[m].target_table || ''
+                });
+            }
+            // transform entries (map scripts on field/transform)
+            if (types.indexOf('transform_entry') > -1) {
+                var entries = this.getRecords('sys_transform_entry', function(gr) {
+                    gr.addQuery('map.target_table', 'IN', tables.join(','));
+                    gr.addNotNullQuery('script');
+                }, ['name', 'script', 'map'], 0, 'transform:entry:' + tables.join(','));
+                for (var e = 0; e < entries.length; e++) {
+                    results.push({
+                        kind: 'Transform Entry',
+                        record_table: 'sys_transform_entry',
+                        sys_id: entries[e].sys_id,
+                        name: entries[e].name || 'Unnamed',
+                        script: entries[e].script || '',
+                        source_map: entries[e].map || ''
+                    });
+                }
+            }
+        }
+
+        // Scripted REST / Scripted web services (sys_ws_operation / rest_operation)
+        if (types.indexOf('scripted_rest') > -1) {
+            var rps = this.getRecords('sys_ws_operation', function(gr) {
+                // operation_script can contain table names or API references
+                gr.addNotNullQuery('operation_script');
+            }, ['name', 'operation_script', 'http_method', 'active'], 0, 'rest:scripted');
+            for (var r = 0; r < rps.length; r++) {
+                var scriptText = rps[r].operation_script || '';
+                // Only include if any table name appears in script
+                var include = false;
+                for (var t = 0; t < tables.length; t++) {
+                    if (scriptText.indexOf(tables[t]) > -1) {
+                        include = true;
+                        break;
+                    }
+                }
+                if (include) {
+                    results.push({
+                        kind: 'Scripted REST',
+                        record_table: 'sys_ws_operation',
+                        sys_id: rps[r].sys_id,
+                        name: rps[r].name || 'Unnamed',
+                        script: scriptText,
+                        http_method: rps[r].http_method || ''
+                    });
+                }
+            }
+        }
+
+        return results;
+    },
+
+    // === Script pattern analysis ===
+    // Returns list of issue objects: { type, name, code, message, severity }
+    analyzeScriptPatterns: function(script, name, scriptType) {
+        var issues = [];
+        if (!script || !script.length) return issues;
+
+        // Normalize for basic checks
+        var s = String(script);
+
+        // 1) GlideRecord query without limit pattern
+        if (s.indexOf('GlideRecord') > -1 && s.indexOf('.query(') > -1) {
+            if (s.indexOf('setLimit(') === -1 && s.indexOf('.get(') === -1) {
+                if (s.indexOf('while') > -1 && s.indexOf('.next()') > -1) {
+                    issues.push({
+                        type: scriptType,
+                        name: name,
+                        code: 'QUERY_NO_LIMIT',
+                        message: scriptType + ' "' + name + '" contains a GlideRecord query without setLimit() or explicit get().',
+                        severity: 'medium'
+                    });
+                }
+            }
+        }
+
+        // 2) Hardcoded sys_id (32 hex)
+        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
+        var sysIdMatches = s.match(sysIdPattern);
+        if (sysIdMatches && sysIdMatches.length > 0) {
+            issues.push({
+                type: scriptType,
+                name: name,
+                code: 'HARDCODED_SYSID',
+                message: scriptType + ' "' + name + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s).',
+                severity: 'medium'
+            });
+        }
+
+        // 3) gs.sleep usage
+        if (s.indexOf('gs.sleep') > -1) {
+            issues.push({
+                type: scriptType,
+                name: name,
+                code: 'GS_SLEEP',
+                message: scriptType + ' "' + name + '" uses gs.sleep() which can impact performance.',
+                severity: 'medium'
+            });
+        }
+
+        // 4) eval usage
+        if (s.indexOf('eval(') > -1) {
+            issues.push({
+                type: scriptType,
+                name: name,
+                code: 'EVAL_USAGE',
+                message: scriptType + ' "' + name + '" uses eval() - security risk.',
+                severity: 'high'
+            });
+        }
+
+        // 5) Usage of server->client direct logging or large string concatenation (heuristic)
+        if (s.indexOf('gs.print') > -1 || s.indexOf('console.log') > -1) {
+            issues.push({
+                type: scriptType,
+                name: name,
+                code: 'LOGGING_USAGE',
+                message: scriptType + ' "' + name + '" contains console/gs.print logging; confirm debug left intentionally.',
+                severity: 'low'
+            });
+        }
+
+        return issues;
+    },
+
+    /**
+     * addCategoryAndMetrics(ctx, categoryKey, itemKey, label, items, options)
+     *
+     * - categoryKey: 'automation' | 'integration' ...
+     * - itemKey: short key for this item group, becomes metrics key (e.g. 'rest_apis', 'transform_maps')
+     * - label: human label shown in UI (e.g. 'REST APIs')
+     * - items: array of plain objects representing records
+     * - options: { table, icon, color, countKeys: { total:'count', active:'active_count', inactive:'inactive_count', direct:'direct_count', inherited:'inherited_count' } }
+     *
+     * This will:
+     *  - call ctx.registerCategory(categoryKey, Title, icon) if category not present (best-effort)
+     *  - call ctx.addCategoryItems(categoryKey, itemKey, label, items, meta)
+     *  - write metrics: ctx.metrics[itemKey] = items; and also ctx.metrics[itemKey + '_count'] etc.
+     */
+    addCategoryAndMetrics: function(ctx, categoryKey, itemKey, label, items, options) {
+        options = options || {};
+        var meta = {
+            table: options.table || '',
+            icon: options.icon || '',
+            color: options.color || '',
+            success: false,
+            writtenKeys: {},
+            counts: {}
+        };
+
+        try {
+            ctx.registerCategory && typeof ctx.registerCategory === 'function' && ctx.registerCategory(categoryKey, label);
+
+            ctx.metrics = ctx.metrics || {};
+            var ns = options.metricNamespace || categoryKey;
+            ctx.metrics[ns] = ctx.metrics[ns] || {};
+
+            // Normalize items array
+            itemsArray = itemsArray || [];
+            if (!Array.isArray(itemsArray)) itemsArray = [itemsArray];
+
+            // Add UI items (category)
+            if (ctx.addCategoryItems && typeof ctx.addCategoryItems === 'function') {
+                try {
+                    ctx.addCategoryItems(categoryKey, itemKey, label, itemsArray, {
+                        table: options.table,
+                        icon: options.icon,
+                        color: options.color
+                    });
+                } catch (uiErr) {
+                    // fallback silent; we'll still attempt to write metrics
+                    gs.error('addCategoryAndMetrics: addCategoryItems failed: ' + uiErr);
+                }
+            }
+
+            var total = itemsArray.length;
+            var active = null,
+                inactive = null,
+                direct = null,
+                inherited = null;
+
+            // Detect common boolean fields inside items: active, direct, inherited
+            try {
+                active = 0;
+                inactive = 0;
+                direct = 0;
+                inherited = 0;
+                for (var i = 0; i < itemsArray.length; i++) {
+                    var it = itemsArray[i];
+                    // handle GlideRecord-like objects -> try safeGetValue wrapper if provided
+                    var valActive = (it && (typeof it.active !== 'undefined')) ? it.active : null;
+                    if (valActive === true || valActive === 'true' || valActive === 1 || valActive === '1') active++;
+                    if (valActive === false || valActive === 'false' || valActive === 0 || valActive === '0') inactive++;
+
+                    var valDirect = (it && (typeof it.direct !== 'undefined')) ? it.direct : null;
+                    if (valDirect === true || valDirect === 'true' || valDirect === 1 || valDirect === '1') direct++;
+
+                    var valInherited = (it && (typeof it.inherited !== 'undefined')) ? it.inherited : null;
+                    if (valInherited === true || valInherited === 'true' || valInherited === 1 || valInherited === '1') inherited++;
+                }
+                // If nobody had the fields, set to null to avoid misleading zeros
+                if (active === 0 && itemsArray.some(function(x) {
+                        return typeof x.active !== 'undefined';
+                    }) === false) active = null;
+                if (inactive === 0 && itemsArray.some(function(x) {
+                        return typeof x.active !== 'undefined';
+                    }) === false) inactive = null;
+                if (direct === 0 && itemsArray.some(function(x) {
+                        return typeof x.direct !== 'undefined';
+                    }) === false) direct = null;
+                if (inherited === 0 && itemsArray.some(function(x) {
+                        return typeof x.inherited !== 'undefined';
+                    }) === false) inherited = null;
+            } catch (cErr) {
+                // ignore computation errors, leave nils
+                active = inactive = direct = inherited = null;
+            }
+
+            // Decide metric key names
+            var countKeys = options.countKeys || {};
+            var totalKey = countKeys.total || (itemKey + '_count');
+            var activeKey = countKeys.active || (itemKey + '_active_count');
+            var inactiveKey = countKeys.inactive || (itemKey + '_inactive_count');
+            var directKey = countKeys.direct || (itemKey + '_direct_count');
+            var inheritedKey = countKeys.inherited || (itemKey + '_inherited_count');
+
+            // Write into ctx.metrics namespace
+            ctx.metrics[ns][totalKey] = total;
+            meta.writtenKeys.total = ns + '.' + totalKey;
+            meta.counts.total = total;
+
+            if (active !== null) {
+                ctx.metrics[ns][activeKey] = active;
+                meta.writtenKeys.active = ns + '.' + activeKey;
+                meta.counts.active = active;
+            }
+            if (inactive !== null) {
+                ctx.metrics[ns][inactiveKey] = inactive;
+                meta.writtenKeys.inactive = ns + '.' + inactiveKey;
+                meta.counts.inactive = inactive;
+            }
+            if (direct !== null) {
+                ctx.metrics[ns][directKey] = direct;
+                meta.writtenKeys.direct = ns + '.' + directKey;
+                meta.counts.direct = direct;
+            }
+            if (inherited !== null) {
+                ctx.metrics[ns][inheritedKey] = inherited;
+                meta.writtenKeys.inherited = ns + '.' + inheritedKey;
+                meta.counts.inherited = inherited;
+            }
+
+            // Also write a convenience flat boolean/exists and a flat record_count if itemKey === 'table_summary'
+            if (itemKey === 'table_summary' || options.writeConvenienceKeys) {
+                // write ctx.metrics[ns].exists if item contains exists property; else infer from total>0
+                var existsVal = null;
+                if (itemsArray.length === 1 && typeof itemsArray[0].exists !== 'undefined') existsVal = !!itemsArray[0].exists;
+                else existsVal = (total > 0);
+                ctx.metrics[ns].exists = existsVal;
+                meta.writtenKeys.exists = ns + '.exists';
+                meta.counts.exists = existsVal;
+
+                // if item had record_count property, propagate as record_count on namespace
+                if (itemsArray.length === 1 && typeof itemsArray[0].record_count !== 'undefined') {
+                    ctx.metrics[ns].record_count = itemsArray[0].record_count;
+                    meta.writtenKeys.record_count = ns + '.record_count';
+                    meta.counts.record_count = itemsArray[0].record_count;
+                }
+            }
+
+            meta.success = true;
+        } catch (e) {
+            gs.error('addCategoryAndMetrics error: ' + e);
+            meta.success = false;
+            meta.error = '' + e;
+            // ensure ctx.metrics exists minimally so callers don't NPE
+            ctx.metrics = ctx.metrics || {};
+            ctx.metrics[categoryKey] = ctx.metrics[categoryKey] || {};
+        }
+
+        return meta;
+
+    },
+
+
+    type: 'FHScanUtils'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-04 18:06:27</sys_created_on>
+        <sys_id>df241fac8352761083e1b4a6feaad360</sys_id>
+        <sys_mod_count>3</sys_mod_count>
+        <sys_name>FHScanUtils</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_df241fac8352761083e1b4a6feaad360</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-04 21:26:37</sys_updated_on>
+    </sys_script_include>
+</record_update>

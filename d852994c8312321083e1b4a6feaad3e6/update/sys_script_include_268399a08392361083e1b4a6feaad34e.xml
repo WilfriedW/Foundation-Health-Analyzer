@@ -9,772 +9,173 @@
         <mobile_callable>false</mobile_callable>
         <name>FHOptionsHandler</name>
         <sandbox_callable>false</sandbox_callable>
-        <script><![CDATA[/**
- * FHOptionsHandler - Centralized handler for option-based behaviors
- * 
- * This Script Include contains all functions triggered by configuration options:
- * - deep_scan: Script quality analysis
- * - include_children_tables: Children table analysis
- * - analyze_references: Reference data quality analysis
- * - include_ldap: LDAP configuration analysis
- * 
- * Usage: Called from FHCheckTable, FHCheckAutomation, FHCheckIntegration
- * when the corresponding option is enabled.
- */
-var FHOptionsHandler = Class.create();
+        <script><![CDATA[var FHOptionsHandler = Class.create();
 FHOptionsHandler.prototype = {
     initialize: function() {
+        this.utils = new FHScanUtils();
     },
 
-    // ==================== DEEP SCAN OPTION ====================
-
     /**
-     * Deep scan scripts for quality issues (Business Rules, Client Scripts)
-     * Option: deep_scan
-     * Called from: FHCheckTable
-     * @param {Object} ctx - Analysis context
+     * deepScanScripts(ctx)
+     * Central deep script analysis (BRs and Client Scripts).
+     * Called by other checks when deep scan option is enabled.
      */
     deepScanScripts: function(ctx) {
         if (!ctx.metrics.table_exists) return;
+        var tables = ctx.getTablesToCheck();
+        var sampleLimit = ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0;
 
-        var tableName = ctx.getTableName();
-        var scriptIssues = [];
-        var self = this;
-
-        // Scan Business Rules
-        var gr = new GlideRecord('sys_script');
-        gr.addQuery('collection', tableName);
-        gr.addQuery('active', true);
-        gr.query();
-
-        while (gr.next()) {
-            var script = ctx.safeGetValue(gr, 'script');
-            var brName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
-            var issues = self._analyzeScript(script, brName, 'Business Rule');
-            scriptIssues = scriptIssues.concat(issues);
-        }
-
-        // Scan Client Scripts
-        var csGr = new GlideRecord('sys_script_client');
-        csGr.addQuery('table', tableName);
-        csGr.addQuery('active', true);
-        csGr.query();
-
-        while (csGr.next()) {
-            var csScript = ctx.safeGetValue(csGr, 'script');
-            var csName = ctx.safeGetValue(csGr, 'name') || 'Unnamed';
-            var csIssues = self._analyzeScript(csScript, csName, 'Client Script');
-            scriptIssues = scriptIssues.concat(csIssues);
-        }
-
-        ctx.metrics.script_issues = scriptIssues;
-        ctx.metrics.script_issue_count = scriptIssues.length;
-
-        // Add issues for each script problem found
-        scriptIssues.forEach(function(issue) {
-            ctx.addIssue(issue.code, issue.message, issue.severity, {
-                category: 'script'
-            });
-        });
-    },
-
-    /**
-     * Deep scan transform maps for script quality
-     * Option: deep_scan
-     * Called from: FHCheckIntegration
-     * @param {Object} ctx - Analysis context
-     */
-    deepScanTransformMaps: function(ctx) {
-        if (!ctx.metrics.transform_maps || ctx.metrics.transform_maps.length === 0) return;
-
-        var transformIssues = [];
-        var self = this;
-
-        ctx.metrics.transform_maps.forEach(function(tm) {
-            var gr = new GlideRecord('sys_transform_map');
-            if (gr.get(tm.sys_id)) {
-                // Check for script in transform map
-                var script = ctx.safeGetValue(gr, 'script');
-                if (script) {
-                    var issues = self._analyzeTransformScript(script, tm.name);
-                    transformIssues = transformIssues.concat(issues);
-                }
-
-                // Check transform entries for scripts
-                var entryGr = new GlideRecord('sys_transform_entry');
-                entryGr.addQuery('map', tm.sys_id);
-                entryGr.query();
-
-                while (entryGr.next()) {
-                    var entryScript = ctx.safeGetValue(entryGr, 'script');
-                    if (entryScript) {
-                        var entryIssues = self._analyzeTransformScript(entryScript, tm.name + ' - ' + ctx.safeGetValue(entryGr, 'target_field'));
-                        transformIssues = transformIssues.concat(entryIssues);
-                    }
-                }
+        var scripts = this.utils.scanScriptsForTables(tables, { types: ['business_rule', 'client_script'], sampleLimit: sampleLimit });
+        var issues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptText = s.script || '';
+            var scriptIssues = this.utils.analyzeScriptPatterns(scriptText, s.name, s.kind);
+            for (var j=0;j<scriptIssues.length;j++) {
+                // Attach metadata
+                scriptIssues[j].record_table = s.record_table;
+                scriptIssues[j].record_sys_id = s.sys_id;
+                scriptIssues[j].category = 'automation';
             }
-        });
+            issues = issues.concat(scriptIssues);
+        }
 
-        ctx.metrics.transform_script_issues = transformIssues;
-        ctx.metrics.transform_script_issue_count = transformIssues.length;
-
-        // Add issues
-        transformIssues.forEach(function(issue) {
-            ctx.addIssue(issue.code, issue.message, issue.severity, {
-                category: 'integration'
+        ctx.metrics.script_issues = issues;
+        // Add each issue to context for consistent UI/records usage
+        for (i=0;i<issues.length;i++) {
+            var it = issues[i];
+            ctx.addIssue(it.code || 'SCRIPT_ISSUE', it.message, it.severity || 'low', {
+                record_table: it.record_table,
+                record_sys_id: it.record_sys_id,
+                category: it.category
             });
-        });
+        }
     },
 
     /**
-     * Deep scan automations for script quality
-     * Option: deep_scan
-     * Called from: FHCheckAutomation
-     * @param {Object} ctx - Analysis context
+     * Analyze automation-related scripts specifically (flows, scheduled jobs, transform maps)
+     * Kept as public for compatibility: deepScanAutomations(ctx)
      */
     deepScanAutomations: function(ctx) {
-        var automationIssues = [];
-        var self = this;
-
-        // Scan Flows for complexity
-        if (ctx.metrics.flows && ctx.metrics.flows.length > 0) {
-            ctx.metrics.flows.forEach(function(flow) {
-                if (flow.active) {
-                    // Check for flows without description
-                    if (!flow.description) {
-                        automationIssues.push({
-                            type: 'Flow',
-                            name: flow.name,
-                            code: 'NO_DESCRIPTION',
-                            message: 'Flow "' + flow.name + '" has no description',
-                            severity: 'low'
-                        });
-                    }
-                }
-            });
+        if (!ctx.metrics.table_exists) return;
+        var tables = ctx.getTablesToCheck();
+        var types = ['scheduled', 'transform_map', 'transform_entry', 'scripted_rest', 'business_rule', 'client_script'];
+        var scripts = this.utils.scanScriptsForTables(tables, { types: types, sampleLimit: ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0 });
+        var allIssues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptIssues = this.utils.analyzeScriptPatterns(s.script || '', s.name, s.kind);
+            for (var k=0;k<scriptIssues.length;k++) {
+                scriptIssues[k].record_table = s.record_table;
+                scriptIssues[k].record_sys_id = s.sys_id;
+                scriptIssues[k].category = 'automation';
+            }
+            allIssues = allIssues.concat(scriptIssues);
         }
-
-        // Scan Scheduled Jobs for script issues
-        if (ctx.metrics.scheduled_jobs && ctx.metrics.scheduled_jobs.length > 0) {
-            var jobGr = new GlideRecord('sysauto_script');
-            ctx.metrics.scheduled_jobs.forEach(function(job) {
-                if (jobGr.get(job.sys_id)) {
-                    var script = ctx.safeGetValue(jobGr, 'script');
-                    var issues = self._analyzeAutomationScript(script, job.name, 'Scheduled Job');
-                    automationIssues = automationIssues.concat(issues);
-                }
-            });
-        }
-
-        ctx.metrics.automation_script_issue_count = automationIssues.length;
-
-        // Add issues
-        automationIssues.forEach(function(issue) {
-            ctx.addIssue(issue.code, issue.message, issue.severity, {
+        ctx.metrics.automation_script_issues = allIssues;
+        for (i=0;i<allIssues.length;i++) {
+            var issue = allIssues[i];
+            ctx.addIssue(issue.code || 'AUTOMATION_SCRIPT_ISSUE', issue.message, issue.severity || 'low', {
+                record_table: issue.record_table,
+                record_sys_id: issue.record_sys_id,
                 category: 'automation'
             });
-        });
+        }
     },
 
-    // ==================== INCLUDE CHILDREN TABLES OPTION ====================
-
     /**
-     * Check children tables that extend the analyzed table
-     * Option: include_children_tables
-     * Called from: FHCheckTable
-     * @param {Object} ctx - Analysis context
+     * deepScanTransformMaps(ctx)
+     * Kept for compatibility: analyze transform map scripts only
      */
-    checkChildrenTables: function(ctx) {
+    deepScanTransformMaps: function(ctx) {
         if (!ctx.metrics.table_exists) return;
-
-        var tableName = ctx.getTableName();
-        var childrenTables = [];
-
-        // Get the sys_id of the parent table
-        var parentGr = new GlideRecord('sys_db_object');
-        if (!parentGr.get('name', tableName)) return;
-
-        var parentSysId = parentGr.getUniqueValue();
-
-        // Find all tables that extend this table
-        var gr = new GlideRecord('sys_db_object');
-        gr.addQuery('super_class', parentSysId);
-        gr.query();
-
-        while (gr.next()) {
-            var childName = ctx.safeGetValue(gr, 'name');
-            var childLabel = ctx.safeGetValue(gr, 'label') || childName;
-
-            // Get record count for child table
-            var childCount = 0;
-            try {
-                var ga = new GlideAggregate(childName);
-                ga.addAggregate('COUNT');
-                ga.query();
-                if (ga.next()) {
-                    childCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
-                }
-            } catch (e) {
-                // Table might not be accessible
+        var tables = ctx.getTablesToCheck();
+        var scripts = this.utils.scanScriptsForTables(tables, { types: ['transform_map', 'transform_entry'] });
+        var issues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptIssues = this.utils.analyzeScriptPatterns(s.script || '', s.name, s.kind);
+            for (var j=0;j<scriptIssues.length;j++) {
+                scriptIssues[j].record_table = s.record_table;
+                scriptIssues[j].record_sys_id = s.sys_id;
+                scriptIssues[j].category = 'integration';
             }
-
-            childrenTables.push({
-                sys_id: gr.getUniqueValue(),
-                name: childName,
-                label: childLabel,
-                record_count: childCount,
-                scope: ctx.safeGetValue(gr, 'sys_scope')
-            });
+            issues = issues.concat(scriptIssues);
         }
-
-        ctx.metrics.children_tables = childrenTables;
-        ctx.metrics.children_table_count = childrenTables.length;
-
-        if (childrenTables.length > 10) {
-            ctx.addIssue('MANY_CHILD_TABLES', 'Table has ' + childrenTables.length + ' child tables. Consider reviewing table hierarchy.', 'low', {
-                record_table: 'sys_db_object',
-                record_filter: 'super_class=' + parentSysId,
-                category: 'table'
-            });
-        }
-    },
-
-    // ==================== ANALYZE REFERENCES OPTION ====================
-
-    /**
-     * Analyze reference field data quality (orphan references, null counts)
-     * Option: analyze_references
-     * Called from: FHCheckTable
-     * @param {Object} ctx - Analysis context
-     */
-    analyzeReferenceData: function(ctx) {
-        if (!ctx.metrics.table_exists) return;
-        if (!ctx.metrics.reference_fields || ctx.metrics.reference_fields.length === 0) return;
-
-        var tableName = ctx.getTableName();
-        var totalRecords = ctx.metrics.record_count || 0;
-        var referenceAnalysis = [];
-
-        ctx.metrics.reference_fields.forEach(function(refField) {
-            var fieldName = refField.name;
-            var refTable = refField.reference_table;
-
-            // Check for orphan references (references to deleted records)
-            var orphanCount = 0;
-            var nullCount = 0;
-
-            try {
-                // Count null references
-                var gaNulls = new GlideAggregate(tableName);
-                gaNulls.addNullQuery(fieldName);
-                gaNulls.addAggregate('COUNT');
-                gaNulls.query();
-                if (gaNulls.next()) {
-                    nullCount = parseInt(gaNulls.getAggregate('COUNT'), 10) || 0;
-                }
-
-                // Sample check for orphans (check first 1000 records)
-                var gr = new GlideRecord(tableName);
-                gr.addNotNullQuery(fieldName);
-                gr.setLimit(1000);
-                gr.query();
-
-                while (gr.next()) {
-                    var refValue = gr.getValue(fieldName);
-                    if (refValue) {
-                        var refGr = new GlideRecord(refTable);
-                        if (!refGr.get(refValue)) {
-                            orphanCount++;
-                        }
-                    }
-                }
-            } catch (e) {
-                // Skip on error
-            }
-
-            var analysis = {
-                field: fieldName,
-                reference_table: refTable,
-                null_count: nullCount,
-                null_percentage: totalRecords > 0 ? Math.round((nullCount / totalRecords) * 100) : 0,
-                orphan_count: orphanCount,
-                orphan_detected: orphanCount > 0
-            };
-            referenceAnalysis.push(analysis);
-
-            if (orphanCount > 0) {
-                ctx.addIssue('ORPHAN_REFERENCES', 'Field "' + fieldName + '" has orphan references (at least ' + orphanCount + ' found in sample)', 'medium', {
-                    record_table: tableName,
-                    record_filter: fieldName + 'ISNOTEMPTY',
-                    category: 'field'
-                });
-            }
-        });
-
-        ctx.metrics.reference_analysis = referenceAnalysis;
-    },
-
-    /**
-     * Analyze integration dependencies (inbound/outbound integrations)
-     * Option: analyze_references
-     * Called from: FHCheckIntegration
-     * @param {Object} ctx - Analysis context
-     */
-    analyzeIntegrationDependencies: function(ctx) {
-        var dependencies = {
-            inbound: [],
-            outbound: []
-        };
-        var tableName = ctx.getTableName();
-
-        // Inbound: Data sources and transform maps targeting this table
-        if (ctx.metrics.data_sources) {
-            ctx.metrics.data_sources.forEach(function(ds) {
-                dependencies.inbound.push({
-                    type: 'Data Source',
-                    name: ds.name,
-                    active: ds.active
-                });
-            });
-        }
-
-        if (ctx.metrics.transform_maps) {
-            ctx.metrics.transform_maps.forEach(function(tm) {
-                dependencies.inbound.push({
-                    type: 'Transform Map',
-                    name: tm.name,
-                    active: tm.active,
-                    source: tm.source_table
-                });
-            });
-        }
-
-        // Outbound: REST APIs that read from this table
-        if (ctx.metrics.rest_apis) {
-            ctx.metrics.rest_apis.forEach(function(api) {
-                dependencies.outbound.push({
-                    type: 'REST API',
-                    name: api.name,
-                    method: api.http_method,
-                    active: api.active
-                });
-            });
-        }
-
-        // Check for outbound REST Messages that might use this table
-        var restMsgGr = new GlideRecord('sys_rest_message');
-        restMsgGr.query();
-
-        while (restMsgGr.next()) {
-            // Check if any function references this table
-            var funcGr = new GlideRecord('sys_rest_message_fn');
-            funcGr.addQuery('rest_message', restMsgGr.getUniqueValue());
-            funcGr.addQuery('content', 'CONTAINS', tableName);
-            funcGr.setLimit(1);
-            funcGr.query();
-
-            if (funcGr.hasNext()) {
-                dependencies.outbound.push({
-                    type: 'REST Message',
-                    name: ctx.safeGetValue(restMsgGr, 'name'),
-                    active: true
-                });
-            }
-        }
-
-        ctx.metrics.integration_dependencies = dependencies;
-        ctx.metrics.inbound_integration_count = dependencies.inbound.length;
-        ctx.metrics.outbound_integration_count = dependencies.outbound.length;
-
-        // Add summary issue if many integrations
-        var totalIntegrations = dependencies.inbound.length + dependencies.outbound.length;
-        if (totalIntegrations > 10) {
-            ctx.addIssue('MANY_INTEGRATIONS', 'Table has ' + totalIntegrations + ' integrations (' + dependencies.inbound.length + ' inbound, ' + dependencies.outbound.length + ' outbound). Consider documenting data flows.', 'low', {
+        ctx.metrics.transform_map_script_issues = issues;
+        for (i=0;i<issues.length;i++) {
+            var it = issues[i];
+            ctx.addIssue(it.code || 'TRANSFORM_SCRIPT_ISSUE', it.message, it.severity || 'low', {
+                record_table: it.record_table,
+                record_sys_id: it.record_sys_id,
                 category: 'integration'
             });
         }
     },
 
-    // ==================== INCLUDE LDAP OPTION ====================
+    /**
+     * analyzeIntegrationDependencies(ctx)
+     * Simple placeholder that can be extended to use utils.getRecords/getRecordBySysId
+     */
+    analyzeIntegrationDependencies: function(ctx) {
+        // Example: check rest messages, transform maps and import sets referencing tables
+        if (!ctx.metrics.table_exists) return;
+        var tables = ctx.getTablesToCheck();
+        // Use utils to get rest scripts that reference the tables
+        var scripts = this.utils.scanScriptsForTables(tables, { types: ['scripted_rest'] });
+        // reuse pattern analyzer
+        var issues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptIssues = this.utils.analyzeScriptPatterns(s.script || '', s.name, s.kind);
+            for (var j=0;j<scriptIssues.length;j++) {
+                scriptIssues[j].record_table = s.record_table;
+                scriptIssues[j].record_sys_id = s.sys_id;
+                scriptIssues[j].category = 'integration';
+            }
+            issues = issues.concat(scriptIssues);
+        }
+        ctx.metrics.integration_script_issues = issues;
+        for (i=0;i<issues.length;i++) {
+            var it = issues[i];
+            ctx.addIssue(it.code || 'INTEGRATION_SCRIPT_ISSUE', it.message, it.severity || 'low', {
+                record_table: it.record_table,
+                record_sys_id: it.record_sys_id,
+                category: 'integration'
+            });
+        }
+    },
 
     /**
-     * Analyze LDAP configuration for this table
-     * Option: include_ldap
-     * Called from: FHCheckIntegration
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
+     * analyzeLdapConfiguration(ctx, tablesToCheck)
+     * Kept as public for compatibility. Uses memoized queries and is safe if LDAP tables do not exist.
      */
-    analyzeLdapConfiguration: function(ctx, tablesToCheck) {
-        var tableName = ctx.getTableName();
-        var ldapAnalysis = {
-            servers: [],
-            data_sources: [],
-            transform_maps: [],
-            field_maps: [],
-            attribute_mappings: [],
-            issues: []
-        };
-
-        // 1. Find LDAP Data Sources for this table
-        var dsGr = new GlideRecord('sys_data_source');
-        dsGr.addQuery('type', 'LDAP');
-        dsGr.addQuery('ldap_target.table', 'IN', tablesToCheck.join(','));
-        dsGr.query();
-
-        while (dsGr.next()) {
-            var dsName = ctx.safeGetValue(dsGr, 'name');
-            var dsSysId = dsGr.getUniqueValue();
-            var activeVal = dsGr.getValue('active');
-            var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
-
-            var dsInfo = {
-                sys_id: dsSysId,
-                name: dsName,
-                active: isActive,
-                import_set_table: ctx.safeGetValue(dsGr, 'import_set_table_name'),
-                connection_url: ctx.safeGetValue(dsGr, 'connection_url'),
-                ldap_target: ctx.safeGetValue(dsGr, 'ldap_target'),
-                last_run: ctx.safeGetValue(dsGr, 'last_run_on'),
-                last_run_result: ctx.safeGetValue(dsGr, 'last_run_result')
-            };
-            ldapAnalysis.data_sources.push(dsInfo);
-
-            if (!isActive) {
-                ldapAnalysis.issues.push({
-                    code: 'INACTIVE_LDAP_DATASOURCE',
-                    message: 'LDAP Data Source "' + dsName + '" is inactive',
-                    severity: 'low',
-                    record_table: 'sys_data_source',
-                    record_sys_id: dsSysId
-                });
-            }
-
-            // Get associated Transform Maps
-            var tmGr = new GlideRecord('sys_transform_map');
-            tmGr.addQuery('source_table', dsInfo.import_set_table);
-            tmGr.addQuery('target_table', 'IN', tablesToCheck.join(','));
-            tmGr.query();
-
-            while (tmGr.next()) {
-                var tmName = ctx.safeGetValue(tmGr, 'name');
-                var tmSysId = tmGr.getUniqueValue();
-                var tmActiveVal = tmGr.getValue('active');
-                var tmIsActive = (tmActiveVal === 'true' || tmActiveVal === '1' || tmActiveVal === true);
-
-                var tmInfo = {
-                    sys_id: tmSysId,
-                    name: tmName,
-                    active: tmIsActive,
-                    source_table: ctx.safeGetValue(tmGr, 'source_table'),
-                    target_table: ctx.safeGetValue(tmGr, 'target_table'),
-                    data_source: dsName,
-                    coalesce_field: ctx.safeGetValue(tmGr, 'coalesce_field'),
-                    field_maps: []
-                };
-
-                // Get Field Maps for this Transform Map
-                var fmGr = new GlideRecord('sys_transform_entry');
-                fmGr.addQuery('map', tmSysId);
-                fmGr.orderBy('order');
-                fmGr.query();
-
-                while (fmGr.next()) {
-                    var sourceField = ctx.safeGetValue(fmGr, 'source_field');
-                    var targetField = ctx.safeGetValue(fmGr, 'target_field');
-                    var coalesce = ctx.safeGetValue(fmGr, 'coalesce') === 'true';
-                    var useSourceScript = ctx.safeGetValue(fmGr, 'use_source_script') === 'true';
-
-                    var fmInfo = {
-                        sys_id: fmGr.getUniqueValue(),
-                        source_field: sourceField,
-                        target_field: targetField,
-                        coalesce: coalesce,
-                        use_script: useSourceScript,
-                        source_script: useSourceScript ? ctx.safeGetValue(fmGr, 'source_script') : null,
-                        order: parseInt(ctx.safeGetValue(fmGr, 'order'), 10) || 0
-                    };
-                    tmInfo.field_maps.push(fmInfo);
-                    ldapAnalysis.field_maps.push(fmInfo);
-
-                    // Track attribute mapping
-                    if (sourceField) {
-                        ldapAnalysis.attribute_mappings.push({
-                            ldap_attribute: sourceField,
-                            servicenow_field: targetField,
-                            transform_map: tmName,
-                            coalesce: coalesce,
-                            uses_script: useSourceScript
-                        });
-                    }
-                }
-
-                ldapAnalysis.transform_maps.push(tmInfo);
-
-                // Check for issues
-                if (!tmIsActive) {
-                    ldapAnalysis.issues.push({
-                        code: 'INACTIVE_LDAP_TRANSFORM',
-                        message: 'LDAP Transform Map "' + tmName + '" is inactive',
-                        severity: 'low',
-                        record_table: 'sys_transform_map',
-                        record_sys_id: tmSysId
-                    });
-                }
-
-                if (tmInfo.field_maps.length === 0) {
-                    ldapAnalysis.issues.push({
-                        code: 'NO_LDAP_FIELD_MAPS',
-                        message: 'LDAP Transform Map "' + tmName + '" has no field mappings',
-                        severity: 'medium',
-                        record_table: 'sys_transform_map',
-                        record_sys_id: tmSysId
-                    });
-                }
-
-                if (!tmInfo.coalesce_field) {
-                    ldapAnalysis.issues.push({
-                        code: 'NO_LDAP_COALESCE',
-                        message: 'LDAP Transform Map "' + tmName + '" has no coalesce field (may create duplicates)',
-                        severity: 'medium',
-                        record_table: 'sys_transform_map',
-                        record_sys_id: tmSysId
-                    });
-                }
-            }
-        }
-
-        // 2. Check for LDAP Servers
+    analyzeLdapConfiguration: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
         try {
-            var serverGr = new GlideRecord('ldap_server_config');
-            if (serverGr.isValid()) {
-                serverGr.addQuery('active', true);
-                serverGr.query();
-
-                while (serverGr.next()) {
-                    ldapAnalysis.servers.push({
-                        sys_id: serverGr.getUniqueValue(),
-                        name: ctx.safeGetValue(serverGr, 'name'),
-                        server_url: ctx.safeGetValue(serverGr, 'server_url'),
-                        active: true
-                    });
-                }
-            }
+            var ldapConn = this.utils.getRecords('ldap_server', function(gr){
+                // example: list configured LDAP servers
+            }, ['name','host'], 0, 'ldap:all');
+            ctx.metrics.ldap_servers = ldapConn;
         } catch (e) {
-            // LDAP tables might not be accessible
+            ctx.metrics.ldap_servers = [];
         }
-
-        // 3. Summary metrics
-        ctx.metrics.ldap_analysis = ldapAnalysis;
-        ctx.metrics.ldap_data_source_count = ldapAnalysis.data_sources.length;
-        ctx.metrics.ldap_transform_map_count = ldapAnalysis.transform_maps.length;
-        ctx.metrics.ldap_field_map_count = ldapAnalysis.field_maps.length;
-        ctx.metrics.ldap_attribute_count = ldapAnalysis.attribute_mappings.length;
-        ctx.metrics.ldap_server_count = ldapAnalysis.servers.length;
-
-        // Add issues to context
-        ldapAnalysis.issues.forEach(function(issue) {
-            ctx.addIssue(issue.code, issue.message, issue.severity, {
-                record_table: issue.record_table,
-                record_sys_id: issue.record_sys_id,
-                category: 'ldap'
-            });
-        });
-
-        // Summary issues
-        if (ldapAnalysis.data_sources.length === 0 && ldapAnalysis.transform_maps.length === 0) {
-            ctx.addIssue('NO_LDAP_CONFIG', 'No LDAP configuration found for table "' + tableName + '"', 'low', {
-                category: 'ldap'
-            });
-        }
-    },
-
-    // ==================== PRIVATE HELPER FUNCTIONS ====================
-
-    /**
-     * Analyze a script for common issues
-     * @private
-     */
-    _analyzeScript: function(script, scriptName, scriptType) {
-        var issues = [];
-        if (!script) return issues;
-
-        // Check for GlideRecord without limit in loops
-        if (script.indexOf('GlideRecord') > -1 && script.indexOf('.query()') > -1) {
-            if (script.indexOf('setLimit') === -1 && script.indexOf('get(') === -1) {
-                if (script.indexOf('while') > -1 && script.indexOf('.next()') > -1) {
-                    issues.push({
-                        code: 'QUERY_NO_LIMIT',
-                        message: scriptType + ' "' + scriptName + '" has GlideRecord query without setLimit()',
-                        severity: 'medium'
-                    });
-                }
-            }
-        }
-
-        // Check for current.update() in Business Rules (can cause infinite loops)
-        if (scriptType === 'Business Rule' && script.indexOf('current.update()') > -1) {
-            issues.push({
-                code: 'CURRENT_UPDATE',
-                message: scriptType + ' "' + scriptName + '" uses current.update() which can cause recursion',
-                severity: 'high'
-            });
-        }
-
-        // Check for hardcoded sys_ids (32 hex characters)
-        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
-        var sysIdMatches = script.match(sysIdPattern);
-        if (sysIdMatches && sysIdMatches.length > 0) {
-            issues.push({
-                code: 'HARDCODED_SYSID',
-                message: scriptType + ' "' + scriptName + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s)',
-                severity: 'medium'
-            });
-        }
-
-        // Check for console.log (should use gs.log in ServiceNow)
-        if (script.indexOf('console.log') > -1) {
-            issues.push({
-                code: 'CONSOLE_LOG',
-                message: scriptType + ' "' + scriptName + '" uses console.log instead of gs.log',
-                severity: 'low'
-            });
-        }
-
-        // Check for eval() usage (security risk)
-        if (script.indexOf('eval(') > -1) {
-            issues.push({
-                code: 'EVAL_USAGE',
-                message: scriptType + ' "' + scriptName + '" uses eval() which is a security risk',
-                severity: 'high'
-            });
-        }
-
-        // Check for synchronous GlideAjax calls
-        if (script.indexOf('GlideAjax') > -1 && script.indexOf('getXMLWait') > -1) {
-            issues.push({
-                code: 'SYNC_AJAX',
-                message: scriptType + ' "' + scriptName + '" uses synchronous GlideAjax (getXMLWait)',
-                severity: 'medium'
-            });
-        }
-
-        return issues;
-    },
-
-    /**
-     * Analyze transform script for common issues
-     * @private
-     */
-    _analyzeTransformScript: function(script, scriptName) {
-        var issues = [];
-        if (!script) return issues;
-
-        // Check for hardcoded sys_ids (32 hex characters)
-        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
-        var sysIdMatches = script.match(sysIdPattern);
-        if (sysIdMatches && sysIdMatches.length > 0) {
-            issues.push({
-                code: 'HARDCODED_SYSID',
-                message: 'Transform map "' + scriptName + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s)',
-                severity: 'medium'
-            });
-        }
-
-        // Check for ignore() without condition
-        if (script.indexOf('ignore') > -1 && script.indexOf('if') === -1) {
-            issues.push({
-                code: 'UNCONDITIONAL_IGNORE',
-                message: 'Transform map "' + scriptName + '" may have unconditional ignore()',
-                severity: 'low'
-            });
-        }
-
-        // Check for error handling
-        if (script.indexOf('GlideRecord') > -1 && script.indexOf('try') === -1) {
-            issues.push({
-                code: 'NO_ERROR_HANDLING',
-                message: 'Transform map "' + scriptName + '" uses GlideRecord without try-catch',
-                severity: 'low'
-            });
-        }
-
-        return issues;
-    },
-
-    /**
-     * Analyze automation script for common issues
-     * @private
-     */
-    _analyzeAutomationScript: function(script, scriptName, scriptType) {
-        var issues = [];
-        if (!script) return issues;
-
-        // Check for GlideRecord in loop without limit
-        if (script.indexOf('GlideRecord') > -1 && script.indexOf('.query()') > -1) {
-            if (script.indexOf('setLimit') === -1 && script.indexOf('get(') === -1) {
-                if (script.indexOf('while') > -1 && script.indexOf('.next()') > -1) {
-                    issues.push({
-                        type: scriptType,
-                        name: scriptName,
-                        code: 'QUERY_NO_LIMIT',
-                        message: scriptType + ' "' + scriptName + '" has GlideRecord query without setLimit()',
-                        severity: 'medium'
-                    });
-                }
-            }
-        }
-
-        // Check for hardcoded sys_ids (32 hex characters)
-        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
-        var sysIdMatches = script.match(sysIdPattern);
-        if (sysIdMatches && sysIdMatches.length > 0) {
-            issues.push({
-                type: scriptType,
-                name: scriptName,
-                code: 'HARDCODED_SYSID',
-                message: scriptType + ' "' + scriptName + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s)',
-                severity: 'medium'
-            });
-        }
-
-        // Check for gs.sleep (can cause performance issues)
-        if (script.indexOf('gs.sleep') > -1) {
-            issues.push({
-                type: scriptType,
-                name: scriptName,
-                code: 'GS_SLEEP',
-                message: scriptType + ' "' + scriptName + '" uses gs.sleep() which can impact performance',
-                severity: 'medium'
-            });
-        }
-
-        // Check for eval usage
-        if (script.indexOf('eval(') > -1) {
-            issues.push({
-                type: scriptType,
-                name: scriptName,
-                code: 'EVAL_USAGE',
-                message: scriptType + ' "' + scriptName + '" uses eval() which is a security risk',
-                severity: 'high'
-            });
-        }
-
-        return issues;
     },
 
     type: 'FHOptionsHandler'
-};]]></script>
+};
+]]></script>
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 08:44:25</sys_created_on>
         <sys_id>268399a08392361083e1b4a6feaad34e</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>2</sys_mod_count>
         <sys_name>FHOptionsHandler</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_268399a08392361083e1b4a6feaad34e</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 08:44:25</sys_updated_on>
+        <sys_updated_on>2026-01-04 20:01:55</sys_updated_on>
     </sys_script_include>
 </record_update>
