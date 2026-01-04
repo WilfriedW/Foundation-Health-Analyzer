@@ -123,9 +123,14 @@ FHAnalyzer.prototype = {
 
         var engine = new FHAnalysisEngine();
         var engineResult = engine.run(config);
-gs.info('result engine : '+JSON.stringify(engineResult))
+
+        // Save result to database
+        var resultSysId = this._saveResult(config, engineResult, parameters);
+
         return {
             success: true,
+            analysis_id: resultSysId,
+            sys_id: resultSysId,
             details: engineResult
         };
     },
