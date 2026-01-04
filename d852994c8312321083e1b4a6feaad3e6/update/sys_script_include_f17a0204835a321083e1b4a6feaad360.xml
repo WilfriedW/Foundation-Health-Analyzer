@@ -36,6 +36,9 @@ FHAnalysisContext.prototype = {
         // Store options in metrics for reference
         this.metrics.options = this.options;
         
+        // Initialize categories structure for standardized output
+        this.categories = {};
+        
         // Cache for table hierarchy (computed once, reused)
         this._tableHierarchyCache = null;
         this._childrenTablesCache = null;
@@ -280,6 +283,85 @@ FHAnalysisContext.prototype = {
         return false;
     },
 
+    // ==================== CATEGORY MANAGEMENT ====================
+
+    /**
+     * Register a category for structured output
+     * @param {String} categoryId - Category identifier (e.g., 'automation', 'integration')
+     * @param {String} label - Display label
+     * @param {String} icon - FontAwesome icon class (e.g., 'fa-cogs')
+     */
+    registerCategory: function(categoryId, label, icon) {
+        if (!this.categories[categoryId]) {
+            this.categories[categoryId] = {
+                id: categoryId,
+                label: label,
+                icon: icon || 'fa-folder',
+                items: []
+            };
+        }
+    },
+
+    /**
+     * Add items to a category
+     * @param {String} categoryId - Category identifier
+     * @param {String} itemType - Item type (e.g., 'scheduled_job', 'flow')
+     * @param {String} itemLabel - Display label for this item type
+     * @param {Array} records - Array of record objects
+     * @param {Object} options - Additional options (table, icon, color)
+     */
+    addCategoryItems: function(categoryId, itemType, itemLabel, records, options) {
+        // Auto-register category if not exists
+        if (!this.categories[categoryId]) {
+            this.registerCategory(categoryId, categoryId, 'fa-folder');
+        }
+        
+        options = options || {};
+        var activeCount = 0;
+        var inactiveCount = 0;
+        var directCount = 0;
+        var inheritedCount = 0;
+        
+        // Calculate counts
+        records.forEach(function(r) {
+            if (r.active === true || r.active === 'true') activeCount++;
+            else inactiveCount++;
+            if (r.inherited) inheritedCount++;
+            else directCount++;
+        });
+        
+        this.categories[categoryId].items.push({
+            type: itemType,
+            label: itemLabel,
+            table: options.table || '',
+            icon: options.icon || 'fa-file',
+            color: options.color || '#6c757d',
+            records: records,
+            count: records.length,
+            active_count: activeCount,
+            inactive_count: inactiveCount,
+            direct_count: directCount,
+            inherited_count: inheritedCount
+        });
+    },
+
+    /**
+     * Get a category by ID
+     * @param {String} categoryId - Category identifier
+     * @returns {Object} Category object or null
+     */
+    getCategory: function(categoryId) {
+        return this.categories[categoryId] || null;
+    },
+
+    /**
+     * Get all categories
+     * @returns {Object} All categories
+     */
+    getCategories: function() {
+        return this.categories;
+    },
+
     // ==================== ISSUE MANAGEMENT ====================
 
     /**
@@ -312,22 +394,25 @@ FHAnalysisContext.prototype = {
 
     /**
      * Convert context to result object
+     * Includes standardized categories structure for widgets
      * @returns {Object} Result object
      */
     toResult: function() {
+        var self = this;
         return {
             table: this.config.table_name,
             metrics: this.metrics,
             issues: this.issues,
+            categories: this.categories,
             hasBlockingIssues: function() {
-                return this.issues.some(function(issue) {
+                return self.issues.some(function(issue) {
                     return issue.severity === 'high';
                 });
             },
             getSummary: function() {
                 return {
-                    issues_found: this.issues.length,
-                    duration_ms: this.metrics.duration_ms || 0
+                    issues_found: self.issues.length,
+                    duration_ms: self.metrics.duration_ms || 0
                 };
             }
         };

@@ -185,8 +185,10 @@ FHAnalyzer.prototype = {
         var detailObj = {
             issues: result.issues || [],
             metrics: result.metrics || {},
+            categories: result.categories || {},
             table_name: config.table_name,
             table_label: config.table_label || config.table_name,
+            options: config,
             parameters: parameters || {},
             analysis_date: new GlideDateTime().toString()
         };

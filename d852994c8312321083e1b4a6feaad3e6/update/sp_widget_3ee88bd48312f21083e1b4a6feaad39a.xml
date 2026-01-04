@@ -70,53 +70,127 @@
         return metrics.business_rules || [];
     };
 
-    // Get all automation items
+    // ==================== CATEGORY-BASED METHODS ====================
+    
+    // Get all categories
+    c.getCategories = function() {
+        return (c.result && c.result.categories) ? c.result.categories : {};
+    };
+
+    // Get a specific category
+    c.getCategory = function(categoryId) {
+        var categories = c.getCategories();
+        return categories[categoryId] || null;
+    };
+
+    // Get items from a category (flattened)
+    c.getCategoryItems = function(categoryId) {
+        var category = c.getCategory(categoryId);
+        if (!category || !category.items) return [];
+        
+        var items = [];
+        category.items.forEach(function(itemType) {
+            if (itemType.records) {
+                itemType.records.forEach(function(record) {
+                    items.push({
+                        type: itemType.label,
+                        type_id: itemType.type,
+                        icon: itemType.icon,
+                        color: itemType.color,
+                        table: itemType.table,
+                        name: record.name,
+                        active: record.active,
+                        inherited: record.inherited,
+                        sys_id: record.sys_id
+                    });
+                });
+            }
+        });
+        return items;
+    };
+
+    // Get category item types (for summary display)
+    c.getCategoryItemTypes = function(categoryId) {
+        var category = c.getCategory(categoryId);
+        return (category && category.items) ? category.items : [];
+    };
+
+    // Get all automation items (uses categories if available, fallback to metrics)
     c.getAutomationItems = function() {
+        // Try categories first (new structure)
+        var categoryItems = c.getCategoryItems('automation');
+        if (categoryItems.length > 0) {
+            return categoryItems;
+        }
+        
+        // Fallback to metrics (backward compatibility)
         var metrics = c.getMetrics();
         var items = [];
         
         if (metrics.scheduled_jobs) {
             metrics.scheduled_jobs.forEach(function(job) {
-                items.push({ type: 'Scheduled Job', name: job.name, active: job.active, sys_id: job.sys_id, table: 'sysauto_script' });
+                items.push({ type: 'Scheduled Job', name: job.name, active: job.active, sys_id: job.sys_id, table: 'sysauto_script', icon: 'fa-clock', color: '#6f42c1' });
             });
         }
         if (metrics.flows) {
             metrics.flows.forEach(function(flow) {
-                items.push({ type: 'Flow', name: flow.name, active: flow.active, sys_id: flow.sys_id, table: 'sys_hub_flow' });
+                items.push({ type: 'Flow', name: flow.name, active: flow.active, sys_id: flow.sys_id, table: 'sys_hub_flow', icon: 'fa-project-diagram', color: '#17a2b8' });
             });
         }
         if (metrics.workflows) {
             metrics.workflows.forEach(function(wf) {
-                items.push({ type: 'Workflow', name: wf.name, active: wf.active, sys_id: wf.sys_id, table: 'wf_workflow' });
+                items.push({ type: 'Workflow', name: wf.name, active: wf.active, sys_id: wf.sys_id, table: 'wf_workflow', icon: 'fa-sitemap', color: '#fd7e14' });
             });
         }
         if (metrics.notifications) {
             metrics.notifications.forEach(function(n) {
-                items.push({ type: 'Notification', name: n.name, active: n.active, sys_id: n.sys_id, table: 'sysevent_email_action' });
+                items.push({ type: 'Notification', name: n.name, active: n.active, sys_id: n.sys_id, table: 'sysevent_email_action', icon: 'fa-envelope', color: '#28a745' });
             });
         }
         if (metrics.ui_actions) {
             metrics.ui_actions.forEach(function(a) {
-                items.push({ type: 'UI Action', name: a.name, active: true, sys_id: a.sys_id, table: 'sys_ui_action' });
+                items.push({ type: 'UI Action', name: a.name, active: a.active !== false, sys_id: a.sys_id, table: 'sys_ui_action', icon: 'fa-mouse-pointer', color: '#dc3545' });
+            });
+        }
+        if (metrics.ui_policies) {
+            metrics.ui_policies.forEach(function(p) {
+                items.push({ type: 'UI Policy', name: p.name, active: true, sys_id: p.sys_id, table: 'sys_ui_policy', icon: 'fa-shield-alt', color: '#20c997' });
+            });
+        }
+        if (metrics.inbound_email_actions) {
+            metrics.inbound_email_actions.forEach(function(e) {
+                items.push({ type: 'Inbound Email', name: e.name, active: e.active, sys_id: e.sys_id, table: 'sysevent_in_email_action', icon: 'fa-inbox', color: '#e83e8c' });
             });
         }
         
         return items;
     };
 
-    // Get integration items
+    // Get integration items (uses categories if available, fallback to metrics)
     c.getIntegrationItems = function() {
+        // Try categories first (new structure)
+        var categoryItems = c.getCategoryItems('integration');
+        if (categoryItems.length > 0) {
+            return categoryItems;
+        }
+        
+        // Fallback to metrics (backward compatibility)
         var metrics = c.getMetrics();
         var items = [];
         
         if (metrics.data_sources) {
             metrics.data_sources.forEach(function(ds) {
-                items.push({ type: 'Data Source', name: ds.name, active: ds.active, sys_id: ds.sys_id, table: 'sys_data_source' });
+                items.push({ type: 'Data Source', name: ds.name, active: ds.active, sys_id: ds.sys_id, table: 'sys_data_source', icon: 'fa-database', color: '#6f42c1' });
             });
         }
         if (metrics.transform_maps) {
             metrics.transform_maps.forEach(function(tm) {
-                items.push({ type: 'Transform Map', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map' });
+                items.push({ type: 'Transform Map', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map', icon: 'fa-exchange-alt', color: '#17a2b8' });
+            });
+        }
+        if (metrics.acls) {
+            metrics.acls.forEach(function(acl) {
+                items.push({ type: 'ACL', name: acl.name, active: acl.active !== false, sys_id: acl.sys_id, table: 'sys_security_acl', icon: 'fa-lock', color: '#dc3545' });
             });
         }
         

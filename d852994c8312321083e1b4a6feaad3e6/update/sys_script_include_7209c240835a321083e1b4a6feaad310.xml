@@ -41,6 +41,9 @@ FHCheckAutomation.prototype = {
     execute: function(ctx) {
         if (!ctx.metrics.table_exists) return;
         
+        // Register the automation category
+        ctx.registerCategory('automation', 'Automation', 'fa-cogs');
+        
         // Get tables to check from context (uses centralized logic)
         var tablesToCheck = ctx.getTablesToCheck();
         ctx.metrics.automation_tables_checked = tablesToCheck;
@@ -108,44 +111,43 @@ FHCheckAutomation.prototype = {
      * @param {Array} tablesToCheck - Tables to check
      */
     _checkScheduledJobs: function(ctx, tablesToCheck) {
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var scheduledJobs = [];
         var self = this;
         
         // Query all scheduled jobs with scripts that might contain our tables
-        // We'll do a broader search first, then filter with exact matching
         var gr = new GlideRecord('sysauto_script');
         gr.addNotNullQuery('script');
         gr.query();
         
         while (gr.next()) {
-            var script = self._safeGetValue(gr, 'script');
+            var script = self._safeGetValue(gr, 'script', ctx);
             
             // Check if script contains exact reference to any of our tables
             var matchedTable = null;
             for (var i = 0; i < tablesToCheck.length; i++) {
-                if (self._scriptContainsTable(script, tablesToCheck[i])) {
+                if (self._scriptContainsTable(script, tablesToCheck[i], ctx)) {
                     matchedTable = tablesToCheck[i];
                     break;
                 }
             }
             
-            if (!matchedTable) continue; // Skip if no exact match
+            if (!matchedTable) continue;
             
-            var jobName = self._safeGetValue(gr, 'name') || 'Unnamed';
-            // Check active field - can be 'true', '1', or boolean
+            var jobName = self._safeGetValue(gr, 'name', ctx) || 'Unnamed';
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
             
-            var jobInfo = {
+            scheduledJobs.push({
                 sys_id: gr.getUniqueValue(),
                 name: jobName,
                 active: isActive,
+                inherited: matchedTable !== tableName,
+                table: 'sysauto_script',
                 matched_table: matchedTable,
-                run_type: self._safeGetValue(gr, 'run_type'),
-                next_action: self._safeGetValue(gr, 'next_action')
-            };
-            scheduledJobs.push(jobInfo);
+                run_type: self._safeGetValue(gr, 'run_type', ctx),
+                next_action: self._safeGetValue(gr, 'next_action', ctx)
+            });
             
             if (!isActive) {
                 ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + jobName + '"', 'low', {
@@ -156,6 +158,14 @@ FHCheckAutomation.prototype = {
             }
         }
         
+        // Add to category for widget consumption
+        ctx.addCategoryItems('automation', 'scheduled_job', 'Scheduled Jobs', scheduledJobs, {
+            table: 'sysauto_script',
+            icon: 'fa-clock',
+            color: '#6f42c1'
+        });
+        
+        // Keep metrics for backward compatibility
         ctx.metrics.scheduled_jobs = scheduledJobs;
         ctx.metrics.scheduled_job_count = scheduledJobs.length;
     },
@@ -167,22 +177,13 @@ FHCheckAutomation.prototype = {
      * @param {Array} configTables - Tables from configuration (with children if enabled)
      */
     _checkFlows: function(ctx, configTables) {
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var flows = [];
         var self = this;
         
-        // Get all tables in hierarchy (parent tables)
-        var parentTables = self._getTableHierarchy(tableName);
+        // Use context's table hierarchy
+        var tablesToCheck = ctx.getTablesToCheck();
         
-        // Merge with config tables (children) and remove duplicates
-        var tablesToCheck = parentTables.slice();
-        configTables.forEach(function(t) {
-            if (tablesToCheck.indexOf(t) === -1) {
-                tablesToCheck.push(t);
-            }
-        });
-        
-        // Check for flows triggered by this table or parent tables
         try {
             var gr = new GlideRecord('sys_hub_flow');
             if (gr.isValid()) {
@@ -190,22 +191,21 @@ FHCheckAutomation.prototype = {
                 gr.query();
                 
                 while (gr.next()) {
-                    var flowName = self._safeGetValue(gr, 'name') || 'Unnamed';
-                    var flowTable = self._safeGetValue(gr, 'trigger_table');
-                    // Check active field - can be 'true', '1', or boolean
+                    var flowName = self._safeGetValue(gr, 'name', ctx) || 'Unnamed';
+                    var flowTable = self._safeGetValue(gr, 'trigger_table', ctx);
                     var activeVal = gr.getValue('active');
                     var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
                     
-                    var flowInfo = {
+                    flows.push({
                         sys_id: gr.getUniqueValue(),
                         name: flowName,
-                        table: flowTable,
+                        table: 'sys_hub_flow',
+                        trigger_table: flowTable,
                         inherited: (flowTable !== tableName),
                         active: isActive,
-                        trigger_type: self._safeGetValue(gr, 'trigger_type'),
-                        description: self._safeGetValue(gr, 'description')
-                    };
-                    flows.push(flowInfo);
+                        trigger_type: self._safeGetValue(gr, 'trigger_type', ctx),
+                        description: self._safeGetValue(gr, 'description', ctx)
+                    });
                     
                     if (!isActive) {
                         ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low', {
@@ -220,13 +220,21 @@ FHCheckAutomation.prototype = {
             // Flow Designer table might not exist in all instances
         }
         
+        // Add to category
+        ctx.addCategoryItems('automation', 'flow', 'Flows', flows, {
+            table: 'sys_hub_flow',
+            icon: 'fa-project-diagram',
+            color: '#17a2b8'
+        });
+        
+        // Keep metrics for backward compatibility
         ctx.metrics.flows = flows;
         ctx.metrics.flow_count = flows.length;
         ctx.metrics.flow_direct_count = flows.filter(function(f) { return !f.inherited; }).length;
         ctx.metrics.flow_inherited_count = flows.filter(function(f) { return f.inherited; }).length;
         
         if (flows.length > 10) {
-            ctx.addIssue('MANY_FLOWS', 'Table has ' + flows.length + ' flows (' + ctx.metrics.flow_direct_count + ' direct, ' + ctx.metrics.flow_inherited_count + ' inherited). Check for redundancy.', 'medium', {
+            ctx.addIssue('MANY_FLOWS', 'Table has ' + flows.length + ' flows. Check for redundancy.', 'medium', {
                 record_table: 'sys_hub_flow',
                 record_filter: 'trigger_tableIN' + tablesToCheck.join(','),
                 category: 'automation'
@@ -235,51 +243,37 @@ FHCheckAutomation.prototype = {
     },
 
     /**
-     * Check legacy workflows for this table (including inherited from parent tables)
+     * Check legacy workflows for this table
      * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} configTables - Tables from configuration (with children if enabled)
      */
     _checkWorkflows: function(ctx, configTables) {
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var workflows = [];
         var self = this;
-        
-        // Get all tables in hierarchy (parent tables)
-        var parentTables = self._getTableHierarchy(tableName);
-        
-        // Merge with config tables (children) and remove duplicates
-        var tablesToCheck = parentTables.slice();
-        configTables.forEach(function(t) {
-            if (tablesToCheck.indexOf(t) === -1) {
-                tablesToCheck.push(t);
-            }
-        });
+        var tablesToCheck = ctx.getTablesToCheck();
         
         var gr = new GlideRecord('wf_workflow');
         gr.addQuery('table', 'IN', tablesToCheck.join(','));
         gr.query();
         
         while (gr.next()) {
-            var wfName = self._safeGetValue(gr, 'name') || 'Unnamed';
-            var wfTable = self._safeGetValue(gr, 'table');
-            // Check active and published fields
+            var wfName = self._safeGetValue(gr, 'name', ctx) || 'Unnamed';
+            var wfTable = self._safeGetValue(gr, 'table', ctx);
             var activeVal = gr.getValue('active');
             var publishedVal = gr.getValue('published');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
             var isPublished = (publishedVal === 'true' || publishedVal === '1' || publishedVal === true);
             
-            var wfInfo = {
+            workflows.push({
                 sys_id: gr.getUniqueValue(),
                 name: wfName,
-                table: wfTable,
+                table: 'wf_workflow',
+                trigger_table: wfTable,
                 inherited: (wfTable !== tableName),
                 active: isActive,
                 published: isPublished
-            };
-            workflows.push(wfInfo);
+            });
             
-            // Check for unpublished active workflows
             if (isActive && !isPublished) {
                 ctx.addIssue('UNPUBLISHED_WORKFLOW', 'Active but unpublished workflow: "' + wfName + '"', 'medium', {
                     record_table: 'wf_workflow',
@@ -289,14 +283,20 @@ FHCheckAutomation.prototype = {
             }
         }
         
+        // Add to category
+        ctx.addCategoryItems('automation', 'workflow', 'Workflows', workflows, {
+            table: 'wf_workflow',
+            icon: 'fa-sitemap',
+            color: '#fd7e14'
+        });
+        
         ctx.metrics.workflows = workflows;
         ctx.metrics.workflow_count = workflows.length;
         ctx.metrics.workflow_direct_count = workflows.filter(function(w) { return !w.inherited; }).length;
         ctx.metrics.workflow_inherited_count = workflows.filter(function(w) { return w.inherited; }).length;
         
-        // Recommend migrating to Flow Designer if using legacy workflows
         if (workflows.length > 0) {
-            ctx.addIssue('LEGACY_WORKFLOWS', 'Table uses ' + workflows.length + ' legacy workflow(s) (' + ctx.metrics.workflow_direct_count + ' direct, ' + ctx.metrics.workflow_inherited_count + ' inherited). Consider migrating to Flow Designer.', 'low', {
+            ctx.addIssue('LEGACY_WORKFLOWS', 'Table uses ' + workflows.length + ' legacy workflow(s). Consider migrating to Flow Designer.', 'low', {
                 record_table: 'wf_workflow',
                 record_filter: 'tableIN' + tablesToCheck.join(','),
                 category: 'automation'
@@ -305,47 +305,42 @@ FHCheckAutomation.prototype = {
     },
 
     /**
-     * Check notifications for this table (including inherited from parent tables)
+     * Check notifications for this table
      * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} configTables - Tables from configuration (with children if enabled)
      */
     _checkNotifications: function(ctx, configTables) {
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var notifications = [];
         var self = this;
-        
-        // Get all tables in hierarchy (parent tables)
-        var parentTables = self._getTableHierarchy(tableName);
-        
-        // Merge with config tables (children) and remove duplicates
-        var tablesToCheck = parentTables.slice();
-        configTables.forEach(function(t) {
-            if (tablesToCheck.indexOf(t) === -1) {
-                tablesToCheck.push(t);
-            }
-        });
+        var tablesToCheck = ctx.getTablesToCheck();
         
         var gr = new GlideRecord('sysevent_email_action');
         gr.addQuery('collection', 'IN', tablesToCheck.join(','));
         gr.query();
         
         while (gr.next()) {
-            var notifTable = self._safeGetValue(gr, 'collection');
+            var notifTable = self._safeGetValue(gr, 'collection', ctx);
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
             
-            var notifInfo = {
+            notifications.push({
                 sys_id: gr.getUniqueValue(),
-                name: self._safeGetValue(gr, 'name') || 'Unnamed',
-                table: notifTable,
+                name: self._safeGetValue(gr, 'name', ctx) || 'Unnamed',
+                table: 'sysevent_email_action',
+                trigger_table: notifTable,
                 inherited: (notifTable !== tableName),
                 active: isActive,
-                event_name: self._safeGetValue(gr, 'event_name'),
-                send_self: self._safeGetValue(gr, 'send_self') === 'true'
-            };
-            notifications.push(notifInfo);
+                event_name: self._safeGetValue(gr, 'event_name', ctx),
+                send_self: self._safeGetValue(gr, 'send_self', ctx) === 'true'
+            });
         }
+        
+        // Add to category
+        ctx.addCategoryItems('automation', 'notification', 'Notifications', notifications, {
+            table: 'sysevent_email_action',
+            icon: 'fa-envelope',
+            color: '#28a745'
+        });
         
         ctx.metrics.notifications = notifications;
         ctx.metrics.notification_count = notifications.length;
@@ -353,7 +348,7 @@ FHCheckAutomation.prototype = {
         ctx.metrics.notification_inherited_count = notifications.filter(function(n) { return n.inherited; }).length;
         
         if (notifications.length > 20) {
-            ctx.addIssue('MANY_NOTIFICATIONS', 'Table has ' + notifications.length + ' notifications (' + ctx.metrics.notification_direct_count + ' direct, ' + ctx.metrics.notification_inherited_count + ' inherited). Check for potential spam.', 'medium', {
+            ctx.addIssue('MANY_NOTIFICATIONS', 'Table has ' + notifications.length + ' notifications. Check for potential spam.', 'medium', {
                 record_table: 'sysevent_email_action',
                 record_filter: 'collectionIN' + tablesToCheck.join(','),
                 category: 'notification'
@@ -372,13 +367,9 @@ FHCheckAutomation.prototype = {
         var self = this;
         
         // Get all tables in hierarchy (current table + parent tables)
-        var tablesToCheck = self._getTableHierarchy(tableName);
+        var tablesToCheck = ctx.getTablesToCheck();
         
-        // Query all UI Actions (active and inactive) for complete overview
-        // Use GlideRecordSecure to ensure we can read across scopes
         var gr = new GlideRecord('sys_ui_action');
-        
-        // Build query - check each table individually to avoid IN clause issues
         if (tablesToCheck.length === 1) {
             gr.addQuery('table', tablesToCheck[0]);
         } else {
@@ -390,22 +381,30 @@ FHCheckAutomation.prototype = {
         gr.query();
         
         while (gr.next()) {
-            var actionTable = self._safeGetValue(gr, 'table');
+            var actionTable = self._safeGetValue(gr, 'table', ctx);
             var activeVal = gr.getValue('active');
             var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
             
             uiActions.push({
                 sys_id: gr.getUniqueValue(),
-                name: self._safeGetValue(gr, 'name') || 'Unnamed',
-                action_name: self._safeGetValue(gr, 'action_name'),
-                table: actionTable,
+                name: self._safeGetValue(gr, 'name', ctx) || 'Unnamed',
+                action_name: self._safeGetValue(gr, 'action_name', ctx),
+                table: 'sys_ui_action',
+                trigger_table: actionTable,
                 inherited: (actionTable !== tableName),
                 active: isActive,
-                client: self._safeGetValue(gr, 'client') === 'true',
-                form_button: self._safeGetValue(gr, 'form_button') === 'true',
-                list_button: self._safeGetValue(gr, 'list_button') === 'true'
+                client: self._safeGetValue(gr, 'client', ctx) === 'true',
+                form_button: self._safeGetValue(gr, 'form_button', ctx) === 'true',
+                list_button: self._safeGetValue(gr, 'list_button', ctx) === 'true'
             });
         }
+        
+        // Add to category
+        ctx.addCategoryItems('automation', 'ui_action', 'UI Actions', uiActions, {
+            table: 'sys_ui_action',
+            icon: 'fa-mouse-pointer',
+            color: '#dc3545'
+        });
         
         ctx.metrics.ui_actions = uiActions;
         ctx.metrics.ui_action_count = uiActions.length;
@@ -413,12 +412,10 @@ FHCheckAutomation.prototype = {
         ctx.metrics.ui_action_inactive_count = uiActions.filter(function(a) { return !a.active; }).length;
         ctx.metrics.ui_action_direct_count = uiActions.filter(function(a) { return !a.inherited; }).length;
         ctx.metrics.ui_action_inherited_count = uiActions.filter(function(a) { return a.inherited; }).length;
-        
-        // Store tables checked for debugging
         ctx.metrics.ui_action_tables_checked = tablesToCheck;
         
         if (uiActions.length > 25) {
-            ctx.addIssue('MANY_UI_ACTIONS', 'Table has ' + uiActions.length + ' UI Actions (' + ctx.metrics.ui_action_active_count + ' active, ' + ctx.metrics.ui_action_direct_count + ' direct). Interface may be overloaded.', 'medium', {
+            ctx.addIssue('MANY_UI_ACTIONS', 'Table has ' + uiActions.length + ' UI Actions. Interface may be overloaded.', 'medium', {
                 record_table: 'sys_ui_action',
                 record_filter: 'tableIN' + tablesToCheck.join(','),
                 category: 'ui'
@@ -427,53 +424,14 @@ FHCheckAutomation.prototype = {
     },
 
     /**
-     * Get table hierarchy (current table + all parent tables)
+     * Check UI Policies for this table
      * @private
-     * @param {String} tableName - Table name
-     * @returns {Array} Array of table names
-     */
-    _getTableHierarchy: function(tableName) {
-        var tables = [tableName];
-        
-        try {
-            var tableGr = new GlideRecord('sys_db_object');
-            tableGr.addQuery('name', tableName);
-            tableGr.query();
-            
-            if (tableGr.next()) {
-                var superClass = tableGr.getValue('super_class');
-                while (superClass) {
-                    var parentGr = new GlideRecord('sys_db_object');
-                    if (parentGr.get(superClass)) {
-                        var parentName = parentGr.getValue('name');
-                        if (parentName && tables.indexOf(parentName) === -1) {
-                            tables.push(parentName);
-                        }
-                        superClass = parentGr.getValue('super_class');
-                    } else {
-                        break;
-                    }
-                }
-            }
-        } catch(e) {
-            // If we can't get hierarchy, just use the table itself
-        }
-        
-        return tables;
-    },
-
-    /**
-     * Check UI Policies for this table (including inherited from parent tables)
-     * @private
-     * @param {Object} ctx - Analysis context
      */
     _checkUIPolicies: function(ctx) {
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var uiPolicies = [];
         var self = this;
-        
-        // Get all tables in hierarchy (current table + parent tables)
-        var tablesToCheck = self._getTableHierarchy(tableName);
+        var tablesToCheck = ctx.getTablesToCheck();
         
         var gr = new GlideRecord('sys_ui_policy');
         gr.addQuery('table', 'IN', tablesToCheck.join(','));
@@ -481,17 +439,26 @@ FHCheckAutomation.prototype = {
         gr.query();
         
         while (gr.next()) {
-            var policyTable = self._safeGetValue(gr, 'table');
+            var policyTable = self._safeGetValue(gr, 'table', ctx);
             uiPolicies.push({
                 sys_id: gr.getUniqueValue(),
-                name: self._safeGetValue(gr, 'short_description') || 'Unnamed',
-                table: policyTable,
+                name: self._safeGetValue(gr, 'short_description', ctx) || 'Unnamed',
+                table: 'sys_ui_policy',
+                trigger_table: policyTable,
                 inherited: (policyTable !== tableName),
-                on_load: self._safeGetValue(gr, 'on_load') === 'true',
-                reverse_if_false: self._safeGetValue(gr, 'reverse_if_false') === 'true',
-                global: self._safeGetValue(gr, 'global') === 'true'
+                active: true, // We only query active ones
+                on_load: self._safeGetValue(gr, 'on_load', ctx) === 'true',
+                reverse_if_false: self._safeGetValue(gr, 'reverse_if_false', ctx) === 'true',
+                global: self._safeGetValue(gr, 'global', ctx) === 'true'
             });
         }
+        
+        // Add to category
+        ctx.addCategoryItems('automation', 'ui_policy', 'UI Policies', uiPolicies, {
+            table: 'sys_ui_policy',
+            icon: 'fa-shield-alt',
+            color: '#20c997'
+        });
         
         ctx.metrics.ui_policies = uiPolicies;
         ctx.metrics.ui_policy_count = uiPolicies.length;
@@ -499,7 +466,7 @@ FHCheckAutomation.prototype = {
         ctx.metrics.ui_policy_inherited_count = uiPolicies.filter(function(p) { return p.inherited; }).length;
         
         if (uiPolicies.length > 15) {
-            ctx.addIssue('MANY_UI_POLICIES', 'Table has ' + uiPolicies.length + ' active UI Policies (' + ctx.metrics.ui_policy_direct_count + ' direct, ' + ctx.metrics.ui_policy_inherited_count + ' inherited). This may slow down form loading.', 'medium', {
+            ctx.addIssue('MANY_UI_POLICIES', 'Table has ' + uiPolicies.length + ' active UI Policies. This may slow down form loading.', 'medium', {
                 record_table: 'sys_ui_policy',
                 record_filter: 'tableIN' + tablesToCheck.join(',') + '^active=true',
                 category: 'ui'
@@ -510,24 +477,12 @@ FHCheckAutomation.prototype = {
     /**
      * Check inbound email actions for this table
      * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
      */
     _checkInboundEmailActions: function(ctx, tablesToCheck) {
-        var tableName = String(ctx.config.table_name);
+        var tableName = ctx.getTableName();
         var inboundEmails = [];
         var self = this;
-        
-        // Get all tables in hierarchy (current table + parent tables)
-        var parentTables = self._getTableHierarchy(tableName);
-        
-        // Merge with config tables (children) and remove duplicates
-        var allTables = parentTables.slice();
-        tablesToCheck.forEach(function(t) {
-            if (allTables.indexOf(t) === -1) {
-                allTables.push(t);
-            }
-        });
+        var allTables = ctx.getTablesToCheck();
         
         // Check sysevent_in_email_action (Inbound Email Actions)
         try {
@@ -537,24 +492,24 @@ FHCheckAutomation.prototype = {
                 gr.query();
                 
                 while (gr.next()) {
-                    var emailTable = self._safeGetValue(gr, 'target_table');
+                    var emailTable = self._safeGetValue(gr, 'target_table', ctx);
                     var activeVal = gr.getValue('active');
                     var isActive = (activeVal === 'true' || activeVal === '1' || activeVal === true);
                     
-                    var emailInfo = {
+                    inboundEmails.push({
                         sys_id: gr.getUniqueValue(),
-                        name: self._safeGetValue(gr, 'name') || 'Unnamed',
-                        table: emailTable,
+                        name: self._safeGetValue(gr, 'name', ctx) || 'Unnamed',
+                        table: 'sysevent_in_email_action',
+                        trigger_table: emailTable,
                         inherited: (emailTable !== tableName),
                         active: isActive,
-                        type: self._safeGetValue(gr, 'type'),
-                        action_type: self._safeGetValue(gr, 'action_type'),
-                        stop_processing: self._safeGetValue(gr, 'stop_processing') === 'true'
-                    };
-                    inboundEmails.push(emailInfo);
+                        type: self._safeGetValue(gr, 'type', ctx),
+                        action_type: self._safeGetValue(gr, 'action_type', ctx),
+                        stop_processing: self._safeGetValue(gr, 'stop_processing', ctx) === 'true'
+                    });
                     
                     if (!isActive) {
-                        ctx.addIssue('INACTIVE_INBOUND_EMAIL', 'Inactive inbound email action: "' + emailInfo.name + '"', 'low', {
+                        ctx.addIssue('INACTIVE_INBOUND_EMAIL', 'Inactive inbound email action: "' + inboundEmails[inboundEmails.length - 1].name + '"', 'low', {
                             record_table: 'sysevent_in_email_action',
                             record_sys_id: gr.getUniqueValue(),
                             category: 'automation'
@@ -570,13 +525,11 @@ FHCheckAutomation.prototype = {
         try {
             var triggerGr = new GlideRecord('sys_hub_trigger_instance');
             if (triggerGr.isValid()) {
-                // Email triggers
                 triggerGr.addQuery('trigger_type', 'CONTAINS', 'email');
                 triggerGr.query();
                 
                 while (triggerGr.next()) {
-                    // Check if trigger is related to our table
-                    var triggerConfig = self._safeGetValue(triggerGr, 'trigger_config');
+                    var triggerConfig = self._safeGetValue(triggerGr, 'trigger_config', ctx);
                     var isRelated = false;
                     
                     allTables.forEach(function(t) {
@@ -591,14 +544,15 @@ FHCheckAutomation.prototype = {
                         if (flowRef && !flowRef.nil()) {
                             var flowGr = flowRef.getRefRecord();
                             if (flowGr) {
-                                flowName = self._safeGetValue(flowGr, 'name');
+                                flowName = self._safeGetValue(flowGr, 'name', ctx);
                             }
                         }
                         
                         inboundEmails.push({
                             sys_id: triggerGr.getUniqueValue(),
                             name: flowName || 'Flow Trigger',
-                            table: tableName,
+                            table: 'sys_hub_trigger_instance',
+                            trigger_table: tableName,
                             inherited: false,
                             active: true,
                             type: 'flow_trigger',
@@ -611,6 +565,13 @@ FHCheckAutomation.prototype = {
         } catch (e) {
             // Table might not exist
         }
+        
+        // Add to category
+        ctx.addCategoryItems('automation', 'inbound_email', 'Inbound Email Actions', inboundEmails, {
+            table: 'sysevent_in_email_action',
+            icon: 'fa-inbox',
+            color: '#e83e8c'
+        });
         
         ctx.metrics.inbound_email_actions = inboundEmails;
         ctx.metrics.inbound_email_count = inboundEmails.length;
