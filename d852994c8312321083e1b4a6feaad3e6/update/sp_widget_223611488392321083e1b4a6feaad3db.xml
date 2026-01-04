@@ -969,6 +969,19 @@
   font-size: 11px;
 }
 
+/* Analysis Options */
+.fha-option-enabled {
+  background: #d1fae5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.fha-option-disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border: 1px solid #e5e7eb;
+}
+
 /* Issue Actions */
 .fha-issue-actions {
   display: flex;
@@ -1026,12 +1039,22 @@
     
     while (configGr.next()) {
         var tableRef = configGr.table_reference.getRefRecord();
+        
+        // Helper to check boolean values
+        var isTrue = function(val) {
+            return val === 'true' || val === '1' || val === true || val === 1;
+        };
+        
         data.configurations.push({
             config_sys_id: configGr.getUniqueValue(),
             display_name: configGr.getValue('name'),
             table_name: tableRef ? tableRef.getValue('name') : '',
             table_label: tableRef ? tableRef.getValue('label') : '',
-            description: configGr.getValue('description')
+            description: configGr.getValue('description'),
+            // Include options
+            deep_scan: isTrue(configGr.getValue('deep_scan')),
+            include_children_tables: isTrue(configGr.getValue('include_children_tables')),
+            analyze_references: isTrue(configGr.getValue('analyze_references'))
         });
     }
     
@@ -1203,11 +1226,38 @@
       </select>
     </div>
 
-          <!-- Selected Config Description -->
+          <!-- Selected Config Description and Options -->
           <div ng-if="c.selectedConfig" style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px;">
             <div ng-repeat="t in c.tables" ng-if="t.config_sys_id === c.selectedConfig">
               <strong>{{t.display_name}}</strong>
-              <p style="margin: 5px 0 0 0; color: #666;">{{t.description || '${No description}'}}</p>
+              <p style="margin: 5px 0 15px 0; color: #666;">{{t.description || '${No description}'}}</p>
+              
+              <!-- Options Display (Read Only) -->
+              <div style="border-top: 1px solid #d0e3f0; padding-top: 12px; margin-top: 10px;">
+                <div style="font-size: 12px; font-weight: 600; color: #1a5a96; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  <i class="fa fa-cog"></i> ${Analysis Options}
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                  <!-- Deep Scan -->
+                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px;"
+                       ng-class="t.deep_scan ? 'fha-option-enabled' : 'fha-option-disabled'">
+                    <i class="fa" ng-class="t.deep_scan ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    ${Deep Scan}
+                  </div>
+                  <!-- Include Children Tables -->
+                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px;"
+                       ng-class="t.include_children_tables ? 'fha-option-enabled' : 'fha-option-disabled'">
+                    <i class="fa" ng-class="t.include_children_tables ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    ${Include Children}
+                  </div>
+                  <!-- Analyze References -->
+                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px;"
+                       ng-class="t.analyze_references ? 'fha-option-enabled' : 'fha-option-disabled'">
+                    <i class="fa" ng-class="t.analyze_references ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    ${Analyze References}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
