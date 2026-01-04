@@ -348,6 +348,28 @@
         return items;
     };
 
+    // Get security overview (ACLs)
+    c.getSecurityOverview = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.acls) {
+            metrics.acls.forEach(function(acl) {
+                items.push({
+                    type: 'ACL',
+                    name: acl.name,
+                    active: true, // ACLs are always active if queried
+                    sys_id: acl.sys_id,
+                    table: 'sys_security_acl',
+                    operation: acl.operation,
+                    inherited: acl.inherited
+                });
+            });
+        }
+        
+        return items;
+    };
+
     // Open record from overview
     c.openOverviewRecord = function(item) {
         if (item.sys_id && item.table) {
@@ -398,6 +420,8 @@
                        (metrics.ui_action_count || 0);
             case 'integration':
                 return (metrics.data_source_count || 0) + (metrics.transform_map_count || 0);
+            case 'security':
+                return metrics.acl_count || 0;
             default:
                 return 0;
         }
@@ -1570,27 +1594,67 @@
           </div>
 
           <!-- ==================== SECURITY SECTION ==================== -->
-          <div class="fha-section" ng-if="c.getGroupedIssues()['security']">
-            <div class="fha-section-header">
+          <div class="fha-section" ng-if="c.getCategoryTotalCount('security') > 0 || c.getGroupedIssues()['security']">
+            <div class="fha-section-header" ng-click="c.toggleSection('security')">
               <div class="fha-section-title">
                 <i class="fa fa-shield-alt"></i>
                 <h5>${Security}</h5>
-                <span class="fha-section-count">{{c.getGroupedIssues()['security'].length}} ${issues}</span>
+                <span class="fha-section-count">{{c.getCategoryTotalCount('security')}} ${items}</span>
               </div>
               <div class="fha-section-actions">
-                <a class="fha-header-link" ng-click="c.openCategoryList('security')">
-                  <i class="fa fa-external-link-alt"></i> ${View ACLs}
+                <a class="fha-header-link" ng-click="$event.stopPropagation(); c.openCategoryList('security')">
+                  <i class="fa fa-external-link-alt"></i> {{c.getCategoryTotalCount('security')}} ${records}
                 </a>
+                <i class="fa" ng-class="c.isSectionExpanded('security') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
               </div>
             </div>
-            <div class="fha-section-issues">
-              <div class="fha-issue-item" ng-repeat="issue in c.getGroupedIssues()['security']">
+            
+            <!-- Issues for Security -->
+            <div class="fha-section-issues" ng-if="c.getGroupedIssues()['security']">
+              <div class="fha-issue-item" ng-repeat="issue in c.getGroupedIssues()['security']"
+                   ng-class="{'clickable': c.hasRecordLink(issue)}"
+                   ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
                 <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
                 <div class="fha-issue-content">
                   <div class="fha-issue-code">{{issue.code}}</div>
                   <div class="fha-issue-message">{{issue.message}}</div>
                 </div>
+                <a class="fha-issue-link" ng-if="c.hasRecordLink(issue)" 
+                   ng-click="$event.stopPropagation(); c.goToRecord(issue)">
+                  <i class="fa fa-external-link-alt"></i> ${View}
+                </a>
               </div>
+            </div>
+
+            <!-- Overview of all ACLs -->
+            <div class="fha-section-overview" ng-show="c.isSectionExpanded('security')">
+              <div class="fha-overview-header">${All ACLs}</div>
+              <table class="fha-overview-table">
+                <thead>
+                  <tr>
+                    <th>${Operation}</th>
+                    <th>${Name}</th>
+                    <th>${Inherited}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="item in c.getSecurityOverview()">
+                    <td><span class="fha-type-badge">{{item.operation || 'N/A'}}</span></td>
+                    <td>{{item.name}}</td>
+                    <td>
+                      <span class="fha-status-badge" ng-class="item.inherited ? 'inherited' : 'direct'">
+                        {{item.inherited ? '${Inherited}' : '${Direct}'}}
+                      </span>
+                    </td>
+                    <td>
+                      <a class="fha-mini-link" ng-click="c.openOverviewRecord(item)" ng-if="item.sys_id">
+                        <i class="fa fa-external-link-alt"></i>
+                      </a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 

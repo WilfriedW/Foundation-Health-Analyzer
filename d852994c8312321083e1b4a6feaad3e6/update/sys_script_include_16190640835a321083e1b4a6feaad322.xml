@@ -41,7 +41,6 @@ FHCheckIntegration.prototype = {
         this._checkDataSources(ctx, tablesToCheck);
         this._checkImportSets(ctx, tablesToCheck);
         this._checkTransformMaps(ctx, tablesToCheck);
-        this._checkACLs(ctx, tablesToCheck);
         this._checkRestMessages(ctx, tablesToCheck);
 
         // Option-based checks are handled by FHOptionsHandler
@@ -227,94 +226,6 @@ FHCheckIntegration.prototype = {
         ctx.metrics.transform_map_count = transformMaps.length;
         ctx.metrics.active_transform_map_count = activeCount;
         ctx.metrics.inactive_transform_map_count = inactiveCount;
-    },
-
-    /**
-     * Check ACLs for this table (including inherited from parent tables)
-     * @private
-     * @param {Object} ctx - Analysis context
-     * @param {Array} tablesToCheck - Tables to check
-     */
-    _checkACLs: function(ctx, tablesToCheck) {
-        var tableName = ctx.getTableName();
-        var acls = [];
-        var aclsByOperation = {
-            read: 0,
-            write: 0,
-            create: 0,
-            delete: 0
-        };
-
-        // Build query for ACLs on any table in hierarchy
-        var gr = new GlideRecord('sys_security_acl');
-        var qc = gr.addQuery('name', 'STARTSWITH', tableName);
-        for (var i = 1; i < tablesToCheck.length; i++) {
-            qc.addOrCondition('name', 'STARTSWITH', tablesToCheck[i]);
-        }
-        gr.addQuery('active', true);
-        gr.query();
-
-        while (gr.next()) {
-            var aclName = ctx.safeGetValue(gr, 'name');
-            var operation = ctx.safeGetValue(gr, 'operation');
-
-            // Determine which table this ACL is for
-            var aclTable = tableName;
-            for (var j = 0; j < tablesToCheck.length; j++) {
-                if (aclName.indexOf(tablesToCheck[j]) === 0) {
-                    aclTable = tablesToCheck[j];
-                    break;
-                }
-            }
-
-            var aclInfo = {
-                sys_id: gr.getUniqueValue(),
-                name: aclName,
-                table: aclTable,
-                inherited: (aclTable !== tableName),
-                operation: operation,
-                admin_overrides: ctx.safeGetValue(gr, 'admin_overrides') === 'true',
-                condition: ctx.safeGetValue(gr, 'condition') ? true : false
-            };
-            acls.push(aclInfo);
-
-            if (operation && aclsByOperation.hasOwnProperty(operation)) {
-                aclsByOperation[operation]++;
-            }
-        }
-
-        // Add to category
-        ctx.addCategoryItems('integration', 'acl', 'ACLs', acls, {
-            table: 'sys_security_acl',
-            icon: 'fa-lock',
-            color: '#dc3545'
-        });
-
-        ctx.metrics.acls = acls;
-        ctx.metrics.acl_count = acls.length;
-        ctx.metrics.acl_direct_count = acls.filter(function(a) {
-            return !a.inherited;
-        }).length;
-        ctx.metrics.acl_inherited_count = acls.filter(function(a) {
-            return a.inherited;
-        }).length;
-        ctx.metrics.acls_by_operation = aclsByOperation;
-
-        // Check for missing ACLs (only warn if no ACL at all in hierarchy)
-        if (aclsByOperation.read === 0) {
-            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
-                record_table: 'sys_security_acl',
-                record_filter: 'nameSTARTSWITH' + tableName,
-                category: 'security'
-            });
-        }
-        if (aclsByOperation.write === 0) {
-            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
-                record_table: 'sys_security_acl',
-                record_filter: 'nameSTARTSWITH' + tableName,
-                category: 'security'
-            });
-        }
     },
 
     /**

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHCheckSecurity</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHCheckSecurity</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHCheckSecurity - Check for security-related issues
+ * Analyzes ACLs (Access Control Lists) for the table
+ */
+var FHCheckSecurity = Class.create();
+FHCheckSecurity.prototype = {
+
+    /**
+     * Execute the check
+     * @param {Object} ctx - Analysis context (FHAnalysisContext)
+     */
+    execute: function(ctx) {
+        if (!ctx.metrics.table_exists) return;
+
+        // Register the security category
+        ctx.registerCategory('security', 'Security', 'fa-shield-alt');
+
+        // Get tables to check from context (uses centralized logic)
+        var tablesToCheck = ctx.getTablesToCheck();
+        ctx.metrics.security_tables_checked = tablesToCheck;
+
+        this._checkACLs(ctx, tablesToCheck);
+    },
+
+    /**
+     * Check ACLs for this table (including inherited from parent tables)
+     * @private
+     * @param {Object} ctx - Analysis context
+     * @param {Array} tablesToCheck - Tables to check
+     */
+    _checkACLs: function(ctx, tablesToCheck) {
+        var tableName = ctx.getTableName();
+        var acls = [];
+        var aclsByOperation = {
+            read: 0,
+            write: 0,
+            create: 0,
+            delete: 0
+        };
+
+        // Build query for ACLs on any table in hierarchy
+        var gr = new GlideRecord('sys_security_acl');
+        var qc = gr.addQuery('name', 'STARTSWITH', tableName);
+        for (var i = 1; i < tablesToCheck.length; i++) {
+            qc.addOrCondition('name', 'STARTSWITH', tablesToCheck[i]);
+        }
+        gr.addQuery('active', true);
+        gr.query();
+
+        while (gr.next()) {
+            var aclName = ctx.safeGetValue(gr, 'name');
+            var operation = ctx.safeGetValue(gr, 'operation');
+
+            // Determine which table this ACL is for
+            var aclTable = tableName;
+            for (var j = 0; j < tablesToCheck.length; j++) {
+                if (aclName.indexOf(tablesToCheck[j]) === 0) {
+                    aclTable = tablesToCheck[j];
+                    break;
+                }
+            }
+
+            var aclInfo = {
+                sys_id: gr.getUniqueValue(),
+                name: aclName,
+                table: aclTable,
+                inherited: (aclTable !== tableName),
+                operation: operation,
+                admin_overrides: ctx.safeGetValue(gr, 'admin_overrides') === 'true',
+                condition: ctx.safeGetValue(gr, 'condition') ? true : false
+            };
+            acls.push(aclInfo);
+
+            if (operation && aclsByOperation.hasOwnProperty(operation)) {
+                aclsByOperation[operation]++;
+            }
+        }
+
+        // Add to security category
+        ctx.addCategoryItems('security', 'acl', 'ACLs', acls, {
+            table: 'sys_security_acl',
+            icon: 'fa-lock',
+            color: '#dc3545'
+        });
+
+        ctx.metrics.acls = acls;
+        ctx.metrics.acl_count = acls.length;
+        ctx.metrics.acl_direct_count = acls.filter(function(a) {
+            return !a.inherited;
+        }).length;
+        ctx.metrics.acl_inherited_count = acls.filter(function(a) {
+            return a.inherited;
+        }).length;
+        ctx.metrics.acls_by_operation = aclsByOperation;
+
+        // Check for missing ACLs (only warn if no ACL at all in hierarchy)
+        if (aclsByOperation.read === 0) {
+            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'nameSTARTSWITH' + tableName,
+                category: 'security'
+            });
+        }
+        if (aclsByOperation.write === 0) {
+            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
+                record_table: 'sys_security_acl',
+                record_filter: 'nameSTARTSWITH' + tableName,
+                category: 'security'
+            });
+        }
+    },
+
+    type: 'FHCheckSecurity'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-04 09:00:00</sys_created_on>
+        <sys_id>3f5a6b8c83def21083e1b4a6feaad3ef</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHCheckSecurity</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_3f5a6b8c83def21083e1b4a6feaad3ef</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-04 09:00:00</sys_updated_on>
+    </sys_script_include>
+</record_update>
+

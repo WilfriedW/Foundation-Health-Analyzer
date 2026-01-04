@@ -24,6 +24,7 @@ var FHCheckRegistry = {
             new FHCheckTable(),
             new FHCheckIntegration(),
             new FHCheckAutomation(),
+            new FHCheckSecurity(),
         ];
     }
 };]]></script>

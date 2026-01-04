@@ -133,14 +133,35 @@
                 items.push({ type: 'Transform Maps', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map', icon: 'fa-exchange-alt', color: '#17a2b8' });
             });
         }
-        if (metrics.acls) {
-            metrics.acls.forEach(function(acl) {
-                items.push({ type: 'ACLs', name: acl.name, active: acl.active !== false, sys_id: acl.sys_id, table: 'sys_security_acl', icon: 'fa-lock', color: '#dc3545' });
-            });
-        }
         if (metrics.rest_apis) {
             metrics.rest_apis.forEach(function(api) {
                 items.push({ type: 'REST APIs', name: api.name, active: api.active !== false, sys_id: api.sys_id, table: 'sys_ws_operation', icon: 'fa-plug', color: '#28a745' });
+            });
+        }
+        
+        return items;
+    };
+
+    // ==================== SECURITY ITEMS ====================
+    
+    // Get all security items from metrics (ACLs)
+    c.getSecurityItems = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.acls) {
+            metrics.acls.forEach(function(acl) {
+                items.push({ 
+                    type: 'ACL', 
+                    name: acl.name, 
+                    active: true, // ACLs queried are always active
+                    sys_id: acl.sys_id, 
+                    table: 'sys_security_acl', 
+                    icon: 'fa-lock', 
+                    color: '#dc3545',
+                    operation: acl.operation,
+                    inherited: acl.inherited
+                });
             });
         }
         
@@ -224,6 +245,13 @@
         search: ''
     };
 
+    // Filters for security tab
+    c.securityFilter = {
+        operation: 'all',
+        inherited: 'all',
+        search: ''
+    };
+
     // Cache for types (prevents infinite digest loop)
     c._automationTypesCache = null;
     c._integrationTypesCache = null;
@@ -254,6 +282,20 @@
         });
         c._integrationTypesCache = Object.keys(types);
         return c._integrationTypesCache;
+    };
+
+    // Get unique security types (cached)
+    c.getSecurityTypes = function() {
+        if (c._securityTypesCache !== null) {
+            return c._securityTypesCache;
+        }
+        var items = c.getSecurityItems();
+        var types = {};
+        items.forEach(function(item) {
+            if (item.type) types[item.type] = true;
+        });
+        c._securityTypesCache = Object.keys(types);
+        return c._securityTypesCache;
     };
 
     // Get filtered automation items
@@ -316,6 +358,36 @@
         return items;
     };
 
+    // Get filtered security items
+    c.getFilteredSecurityItems = function() {
+        var items = c.getSecurityItems();
+        
+        // Filter by operation
+        if (c.securityFilter.operation !== 'all') {
+            items = items.filter(function(item) {
+                return item.operation === c.securityFilter.operation;
+            });
+        }
+        
+        // Filter by inherited
+        if (c.securityFilter.inherited !== 'all') {
+            var isInherited = c.securityFilter.inherited === 'inherited';
+            items = items.filter(function(item) {
+                return item.inherited === isInherited;
+            });
+        }
+        
+        // Filter by search
+        if (c.securityFilter.search) {
+            var search = c.securityFilter.search.toLowerCase();
+            items = items.filter(function(item) {
+                return item.name.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return items;
+    };
+
     // Get type badge class (color coding)
     c.getTypeBadgeClass = function(type) {
         var classes = {
@@ -338,6 +410,11 @@
     // Reset integration filter
     c.resetIntegrationFilter = function() {
         c.integrationFilter = { type: 'all', status: 'all', search: '' };
+    };
+
+    // Reset security filter
+    c.resetSecurityFilter = function() {
+        c.securityFilter = { operation: 'all', inherited: 'all', search: '' };
     };
 
     // Open record
@@ -1195,6 +1272,10 @@
         <i class="fa fa-exchange"></i> ${Integrations}
         <span class="badge">{{c.getIntegrationItems().length}}</span>
       </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'security'}" ng-click="c.setActiveTab('security')" ng-if="c.getSecurityItems().length > 0">
+        <i class="fa fa-shield-alt"></i> ${Security}
+        <span class="badge">{{c.getSecurityItems().length}}</span>
+      </button>
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'ldap'}" ng-click="c.setActiveTab('ldap')" ng-if="c.hasLdapAnalysis()">
         <i class="fa fa-address-book"></i> ${LDAP}
         <span class="badge">{{c.getLdapAttributeMappings().length}}</span>
@@ -1509,6 +1590,80 @@
       </div>
     </div>
   </div>
+
+    <!-- ==================== SECURITY TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'security'">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-shield-alt"></i> ${Security Items} ({{c.getSecurityItems().length}})</h4>
+        </div>
+        
+        <!-- Filter Bar -->
+        <div class="fha-filter-bar" ng-if="c.getSecurityItems().length > 0">
+          <div class="fha-filter-group">
+            <label>${Operation}:</label>
+            <select ng-model="c.securityFilter.operation">
+              <option value="all">${All Operations}</option>
+              <option value="read">${Read}</option>
+              <option value="write">${Write}</option>
+              <option value="create">${Create}</option>
+              <option value="delete">${Delete}</option>
+            </select>
+          </div>
+          <div class="fha-filter-group">
+            <label>${Inherited}:</label>
+            <select ng-model="c.securityFilter.inherited">
+              <option value="all">${All}</option>
+              <option value="direct">${Direct}</option>
+              <option value="inherited">${Inherited}</option>
+            </select>
+          </div>
+          <div class="fha-filter-group fha-filter-search">
+            <label>${Search}:</label>
+            <input type="text" ng-model="c.securityFilter.search" placeholder="${Filter by name...}">
+          </div>
+          <button class="fha-filter-reset" ng-click="c.resetSecurityFilter()">
+            <i class="fa fa-refresh"></i> ${Reset}
+          </button>
+          <span class="fha-filter-count">
+            {{c.getFilteredSecurityItems().length}} / {{c.getSecurityItems().length}} ${items}
+          </span>
+        </div>
+        
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getSecurityItems().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="150">${Operation}</th>
+                <th>${Name}</th>
+                <th width="120">${Inherited}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="item in c.getFilteredSecurityItems()">
+                <td><span class="fha-type-badge">{{item.operation || 'N/A'}}</span></td>
+                <td>{{item.name}}</td>
+                <td>
+                  <span class="fha-status-badge" ng-class="item.inherited ? 'inherited' : 'direct'">
+                    {{item.inherited ? '${Inherited}' : '${Direct}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="c.getSecurityItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No security items found for this table.}</p>
+        </div>
+      </div>
+    </div>
 
     <!-- ==================== LDAP TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'ldap'">
