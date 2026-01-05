@@ -163,10 +163,18 @@ FHScanUtils.prototype = {
      */
     addIssueUnlessSnc: function(ctx, code, message, severity, metadata, record) {
         try {
-            if (ctx.options.ignore_servicenow_records && record && this.isSncRecord && this.isSncRecord(record)) {
-                return;
+            var ignoreSnc = false;
+            if (ctx && typeof ctx.isIgnoreSncRecordsEnabled === 'function') {
+                ignoreSnc = ctx.isIgnoreSncRecordsEnabled();
+            } else if (ctx && ctx.options) {
+                ignoreSnc = ctx.options.ignore_servicenow_records === true;
             }
-        } catch (e) {}
+            if (ignoreSnc && record && this.isSncRecord && this.isSncRecord(record)) {
+                return; // skip SNC-only records
+            }
+        } catch (e) {
+            // continue to addIssue
+        }
         if (ctx && ctx.addIssue) {
             ctx.addIssue(code, message, severity, metadata);
         }
@@ -267,8 +275,17 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
             item.record_type = meta.record_type || 'generic';
 
             // ignore SNC records if enabled in ctx and helper exists
-            if (ctx && typeof ctx.isIgnoreSncRecordsEnabled === 'function' && ctx.isIgnoreSncRecordsEnabled() &&
-                this.utils && typeof this.utils.isSncRecord === 'function' && this.utils.isSncRecord(item)) {
+            var ignoreSnc = false;
+            try {
+                if (ctx && typeof ctx.isIgnoreSncRecordsEnabled === 'function') {
+                    ignoreSnc = ctx.isIgnoreSncRecordsEnabled();
+                } else if (ctx && ctx.options) {
+                    ignoreSnc = ctx.options.ignore_servicenow_records === true;
+                }
+            } catch (ix) {
+                ignoreSnc = false;
+            }
+            if (ignoreSnc && typeof this.isSncRecord === 'function' && this.isSncRecord(item)) {
                 continue;
             }
 
@@ -328,8 +345,11 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
     }
 
     // Add metrics/category via helper (assumed present)
-    if (this.utils && typeof this.utils.addCategoryAndMetrics === 'function') {
-        this.utils.addCategoryAndMetrics(ctx, 'automation', meta.record_type || 'generic', meta.displayName || (meta.record_type || 'Generic'), results, {
+    var categoryKey = meta.categoryKey || meta.category || 'automation';
+    var itemKey = meta.itemKey || meta.record_type || 'generic';
+    var label = meta.displayName || itemKey || 'Items';
+    if (typeof this.addCategoryAndMetrics === 'function') {
+        this.addCategoryAndMetrics(ctx, categoryKey, itemKey, label, results, {
             table: meta.record_table || tableToUse,
             icon: meta.icon || 'fa-cube',
             color: meta.color || '#6c757d'
