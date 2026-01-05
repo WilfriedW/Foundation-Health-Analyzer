@@ -1224,8 +1224,11 @@
 
       <!-- Results Panel -->
       <div class="fha-card" ng-if="c.result">
-        <div class="fha-card-header">
-          <h4><i class="fa fa-chart-bar"></i> ${Analysis Results}</h4>
+        <div class="fha-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <h4 style="margin:0;"><i class="fa fa-chart-bar"></i> ${Analysis Results}</h4>
+          <button class="fha-btn-primary" ng-if="c.analysisId" ng-click="c.viewDetails(c.analysisId)" style="padding:8px 14px;font-size:13px;">
+            <i class="fa fa-arrow-right"></i> ${View Full Details}
+          </button>
         </div>
         <div class="fha-card-body">
           
@@ -1301,12 +1304,6 @@
             </div>
           </div>
 
-          <!-- View Details Button -->
-          <div style="margin-top: 20px; text-align: right;" ng-if="c.analysisId">
-            <button class="fha-btn-primary" ng-click="c.viewDetails(c.analysisId)">
-              <i class="fa fa-arrow-right"></i> ${View Full Details}
-            </button>
-          </div>
         </div>
       </div>
       </div>

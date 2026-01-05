@@ -12,6 +12,7 @@
     c.activeTab = 'overview';
   c.expandedSections = { fields: false, business_rules: false, automation: false, integration: false };
   c.items = { automation: [], integration: [], security: [], business_rules: [], table_summary: null };
+  c.catItems = { table: {}, automation: {}, integration: {}, security: {}, ldap: {} };
   c.automationFilter = { type: 'all', status: 'all', search: '' };
   c.integrationFilter = { type: 'all', status: 'all', search: '' };
   c.securityFilter = { operation: 'all', inherited: 'all', search: '' };
@@ -133,6 +134,32 @@ function getCatItem(catId, typeId) {
   return null;
 }
 
+  function mapCategory(categoryId) {
+    var cats = c.getCategories();
+    var cat = cats[categoryId];
+    var out = {};
+    if (!cat || !cat.items) return out;
+    cat.items.forEach(function(it) {
+      out[it.type] = out[it.type] || [];
+      var records = it.records || [];
+      records.forEach(function(rec) {
+        out[it.type].push(angular.extend({
+          item_type: it.type,
+          item_label: it.label || it.itemLabel,
+          item_icon: it.icon || it.itemIcon,
+          item_color: it.color || it.itemColor
+        }, rec));
+      });
+      // also expose counts if provided
+      out[it.type].count = it.count || (it.records ? it.records.length : out[it.type].length);
+      out[it.type].active_count = it.active_count || 0;
+      out[it.type].inactive_count = it.inactive_count || 0;
+      out[it.type].direct_count = it.direct_count || 0;
+      out[it.type].inherited_count = it.inherited_count || 0;
+    });
+    return out;
+  }
+
   // Precompute once when result is ready
   c.buildAll = function() {
     c.items.automation = c.buildAutomationItems();
@@ -140,20 +167,25 @@ function getCatItem(catId, typeId) {
     c.items.security = c.buildSecurityItems();
     c.items.business_rules = c.getBusinessRules();
     c.items.table_summary = c.getTableSummary();
-		
-		var tableSummary = getCatItem('table', 'table_summary');
-				var customFields = getCatItem('table', 'custom_fields');
 
-c.summary = {
-  record_count: (tableSummary && tableSummary.records && tableSummary.records[0] && tableSummary.records[0].record_count) || 0,
-	cf: (customFields && customFields.records && customFields.records[0] && customFields.records[0].count) || 0,
-  br: (getCatItem('automation', 'business_rules')) || {},
-  cs: (getCatItem('automation', 'client_scripts')) || {},
-	sj: (getCatItem('automation', 'scheduled_job')) || {},
+    // Map categories by type -> array of records
+    c.catItems.table = mapCategory('table');
+    c.catItems.automation = mapCategory('automation');
+    c.catItems.integration = mapCategory('integration');
+    c.catItems.security = mapCategory('security');
+    c.catItems.ldap = mapCategory('ldap');
 
-	test: (getCatItem('table', 'table_summary')) || {},
+    var tableSummary = getCatItem('table', 'table_summary');
+    var customFields = getCatItem('table', 'custom_fields');
+    var brItem = getCatItem('automation', 'business_rules');
+    var csItem = getCatItem('automation', 'client_scripts');
 
-};
+    c.summary = {
+      record_count: (tableSummary && tableSummary.records && tableSummary.records[0] && tableSummary.records[0].record_count) || 0,
+      cf: (customFields && customFields.records && customFields.records[0] && customFields.records[0].count) || 0,
+      br: brItem || {},
+      cs: csItem || {}
+    };
   };
 
   // Initial build if data preloaded
@@ -1081,8 +1113,8 @@ c.summary = {
         <span class="badge">{{c.result.issues.length}}</span>
       </button>
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'table'}" ng-click="c.setActiveTab('table')">
-        <i class="fa fa-columns"></i> ${Tables}
-        <span class="badge">{{c.items.table.length}}</span>
+        <i class="fa fa-table"></i> ${Table}
+        <span class="badge">{{(c.catItems.table.table_summary || []).length || 0}}</span>
       </button>
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'automation'}" ng-click="c.setActiveTab('automation')">
         <i class="fa fa-cogs"></i> ${Automation}
@@ -1120,22 +1152,22 @@ c.summary = {
                   <td><strong>${Table Label}</strong></td>
                   <td>{{c.result.table_label}}</td>
                 </tr>
-                  <tr>
-  <td><strong>${Custom Fields}</strong></td>
-  <td>{{ c.summary.sj.count }}</td>
-</tr>
-   <tr>
-  <td><strong>${Record Count}</strong></td>
-  <td>{{ c.summary.record_count }}</td>
-</tr>
-<tr>
-  <td><strong>${Business Rules}</strong></td>
-  <td>{{ c.summary.br.count }} ({{ c.summary.br.active_count }} ${active})</td>
-</tr>
-<tr>
-  <td><strong>${Client Scripts}</strong></td>
-  <td>{{ c.summary.cs.count }} ({{ c.summary.cs.active_count }} ${active})</td>
-</tr>
+                <tr>
+                  <td><strong>${Record Count}</strong></td>
+                  <td>{{ c.summary.record_count }}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Custom Fields}</strong></td>
+                  <td>{{ c.summary.cf }}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Business Rules}</strong></td>
+                  <td>{{ c.summary.br.count || 0 }} ({{ c.summary.br.active_count || 0 }} ${active})</td>
+                </tr>
+                <tr>
+                  <td><strong>${Client Scripts}</strong></td>
+                  <td>{{ c.summary.cs.count || 0 }} ({{ c.summary.cs.active_count || 0 }} ${active})</td>
+                </tr>
               </table>
               </div>
             </div>
@@ -1221,38 +1253,86 @@ c.summary = {
     </div>
   </div>
 
-    <!-- ==================== Table TAB ==================== -->
+    <!-- ==================== TABLE TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'table'">
-      <div class="fha-card">
+      <!-- Table Summary -->
+      <div class="fha-card" ng-if="(c.catItems.table.table_summary || []).length > 0">
         <div class="fha-card-header">
-          <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>
-          </div>
-        <div class="fha-card-body" style="padding: 0;" ng-if="c.getCustomFields().length > 0">
+          <h4><i class="fa fa-table"></i> ${Table Summary}</h4>
+        </div>
+        <div class="fha-card-body" style="padding:0;">
           <table class="fha-data-table">
             <thead>
               <tr>
+                <th>${Table}</th>
+                <th>${Label}</th>
+                <th>${Exists}</th>
+                <th>${Record Count}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="t in c.catItems.table.table_summary track by t.table">
+                <td><code>{{t.table}}</code></td>
+                <td>{{t.label}}</td>
+                <td><span class="fha-status-badge" ng-class="t.exists ? 'active' : 'inactive'">{{t.exists ? '${Yes}' : '${No}'}}</span></td>
+                <td>{{t.record_count || 0}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Fields Summary -->
+      <div class="fha-card" ng-if="(c.catItems.table.fields_summary || []).length > 0">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-list"></i> ${Fields Summary}</h4>
+        </div>
+        <div class="fha-card-body" style="padding:0;">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${Table}</th>
+                <th>${Total Fields}</th>
+                <th>${Custom Fields}</th>
+                <th>${Mandatory}</th>
+                <th>${Max length > 255}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="f in c.catItems.table.fields_summary track by f.table">
+                <td><code>{{f.table}}</code></td>
+                <td>{{f.total_count || 0}}</td>
+                <td>{{f.custom_count || 0}}</td>
+                <td>{{f.mandatory_count || 0}}</td>
+                <td>{{f.max_length_over_255 || 0}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Custom Fields -->
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{(c.catItems.table.custom_fields || []).length}})</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="(c.catItems.table.custom_fields || []).length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${Table}</th>
                 <th>${Field Name}</th>
                 <th>${Label}</th>
                 <th>${Type}</th>
-                <th>${Fill Rate}</th>
                 <th>${Mandatory}</th>
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="field in c.getCustomFields()" 
-                  ng-class="{'fha-row-warning': field.fill_rate < 10 && field.fill_rate > 0, 'fha-row-danger': field.fill_rate === 0}">
+              <tr ng-repeat="field in c.catItems.table.custom_fields track by field.sys_id">
+                <td><code>{{field.table}}</code></td>
                 <td><code>{{field.name}}</code></td>
                 <td>{{field.label}}</td>
                 <td><span class="fha-type-badge">{{field.type}}</span></td>
-                <td>
-                  <div class="fha-fill-rate">
-                    <div class="fha-fill-bar" 
-                         ng-style="{'width': (field.fill_rate || 0) + 'px'}"
-                         ng-class="{'danger': field.fill_rate === 0, 'warning': field.fill_rate > 0 && field.fill_rate < 10, 'good': field.fill_rate >= 10}">
-                    </div>
-                    <span>{{field.fill_rate}}%</span>
-                  </div>
-                </td>
                 <td>
                   <span class="fha-status-badge" ng-class="field.mandatory ? 'active' : 'inactive'">
                     {{field.mandatory ? '${Yes}' : '${No}'}}
@@ -1262,12 +1342,45 @@ c.summary = {
             </tbody>
           </table>
         </div>
-        <div class="fha-card-body" ng-if="c.getCustomFields().length === 0" style="text-align: center; padding: 40px; color: #666;">
+        <div class="fha-card-body" ng-if="(c.catItems.table.custom_fields || []).length === 0" style="text-align: center; padding: 40px; color: #666;">
           <i class="fa fa-info-circle fa-2x"></i>
-          <p style="margin-top: 10px;">${No custom fields found on this table.}</p>
+          <p style="margin-top: 10px;">${No custom fields found for this table.}</p>
+        </div>
+      </div>
+
+      <!-- Reference Fields -->
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-link"></i> ${Reference Fields} ({{(c.catItems.table.reference_fields || []).length}})</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="(c.catItems.table.reference_fields || []).length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${Table}</th>
+                <th>${Field}</th>
+                <th>${Label}</th>
+                <th>${Reference}</th>
+                <th>${Qual}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="ref in c.catItems.table.reference_fields track by ref.sys_id">
+                <td><code>{{ref.table}}</code></td>
+                <td><code>{{ref.name}}</code></td>
+                <td>{{ref.label}}</td>
+                <td><code>{{ref.reference}}</code></td>
+                <td>{{ref.reference_qual}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="(c.catItems.table.reference_fields || []).length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No reference fields found for this table.}</p>
+        </div>
       </div>
     </div>
-  </div>
 
     <!-- ==================== AUTOMATION TAB ==================== -->
     <div class="fha-tab-content" ng-show="c.activeTab === 'automation'">
