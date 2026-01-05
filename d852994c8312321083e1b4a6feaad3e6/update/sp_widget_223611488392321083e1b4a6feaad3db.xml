@@ -192,7 +192,6 @@
         return issue.record_table && issue.record_filter;
     };
 
-    // Get record count from message (extract number from message like "Table has 41 inactive...")
     c.getRecordCount = function(issue) {
         if (!issue.message) return '';
         var match = issue.message.match(/(\d+)/);
@@ -226,7 +225,6 @@
         return c.expandedSections[section] === true;
     };
 
-    // === Helpers basés sur categories ===
     c.getCategories = function() {
         return (c.result && c.result.categories) ? c.result.categories : {};
     };
@@ -239,7 +237,6 @@
         cat.items.forEach(function(it) {
             var records = it.records || [];
             records.forEach(function(rec) {
-                // enrichir chaque record avec le type d'item et le label
                 items.push(angular.extend({
                     item_type: it.type,
                     item_label: it.label || it.itemLabel,
@@ -252,7 +249,6 @@
     };
 
     c.getCustomFields = function() {
-        // Pas encore exposé dans categories -> retourne vide
         return [];
     };
 
@@ -262,7 +258,6 @@
         });
     };
 
-    // Vue Automation (flatten)
     c.getAutomationOverview = function() {
         var allowed = {
             scheduled_job: 'Scheduled Job',
@@ -284,7 +279,6 @@
         });
     };
 
-    // Vue Intégrations (flatten)
     c.getIntegrationsOverview = function() {
         var allowed = {
             data_source: 'Data Source',
@@ -301,7 +295,6 @@
         });
     };
 
-    // Vue Sécurité (ACLs)
     c.getSecurityOverview = function() {
         return c.getCategoryItems('security').filter(function(r) {
             return r.item_type === 'acl';
@@ -346,7 +339,6 @@
         }
     };
 
-    // Compte total par catégorie (somme des items)
     c.getCategoryTotalCount = function(categoryId) {
         var cats = c.getCategories();
         var cat = cats[categoryId];
@@ -1129,14 +1121,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 19:41:08</sys_created_on>
         <sys_id>223611488392321083e1b4a6feaad3db</sys_id>
-        <sys_mod_count>25</sys_mod_count>
+        <sys_mod_count>26</sys_mod_count>
         <sys_name>FHA Dashboard</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_223611488392321083e1b4a6feaad3db</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 01:55:40</sys_updated_on>
+        <sys_updated_on>2026-01-05 04:12:10</sys_updated_on>
         <template><![CDATA[<div class="fha-dashboard">
   
   <!-- Page Header -->
@@ -1201,6 +1193,12 @@
                        ng-class="t.include_ldap ? 'fha-option-enabled' : 'fha-option-disabled'">
                     <i class="fa" ng-class="t.include_ldap ? 'fa-check-circle' : 'fa-times-circle'"></i>
                     ${Include LDAP}
+                  </div>
+                          <!-- Include ServiceNow records -->
+                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px;"
+                       ng-class="t.include_snc_records ? 'fha-option-enabled' : 'fha-option-disabled'">
+                    <i class="fa" ng-class="t.include_snc_records ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    ${Include ServiceNow records}
                   </div>
                 </div>
               </div>
