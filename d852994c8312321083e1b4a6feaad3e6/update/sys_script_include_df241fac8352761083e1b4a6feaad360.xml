@@ -394,10 +394,10 @@ FHScanUtils.prototype = {
         var sncUsers = {
             'admin': true,
             'glide.maint': true,
-            'GUEST': true,
+            'guest': true,
             'system': true,
-            'don goodliffe': true,
             'maint': true,
+            'don goodliffe': true,
             'chris.henson': true
         };
         var created = (obj.sys_created_by || '').toLowerCase();
