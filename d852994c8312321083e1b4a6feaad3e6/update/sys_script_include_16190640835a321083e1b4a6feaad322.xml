@@ -16,8 +16,15 @@ FHCheckIntegration.prototype = {
         this.utils = new FHScanUtils();
     },
 
+    /**
+     * execute(ctx)
+     * Primary public entrypoint to execute automation checks.     *
+     * @param {Object} ctx - FHAnalysisContext
+     */
     execute: function(ctx) {
-        if (!ctx.isTableExists || !ctx.isTableExists()) return;
+       // if (!ctx.isTableExists || !ctx.isTableExists()) return;
+				if (!ctx) return;
+
 
         ctx.registerCategory('integration', 'Integrations', 'fa-plug');
         var tablesToCheck = ctx.getTablesToCheck();
@@ -27,17 +34,14 @@ FHCheckIntegration.prototype = {
         this._checkTransformMaps(ctx, tablesToCheck);
         this._checkRestMessages(ctx, tablesToCheck);
 
-        if (ctx.isDeepScanEnabled && ctx.isDeepScanEnabled()) {
-            this.optionsHandler.deepScanTransformMaps(ctx);
-        }
-
-        if (ctx.isAnalyzeReferencesEnabled && ctx.isAnalyzeReferencesEnabled()) {
+        if (ctx.isDeepScanEnabled()) 
+            this.optionsHandler.deepScanScripts(ctx);
+        
+        if (ctx.isAnalyzeReferencesEnabled())
             this.optionsHandler.analyzeIntegrationDependencies(ctx);
-        }
-
-        if (ctx.isLdapEnabled && ctx.isLdapEnabled()) {
+        
+        if (ctx.isLdapEnabled()) 
             this.optionsHandler.analyzeLdapConfiguration(ctx);
-        }
     },
 
     _checkDataSources: function(ctx, tablesToCheck) {
@@ -77,27 +81,27 @@ FHCheckIntegration.prototype = {
         try {
             var thirtyDaysAgo = new GlideDateTime();
             thirtyDaysAgo.addDaysUTC(-30);
-            
+
             var ga = new GlideAggregate('sys_import_set_run');
             ga.addQuery('set.table_name', tableName);
             ga.addAggregate('COUNT');
             ga.query();
             var importRunCount = 0;
             if (ga.next()) importRunCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
-            
+
             var failedGr = new GlideRecord('sys_import_set_run');
             failedGr.addQuery('set.table_name', tableName);
             failedGr.addQuery('state', 'error');
             failedGr.addQuery('sys_created_on', '>=', thirtyDaysAgo);
             failedGr.query();
             var failedCount = failedGr.getRowCount();
-            
+
             importSets.push({
                 table_name: tableName,
                 total_runs: importRunCount,
                 failed_runs_last_30_days: failedCount
             });
-            
+
             if (failedCount > 0) {
                 ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium', {
                     record_table: 'sys_import_set_run',
@@ -105,9 +109,8 @@ FHCheckIntegration.prototype = {
                     category: 'integration'
                 });
             }
-        } catch (e) {
-        }
-        
+        } catch (e) {}
+
         if (importSets.length > 0) {
             this.utils.addCategoryAndMetrics(ctx, 'integration', 'import_sets', 'Import Sets', importSets, {
                 table: 'sys_import_set_run',
@@ -188,13 +191,13 @@ FHCheckIntegration.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:21:25</sys_created_on>
         <sys_id>16190640835a321083e1b4a6feaad322</sys_id>
-        <sys_mod_count>13</sys_mod_count>
+        <sys_mod_count>16</sys_mod_count>
         <sys_name>FHCheckIntegration</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_16190640835a321083e1b4a6feaad322</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 20:55:31</sys_updated_on>
+        <sys_updated_on>2026-01-05 01:53:58</sys_updated_on>
     </sys_script_include>
 </record_update>

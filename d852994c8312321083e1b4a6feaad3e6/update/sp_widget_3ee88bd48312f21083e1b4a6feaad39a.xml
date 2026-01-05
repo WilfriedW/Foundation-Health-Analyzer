@@ -121,6 +121,17 @@
         }, r);
       });
   };
+	
+	// Helper pour récupérer un item de catégorie par type
+function getCatItem(catId, typeId) {
+  var cats = (c.result && c.result.categories) || {};
+  var cat = cats[catId];
+  if (!cat || !cat.items) return null;
+  for (var i = 0; i < cat.items.length; i++) {
+    if (cat.items[i].type === typeId) return cat.items[i];
+  }
+  return null;
+}
 
   // Precompute once when result is ready
   c.buildAll = function() {
@@ -129,6 +140,20 @@
     c.items.security = c.buildSecurityItems();
     c.items.business_rules = c.getBusinessRules();
     c.items.table_summary = c.getTableSummary();
+		
+		var tableSummary = getCatItem('table', 'table_summary');
+				var customFields = getCatItem('table', 'custom_fields');
+
+c.summary = {
+  record_count: (tableSummary && tableSummary.records && tableSummary.records[0] && tableSummary.records[0].record_count) || 0,
+	cf: (customFields && customFields.records && customFields.records[0] && customFields.records[0].count) || 0,
+  br: (getCatItem('automation', 'business_rules')) || {},
+  cs: (getCatItem('automation', 'client_scripts')) || {},
+	sj: (getCatItem('automation', 'scheduled_job')) || {},
+
+	test: (getCatItem('table', 'table_summary')) || {},
+
+};
   };
 
   // Initial build if data preloaded
@@ -966,14 +991,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>24</sys_mod_count>
+        <sys_mod_count>40</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 23:20:04</sys_updated_on>
+        <sys_updated_on>2026-01-05 00:34:36</sys_updated_on>
         <template><![CDATA[<div class="fha-results-page">
   
   <!-- Page Header -->
@@ -1055,9 +1080,9 @@
         <i class="fa fa-exclamation-circle"></i> ${Issues}
         <span class="badge">{{c.result.issues.length}}</span>
       </button>
-      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'fields'}" ng-click="c.setActiveTab('fields')">
-        <i class="fa fa-columns"></i> ${Fields}
-        <span class="badge">{{c.getCustomFields().length}}</span>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'table'}" ng-click="c.setActiveTab('table')">
+        <i class="fa fa-columns"></i> ${Tables}
+        <span class="badge">{{c.items.table.length}}</span>
       </button>
       <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'automation'}" ng-click="c.setActiveTab('automation')">
         <i class="fa fa-cogs"></i> ${Automation}
@@ -1095,18 +1120,22 @@
                   <td><strong>${Table Label}</strong></td>
                   <td>{{c.result.table_label}}</td>
                 </tr>
-                <tr>
-                  <td><strong>${Record Count}</strong></td>
-                  <td>{{(c.items.table_summary && c.items.table_summary.record_count) || 'N/A'}}</td>
-                </tr>
-                <tr>
-                  <td><strong>${Custom Fields}</strong></td>
-                  <td>{{c.getCustomFields().length || 0}}</td>
-                </tr>
-                <tr>
-                  <td><strong>${Business Rules}</strong></td>
-                  <td>{{c.getBusinessRuleCount()}} ({{c.getActiveBusinessRuleCount()}} ${active})</td>
-                </tr>
+                  <tr>
+  <td><strong>${Custom Fields}</strong></td>
+  <td>{{ c.summary.sj.count }}</td>
+</tr>
+   <tr>
+  <td><strong>${Record Count}</strong></td>
+  <td>{{ c.summary.record_count }}</td>
+</tr>
+<tr>
+  <td><strong>${Business Rules}</strong></td>
+  <td>{{ c.summary.br.count }} ({{ c.summary.br.active_count }} ${active})</td>
+</tr>
+<tr>
+  <td><strong>${Client Scripts}</strong></td>
+  <td>{{ c.summary.cs.count }} ({{ c.summary.cs.active_count }} ${active})</td>
+</tr>
               </table>
               </div>
             </div>
@@ -1192,8 +1221,8 @@
     </div>
   </div>
 
-    <!-- ==================== FIELDS TAB ==================== -->
-    <div class="fha-tab-content" ng-show="c.activeTab === 'fields'">
+    <!-- ==================== Table TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'table'">
       <div class="fha-card">
         <div class="fha-card-header">
           <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>

@@ -21,12 +21,9 @@ FHCheckSecurity.prototype = {
      * Security checks entrypoint. Requires table to exist.
      */
     execute: function(ctx) {
-        if (!ctx.isTableExists || !ctx.isTableExists()) return;
-
+        if (!ctx) return;
         ctx.registerCategory('security', 'Security', 'fa-shield-alt');
-
         var tablesToCheck = ctx.getTablesToCheck();
-
         this._checkACLs(ctx, tablesToCheck);
     },
 
@@ -35,10 +32,14 @@ FHCheckSecurity.prototype = {
      */
     _checkACLs: function(ctx, tablesToCheck) {
         var tableName = ctx.getTableName && ctx.getTableName();
-        tablesToCheck = tablesToCheck || [tableName];
 
         var acls = [];
-        var aclsByOperation = { read: 0, write: 0, create: 0, delete: 0 };
+        var aclsByOperation = {
+            read: 0,
+            write: 0,
+            create: 0,
+            delete: 0
+        };
 
         // Build a GlideRecord query for ACLs affecting the table or parents.
         var gr = new GlideRecord('sys_security_acl');
@@ -83,7 +84,6 @@ FHCheckSecurity.prototype = {
             }
         }
 
-        // Ajout via utilitaire pour homogénéiser le JSON
         this.utils.addCategoryAndMetrics(ctx, 'security', 'acl', 'ACLs', acls, {
             table: 'sys_security_acl',
             icon: 'fa-lock',
@@ -107,19 +107,18 @@ FHCheckSecurity.prototype = {
     },
 
     type: 'FHCheckSecurity'
-};
-]]></script>
+};]]></script>
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 22:18:10</sys_created_on>
         <sys_id>65cdccfc831a761083e1b4a6feaad30c</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>1</sys_mod_count>
         <sys_name>FHCheckSecurity</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_65cdccfc831a761083e1b4a6feaad30c</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 22:18:10</sys_updated_on>
+        <sys_updated_on>2026-01-05 01:57:07</sys_updated_on>
     </sys_script_include>
 </record_update>

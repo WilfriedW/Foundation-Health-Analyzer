@@ -34,7 +34,6 @@ FHScanUtils.prototype = {
         }
     },
 
-    // === Memoized single record get by sys_id ===
     getRecordBySysId: function(table, sysId, fields) {
         if (!table || !sysId) return null;
         this.cache.bySysId[table] = this.cache.bySysId[table] || {};
@@ -338,7 +337,6 @@ FHScanUtils.prototype = {
         };
 
         try {
-            // Normalize items array
             var itemsArray = items || [];
             if (!Array.isArray(itemsArray)) itemsArray = [itemsArray];
 
@@ -347,7 +345,7 @@ FHScanUtils.prototype = {
                 ctx.registerCategory(categoryKey, label || categoryKey, options.icon || 'fa-folder');
             }
 
-            // Add items to category (this handles all counts internally)
+            // Add items to category
             if (ctx.addCategoryItems && typeof ctx.addCategoryItems === 'function') {
                 ctx.addCategoryItems(categoryKey, itemKey, label, itemsArray, {
                     table: options.table,
@@ -362,18 +360,18 @@ FHScanUtils.prototype = {
             }
 
             // Special handling for table_summary: store exists and record_count in category metadata
-            if (itemKey === 'table_summary' && itemsArray.length === 1) {
-                var summary = itemsArray[0];
-                var category = ctx.getCategory && ctx.getCategory(categoryKey);
-                if (category) {
-                    if (typeof summary.exists !== 'undefined') {
-                        category.exists = !!summary.exists;
-                    }
-                    if (typeof summary.record_count !== 'undefined') {
-                        category.record_count = summary.record_count;
-                    }
-                }
-            }
+            // if (itemKey === 'table_summary' && itemsArray.length === 1) {
+            //     var summary = itemsArray[0];
+            //     var category = ctx.getCategory && ctx.getCategory(categoryKey);
+            //     if (category) {
+            //         if (typeof summary.exists !== 'undefined') {
+            //             category.exists = !!summary.exists;
+            //         }
+            //         if (typeof summary.record_count !== 'undefined') {
+            //             category.record_count = summary.record_count;
+            //         }
+            //     }
+            // }
 
         } catch (e) {
             gs.error('addCategoryAndMetrics error: ' + e);
@@ -391,13 +389,13 @@ FHScanUtils.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 18:06:27</sys_created_on>
         <sys_id>df241fac8352761083e1b4a6feaad360</sys_id>
-        <sys_mod_count>3</sys_mod_count>
+        <sys_mod_count>5</sys_mod_count>
         <sys_name>FHScanUtils</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_df241fac8352761083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 21:26:37</sys_updated_on>
+        <sys_updated_on>2026-01-05 02:11:12</sys_updated_on>
     </sys_script_include>
 </record_update>

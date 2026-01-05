@@ -21,7 +21,6 @@ FHOptionsHandler.prototype = {
      * Called by other checks when deep scan option is enabled.
      */
     deepScanScripts: function(ctx) {
-        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
         var sampleLimit = ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0;
 
@@ -32,7 +31,6 @@ FHOptionsHandler.prototype = {
             var scriptText = s.script || '';
             var scriptIssues = this.utils.analyzeScriptPatterns(scriptText, s.name, s.kind);
             for (var j=0;j<scriptIssues.length;j++) {
-                // Attach metadata
                 scriptIssues[j].record_table = s.record_table;
                 scriptIssues[j].record_sys_id = s.sys_id;
                 scriptIssues[j].category = 'automation';
@@ -40,8 +38,6 @@ FHOptionsHandler.prototype = {
             issues = issues.concat(scriptIssues);
         }
 
-        // Issues are added to ctx via addIssue
-        // Add each issue to context for consistent UI/records usage
         for (i=0;i<issues.length;i++) {
             var it = issues[i];
             ctx.addIssue(it.code || 'SCRIPT_ISSUE', it.message, it.severity || 'low', {
@@ -57,7 +53,6 @@ FHOptionsHandler.prototype = {
      * Kept as public for compatibility: deepScanAutomations(ctx)
      */
     deepScanAutomations: function(ctx) {
-        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
         var types = ['scheduled', 'transform_map', 'transform_entry', 'scripted_rest', 'business_rule', 'client_script'];
         var scripts = this.utils.scanScriptsForTables(tables, { types: types, sampleLimit: ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0 });
@@ -72,7 +67,6 @@ FHOptionsHandler.prototype = {
             }
             allIssues = allIssues.concat(scriptIssues);
         }
-        // Issues are added to ctx via addIssue
         for (i=0;i<allIssues.length;i++) {
             var issue = allIssues[i];
             ctx.addIssue(issue.code || 'AUTOMATION_SCRIPT_ISSUE', issue.message, issue.severity || 'low', {
@@ -85,10 +79,8 @@ FHOptionsHandler.prototype = {
 
     /**
      * deepScanTransformMaps(ctx)
-     * Kept for compatibility: analyze transform map scripts only
      */
     deepScanTransformMaps: function(ctx) {
-        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
         var scripts = this.utils.scanScriptsForTables(tables, { types: ['transform_map', 'transform_entry'] });
         var issues = [];
@@ -115,15 +107,10 @@ FHOptionsHandler.prototype = {
 
     /**
      * analyzeIntegrationDependencies(ctx)
-     * Simple placeholder that can be extended to use utils.getRecords/getRecordBySysId
      */
     analyzeIntegrationDependencies: function(ctx) {
-        // Example: check rest messages, transform maps and import sets referencing tables
-        if (!ctx.isTableExists || !ctx.isTableExists()) return;
         var tables = ctx.getTablesToCheck();
-        // Use utils to get rest scripts that reference the tables
         var scripts = this.utils.scanScriptsForTables(tables, { types: ['scripted_rest'] });
-        // reuse pattern analyzer
         var issues = [];
         for (var i=0;i<scripts.length;i++) {
             var s = scripts[i];
@@ -147,18 +134,14 @@ FHOptionsHandler.prototype = {
     },
 
     /**
-     * analyzeLdapConfiguration(ctx, tablesToCheck)
-     * Kept as public for compatibility. Uses memoized queries and is safe if LDAP tables do not exist.
+     * analyzeLdapConfiguration(ctx)
      */
     analyzeLdapConfiguration: function(ctx) {
-        if (!ctx.isTableExists || !ctx.isTableExists()) return;
-        
         // Register LDAP category if not exists
         ctx.registerCategory('ldap', 'LDAP', 'fa-sitemap');
         
         try {
             var ldapServers = this.utils.getRecords('ldap_server', function(gr){
-                // list configured LDAP servers
             }, ['name','host'], 0, 'ldap:all');
             
             if (ldapServers && ldapServers.length > 0) {
@@ -169,7 +152,6 @@ FHOptionsHandler.prototype = {
                 });
             }
         } catch (e) {
-            // Table may not exist, ignore
         }
     },
 
@@ -180,13 +162,13 @@ FHOptionsHandler.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 08:44:25</sys_created_on>
         <sys_id>268399a08392361083e1b4a6feaad34e</sys_id>
-        <sys_mod_count>2</sys_mod_count>
+        <sys_mod_count>3</sys_mod_count>
         <sys_name>FHOptionsHandler</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_268399a08392361083e1b4a6feaad34e</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-04 20:01:55</sys_updated_on>
+        <sys_updated_on>2026-01-05 01:53:06</sys_updated_on>
     </sys_script_include>
 </record_update>
