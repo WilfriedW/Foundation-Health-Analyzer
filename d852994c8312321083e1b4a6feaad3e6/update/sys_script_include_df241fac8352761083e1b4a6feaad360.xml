@@ -386,7 +386,7 @@ FHScanUtils.prototype = {
     },
 
     /**
-     * Check if a record is a ServiceNow base record (admin / glide.maint creation and not modified by others)
+     * Check if a record is a ServiceNow base record (OOTB not modified by non-SNC users)
      * @param {Object} obj - record with sys_created_by/sys_updated_by
      */
     isSncRecord: function(obj) {
@@ -404,6 +404,7 @@ FHScanUtils.prototype = {
         var updated = (obj.sys_updated_by || '').toLowerCase();
         var createdSNC = sncUsers[created];
         var updatedSNC = sncUsers[updated] || updated === '';
+        // Ignore only if created by SNC and never touched by non-SNC
         return createdSNC && (!updated || updatedSNC);
     },
 

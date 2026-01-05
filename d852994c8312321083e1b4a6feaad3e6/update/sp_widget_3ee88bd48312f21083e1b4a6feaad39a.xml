@@ -218,6 +218,11 @@ function getCatItem(catId, typeId) {
     }
   };
 
+  // Banner: ignoring SNC records
+  c.isIgnoringSnc = function() {
+    return c.result && c.result.options && c.result.options.ignore_snc_records === true;
+  };
+
   // Openers
   c.openRecord = function(table, sysId) {
     if (!table || !sysId) return;
@@ -1054,6 +1059,11 @@ function getCatItem(catId, typeId) {
     <button class="fha-btn fha-btn-secondary" ng-click="c.goBack()" style="margin-left: 20px;">
       <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
     </button>
+  </div>
+
+  <!-- SNC filter banner -->
+  <div class="alert alert-info" ng-if="c.isIgnoringSnc()" style="margin-bottom: 15px;">
+    <i class="fa fa-filter"></i> ${ServiceNow base records are ignored (created/updated by SNC only)}
   </div>
 
   <!-- Loading State -->
