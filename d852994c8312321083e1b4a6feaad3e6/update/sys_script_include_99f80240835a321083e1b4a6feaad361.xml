@@ -36,9 +36,9 @@ FHCheckTable.prototype = {
         this._checkClientScripts(ctx, tablesToCheck);
         this._checkCustomFields(ctx, tablesToCheck);
 
-        if (ctx.isDeepScanEnabled()) this.optionsHandler.deepScanScripts(ctx);
-        if (ctx.isAnalyzeReferencesEnabled()) this.optionsHandler.analyzeIntegrationDependencies(ctx);
-        if (ctx.isLdapEnabled()) this.optionsHandler.analyzeLdapConfiguration(ctx);
+        if (ctx.options.deep_scan) this.optionsHandler.deepScanScripts(ctx);
+        if (ctx.options.analyze_references) this.optionsHandler.analyzeIntegrationDependencies(ctx);
+        if (ctx.options.include_ldap) this.optionsHandler.analyzeLdapConfiguration(ctx);
     },
 
     /**
@@ -153,13 +153,6 @@ FHCheckTable.prototype = {
 
             summaries.push(summary);
 
-            if (summary.max_length_over_255 > 0) {
-                ctx.addIssue('LONG_TEXT_FIELDS', summary.max_length_over_255 + ' fields with max_length > 255 on "' + tableName + '".', 'low', {
-                    record_table: 'sys_dictionary',
-                    record_filter: 'name=' + tableName + '^max_length>255',
-                    category: 'table'
-                });
-            }
         }
 
         this.utils.addCategoryAndMetrics(ctx, 'table', 'fields_summary', 'Fields Summary', summaries, {
@@ -384,13 +377,13 @@ FHCheckTable.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:20:59</sys_created_on>
         <sys_id>99f80240835a321083e1b4a6feaad361</sys_id>
-        <sys_mod_count>51</sys_mod_count>
+        <sys_mod_count>54</sys_mod_count>
         <sys_name>FHCheckTable</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_99f80240835a321083e1b4a6feaad361</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 02:27:14</sys_updated_on>
+        <sys_updated_on>2026-01-05 10:00:54</sys_updated_on>
     </sys_script_include>
 </record_update>

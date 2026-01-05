@@ -26,16 +26,13 @@ FHAnalysisContext.prototype = {
 
         // Initialize options with defaults
         this.options = {
-            deep_scan: this._isTrue(config.deep_scan),
-            include_children_tables: this._isTrue(config.include_children_tables),
-            analyze_references: this._isTrue(config.analyze_references),
-            include_ldap: this._isTrue(config.include_ldap),
-            ignore_servicenow_records: this._isTrue(config.ignore_servicenow_records)
+            deep_scan: config.deep_scan,
+            include_children_tables: config.include_children_tables,
+            analyze_references: config.analyze_references,
+            include_ldap: config.include_ldap,
+            ignore_servicenow_records: config.ignore_servicenow_records
         };
-					gs.info('options '+ JSON.stringify(config));
 
-
-        // Initialize categories structure for standardized output
         this.categories = {};
 
         // Store execution metadata (duration, etc.) - minimal, no metrics structure
@@ -53,9 +50,9 @@ FHAnalysisContext.prototype = {
      * Check if a value is truthy (handles 'true', '1', true, 1)
      * @private
      */
-    _isTrue: function(val) {
-        return val === 'true' || val === '1' || val === true || val === 1;
-    },
+    // _isTrue: function(val) {
+    //     return val === 'true' || val === '1' || val === true || val === 1;
+    // },
 
     // ==================== OPTIONS HELPERS ====================
 
@@ -63,33 +60,33 @@ FHAnalysisContext.prototype = {
      * Check if deep scan is enabled
      * @returns {Boolean}
      */
-    isDeepScanEnabled: function() {
-        return this.options.deep_scan === true;
-    },
+    // isDeepScanEnabled: function() {
+    //     return this.options.deep_scan === true;
+    // },
 
-    /**
-     * Check if children tables should be included
-     * @returns {Boolean}
-     */
-    isIncludeChildrenEnabled: function() {
-        return this.options.include_children_tables === true;
-    },
+    // /**
+    //  * Check if children tables should be included
+    //  * @returns {Boolean}
+    //  */
+    // isIncludeChildrenEnabled: function() {
+    //     return this.options.include_children_tables === true;
+    // },
 
-    /**
-     * Check if reference analysis is enabled
-     * @returns {Boolean}
-     */
-    isAnalyzeReferencesEnabled: function() {
-        return this.options.analyze_references === true;
-    },
+    // /**
+    //  * Check if reference analysis is enabled
+    //  * @returns {Boolean}
+    //  */
+    // isAnalyzeReferencesEnabled: function() {
+    //     return this.options.analyze_references === true;
+    // },
 
-    /**
-     * Check if LDAP analysis is enabled
-     * @returns {Boolean}
-     */
-    isLdapEnabled: function() {
-        return this.options.include_ldap === true;
-    },
+    // /**
+    //  * Check if LDAP analysis is enabled
+    //  * @returns {Boolean}
+    //  */
+    // isLdapEnabled: function() {
+    //     return this.options.include_ldap === true;
+    // },
 
     /**
      * Check if ServiceNow base records should be ignored (created/admin or glide.maint and never updated by others)
@@ -144,8 +141,7 @@ FHAnalysisContext.prototype = {
                     }
                 }
             }
-        } catch (e) {
-        }
+        } catch (e) {}
 
         this._tableHierarchyCache = tables;
         return tables;
@@ -200,12 +196,13 @@ FHAnalysisContext.prototype = {
      * @returns {Array} Array of table names to check
      */
     getTablesToCheck: function() {
-        if (this._tablesToCheckCache !== null)
-            return this._tablesToCheckCache;
-        
-        var tables = this.getTableHierarchy().slice();
+        // if (this._tablesToCheckCache !== null)
+        //     return this._tablesToCheckCache;
 
-        if (this.isIncludeChildrenEnabled()) {
+        // var tables = this.getTableHierarchy().slice();
+        var tables = [];
+        tables.push(this.getTableName());
+        if (this.options.include_children_tables) {
             var children = this.getChildrenTables();
             children.forEach(function(child) {
                 if (tables.indexOf(child) === -1) {
@@ -446,13 +443,13 @@ FHAnalysisContext.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:27:30</sys_created_on>
         <sys_id>f17a0204835a321083e1b4a6feaad360</sys_id>
-        <sys_mod_count>23</sys_mod_count>
+        <sys_mod_count>32</sys_mod_count>
         <sys_name>FHAnalysisContext</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 04:27:53</sys_updated_on>
+        <sys_updated_on>2026-01-05 10:48:22</sys_updated_on>
     </sys_script_include>
 </record_update>

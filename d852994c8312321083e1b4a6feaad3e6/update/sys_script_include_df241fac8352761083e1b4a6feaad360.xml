@@ -62,256 +62,6 @@ FHScanUtils.prototype = {
         return out;
     },
 
-    // === Generic query with optional memoization ===
-    // buildQueryFn(gr) should modify the GlideRecord (addQuery, addNotNullQuery, setLimit, etc)
-    getRecords: function(table, buildQueryFn, fields, limit, cacheKey) {
-        cacheKey = cacheKey || table + '|' + (buildQueryFn ? '' : 'all');
-        if (this.cache.query[cacheKey]) return this.cache.query[cacheKey].slice(0);
-
-        var results = [];
-        var gr = new GlideRecord(table);
-        try {
-            if (typeof buildQueryFn === 'function') buildQueryFn(gr);
-            if (limit && typeof gr.setLimit === 'function') gr.setLimit(limit);
-            gr.query();
-            while (gr.next()) {
-                var obj = {
-                    sys_id: gr.getUniqueValue()
-                };
-                if (fields && Array.isArray(fields)) {
-                    for (var i = 0; i < fields.length; i++) {
-                        try {
-                            obj[fields[i]] = this.safeGet(gr, fields[i]);
-                        } catch (e) {
-                            obj[fields[i]] = '';
-                        }
-                    }
-                } else {
-                    // minimal shape
-                    obj.name = this.safeGet(gr, 'name') || '';
-                }
-                results.push(obj);
-            }
-        } catch (e) {
-            // swallow errors to keep scanning resilient
-            results = [];
-        }
-        this.cache.query[cacheKey] = results;
-        return results.slice(0);
-    },
-
-    // Helper to build an "IN" query safely for an array of values (prevents empty IN)
-    addInQuery: function(gr, field, values) {
-        if (!values || !values.length) return;
-        if (values.length === 1) {
-            gr.addQuery(field, values[0]);
-        } else {
-            var qc = gr.addQuery(field, values[0]);
-            for (var i = 1; i < values.length; i++) qc.addOrCondition(field, values[i]);
-        }
-    },
-
-    // === Centralized script scanning: returns array of {kind, sys_id, name, script, source_table, record_table, ...} ===
-    scanScriptsForTables: function(tables, options) {
-        options = options || {};
-        var types = options.types || ['business_rule', 'client_script', 'scheduled', 'transform_map', 'transform_entry', 'scripted_rest'];
-        var results = [];
-
-        // Business Rules (sys_script)
-        if (types.indexOf('business_rule') > -1) {
-            var brs = this.getRecords('sys_script', function(gr) {
-                gr.addQuery('collection', 'IN', tables.join(','));
-                gr.addQuery('active', true);
-                gr.addNotNullQuery('script');
-            }, ['name', 'script', 'collection'], 0, 'brs:' + tables.join(','));
-            for (var i = 0; i < brs.length; i++) {
-                results.push({
-                    kind: 'Business Rule',
-                    record_table: 'sys_script',
-                    sys_id: brs[i].sys_id,
-                    name: brs[i].name || 'Unnamed',
-                    script: brs[i].script || '',
-                    source_table: brs[i].collection || ''
-                });
-            }
-        }
-
-        // Client Scripts (sys_script_client)
-        if (types.indexOf('client_script') > -1) {
-            var css = this.getRecords('sys_script_client', function(gr) {
-                gr.addQuery('table', 'IN', tables.join(','));
-                gr.addQuery('active', true);
-                gr.addNotNullQuery('script');
-            }, ['name', 'script', 'table'], 0, 'csc:' + tables.join(','));
-            for (var j = 0; j < css.length; j++) {
-                results.push({
-                    kind: 'Client Script',
-                    record_table: 'sys_script_client',
-                    sys_id: css[j].sys_id,
-                    name: css[j].name || 'Unnamed',
-                    script: css[j].script || '',
-                    source_table: css[j].table || ''
-                });
-            }
-        }
-
-        // Scheduled jobs with scripts (sysauto_script)
-        if (types.indexOf('scheduled') > -1) {
-            var jobs = this.getRecords('sysauto_script', function(gr) {
-                gr.addNotNullQuery('script');
-            }, ['name', 'script', 'active'], options.sampleLimit || 0, 'jobs:script');
-            for (var k = 0; k < jobs.length; k++) {
-                results.push({
-                    kind: 'Scheduled Job',
-                    record_table: 'sysauto_script',
-                    sys_id: jobs[k].sys_id,
-                    name: jobs[k].name || 'Unnamed',
-                    script: jobs[k].script || '',
-                    active: jobs[k].active || 'false'
-                });
-            }
-        }
-
-        // Transform maps (sys_transform_map) -> map scripts (onBefore/onAfter) and transform entries
-        if (types.indexOf('transform_map') > -1 || types.indexOf('transform_entry') > -1) {
-            var tms = this.getRecords('sys_transform_map', function(gr) {
-                gr.addQuery('target_table', 'IN', tables.join(','));
-                gr.addNotNullQuery('script');
-            }, ['name', 'script', 'target_table', 'active'], 0, 'transform:map:' + tables.join(','));
-            for (var m = 0; m < tms.length; m++) {
-                results.push({
-                    kind: 'Transform Map',
-                    record_table: 'sys_transform_map',
-                    sys_id: tms[m].sys_id,
-                    name: tms[m].name || 'Unnamed',
-                    script: tms[m].script || '',
-                    source_table: tms[m].target_table || ''
-                });
-            }
-            // transform entries (map scripts on field/transform)
-            if (types.indexOf('transform_entry') > -1) {
-                var entries = this.getRecords('sys_transform_entry', function(gr) {
-                    gr.addQuery('map.target_table', 'IN', tables.join(','));
-                    gr.addNotNullQuery('script');
-                }, ['name', 'script', 'map'], 0, 'transform:entry:' + tables.join(','));
-                for (var e = 0; e < entries.length; e++) {
-                    results.push({
-                        kind: 'Transform Entry',
-                        record_table: 'sys_transform_entry',
-                        sys_id: entries[e].sys_id,
-                        name: entries[e].name || 'Unnamed',
-                        script: entries[e].script || '',
-                        source_map: entries[e].map || ''
-                    });
-                }
-            }
-        }
-
-        // Scripted REST / Scripted web services (sys_ws_operation / rest_operation)
-        if (types.indexOf('scripted_rest') > -1) {
-            var rps = this.getRecords('sys_ws_operation', function(gr) {
-                // operation_script can contain table names or API references
-                gr.addNotNullQuery('operation_script');
-            }, ['name', 'operation_script', 'http_method', 'active'], 0, 'rest:scripted');
-            for (var r = 0; r < rps.length; r++) {
-                var scriptText = rps[r].operation_script || '';
-                // Only include if any table name appears in script
-                var include = false;
-                for (var t = 0; t < tables.length; t++) {
-                    if (scriptText.indexOf(tables[t]) > -1) {
-                        include = true;
-                        break;
-                    }
-                }
-                if (include) {
-                    results.push({
-                        kind: 'Scripted REST',
-                        record_table: 'sys_ws_operation',
-                        sys_id: rps[r].sys_id,
-                        name: rps[r].name || 'Unnamed',
-                        script: scriptText,
-                        http_method: rps[r].http_method || ''
-                    });
-                }
-            }
-        }
-
-        return results;
-    },
-
-    // === Script pattern analysis ===
-    // Returns list of issue objects: { type, name, code, message, severity }
-    analyzeScriptPatterns: function(script, name, scriptType) {
-        var issues = [];
-        if (!script || !script.length) return issues;
-
-        // Normalize for basic checks
-        var s = String(script);
-
-        // 1) GlideRecord query without limit pattern
-        if (s.indexOf('GlideRecord') > -1 && s.indexOf('.query(') > -1) {
-            if (s.indexOf('setLimit(') === -1 && s.indexOf('.get(') === -1) {
-                if (s.indexOf('while') > -1 && s.indexOf('.next()') > -1) {
-                    issues.push({
-                        type: scriptType,
-                        name: name,
-                        code: 'QUERY_NO_LIMIT',
-                        message: scriptType + ' "' + name + '" contains a GlideRecord query without setLimit() or explicit get().',
-                        severity: 'medium'
-                    });
-                }
-            }
-        }
-
-        // 2) Hardcoded sys_id (32 hex)
-        var sysIdPattern = /['"]\s*[a-fA-F0-9]{32}\s*['"]/g;
-        var sysIdMatches = s.match(sysIdPattern);
-        if (sysIdMatches && sysIdMatches.length > 0) {
-            issues.push({
-                type: scriptType,
-                name: name,
-                code: 'HARDCODED_SYSID',
-                message: scriptType + ' "' + name + '" contains ' + sysIdMatches.length + ' hardcoded sys_id value(s).',
-                severity: 'medium'
-            });
-        }
-
-        // 3) gs.sleep usage
-        if (s.indexOf('gs.sleep') > -1) {
-            issues.push({
-                type: scriptType,
-                name: name,
-                code: 'GS_SLEEP',
-                message: scriptType + ' "' + name + '" uses gs.sleep() which can impact performance.',
-                severity: 'medium'
-            });
-        }
-
-        // 4) eval usage
-        if (s.indexOf('eval(') > -1) {
-            issues.push({
-                type: scriptType,
-                name: name,
-                code: 'EVAL_USAGE',
-                message: scriptType + ' "' + name + '" uses eval() - security risk.',
-                severity: 'high'
-            });
-        }
-
-        // 5) Usage of server->client direct logging or large string concatenation (heuristic)
-        if (s.indexOf('gs.print') > -1 || s.indexOf('console.log') > -1) {
-            issues.push({
-                type: scriptType,
-                name: name,
-                code: 'LOGGING_USAGE',
-                message: scriptType + ' "' + name + '" contains console/gs.print logging; confirm debug left intentionally.',
-                severity: 'low'
-            });
-        }
-
-        return issues;
-    },
-
     /**
      * addCategoryAndMetrics(ctx, categoryKey, itemKey, label, items, options)
      * Simplified version: uses only categories structure, no metrics
@@ -362,20 +112,6 @@ FHScanUtils.prototype = {
                 meta.error = 'addCategoryItems not available';
             }
 
-            // Special handling for table_summary: store exists and record_count in category metadata
-            // if (itemKey === 'table_summary' && itemsArray.length === 1) {
-            //     var summary = itemsArray[0];
-            //     var category = ctx.getCategory && ctx.getCategory(categoryKey);
-            //     if (category) {
-            //         if (typeof summary.exists !== 'undefined') {
-            //             category.exists = !!summary.exists;
-            //         }
-            //         if (typeof summary.record_count !== 'undefined') {
-            //             category.record_count = summary.record_count;
-            //         }
-            //     }
-            // }
-
         } catch (e) {
             gs.error('addCategoryAndMetrics error: ' + e);
             meta.success = false;
@@ -404,7 +140,6 @@ FHScanUtils.prototype = {
         var updated = (obj.sys_updated_by || '').toLowerCase();
         var createdSNC = sncUsers[created];
         var updatedSNC = sncUsers[updated] || updated === '';
-        // Ignore only if created by SNC and never touched by non-SNC
         return createdSNC && (!updated || updatedSNC);
     },
 
@@ -428,18 +163,234 @@ FHScanUtils.prototype = {
      */
     addIssueUnlessSnc: function(ctx, code, message, severity, metadata, record) {
         try {
-            if (ctx && ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                record && this.isSncRecord && this.isSncRecord(record)) {
-                return; // ignore SNC-only records
+            if (ctx.options.ignore_servicenow_records && record && this.isSncRecord && this.isSncRecord(record)) {
+                return;
             }
-        } catch (e) {
-            // fall through to addIssue
-        }
+        } catch (e) {}
         if (ctx && ctx.addIssue) {
             ctx.addIssue(code, message, severity, metadata);
         }
     },
 
+   // Safe transform wrapper to call transformFn and normalize results.
+// Comments in English.
+_safeApplyTransform: function(transformFn, rec, matched, configTables) {
+    // fallback object in case transformFn fails or returns invalid
+    var fallback = {
+        sys_id: ''
+    };
+    try {
+        // get sys_id reliably whether rec is a GlideRecord or plain object
+        if (rec) {
+            if (typeof rec.getUniqueValue === 'function') {
+                fallback.sys_id = rec.getUniqueValue() || '';
+            } else if (rec.sys_id) {
+                fallback.sys_id = rec.sys_id;
+            }
+        }
+    } catch (e) {
+        // ignore, fallback.sys_id stays ''
+    }
+
+    // if no transform function provided, return original record or fallback
+    if (typeof transformFn !== 'function') {
+        return rec || fallback;
+    }
+
+    try {
+        // call transform with correct context (preserve this if transform relies on it)
+        var result = transformFn.call(this, rec, matched, configTables);
+
+        // If transform returned nothing or a non-object, log and return fallback object enriched for debug
+        if (!result || typeof result !== 'object') {
+            gs.warn('_safeApplyTransform: transform returned non-object for ' + fallback.sys_id + ' => ' + String(result));
+            return Object.assign({}, fallback, { _invalid_transform_return: true, _returned: result });
+        }
+
+        // ensure sys_id exists on the returned object for downstream usage
+        if (!result.sys_id) result.sys_id = fallback.sys_id;
+
+        return result;
+    } catch (e) {
+        // log stack and return an object that signals transform error (avoids undefined crashes)
+        gs.error('_safeApplyTransform: exception in transformFn for ' + fallback.sys_id + ' => ' + (e && e.message));
+        gs.error((e && e.stack) || '');
+        return Object.assign({}, fallback, { _transform_error: true, _error_message: (e && e.message) || '' });
+    }
+},
+
+// Generic record checker used by many specific checks.
+// - ctx: context object used for adding issues / metrics
+// - configTables: array of table names / strings used by matcher
+// - queryTarget: table name or GlideRecord or array (handled by getRecords)
+// - buildQueryFn: function(gr) { ... } to enrich the query
+// - fields: array of field names to retrieve (or null to get defaults)
+// - meta: metadata for reporting (record_table, record_type, displayName, etc.)
+// - matcherFn: function(rec, cfgTables) -> truthy matched value or false
+// - transformFn: function(rec, matched, cfgTables) -> normalized object for results
+checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fields, meta, matcherFn, transformFn) {
+    meta = meta || {};
+    var results = [];
+
+    // Flexible tableToUse passed to this.utils.getRecords
+    var tableToUse = queryTarget;
+
+    // Retrieve records with your existing helper (assumed present)
+    var records = this.getRecords(tableToUse, buildQueryFn, fields, 0);
+    if (!Array.isArray(records) || records.length === 0) {
+        return results;
+    }
+
+    for (var i = 0; i < records.length; i++) {
+        var rec = records[i];
+        if (!rec) continue;
+
+        try {
+            // Determine if record matches criteria
+            var matched = (typeof matcherFn === 'function') ? matcherFn.call(this, rec, configTables) : true;
+            if (!matched) continue;
+
+            // Apply transform in a safe, normalized way
+            var item = (typeof this._safeApplyTransform === 'function') ?
+                this._safeApplyTransform(transformFn, rec, matched, configTables) :
+                ((typeof transformFn === 'function') ? transformFn.call(this, rec, matched, configTables) : rec);
+
+            // Ensure item is an object before proceeding
+            if (!item || typeof item !== 'object') {
+                // defensive: skip if still invalid
+                gs.warn('_checkRecordsGeneric: skipping invalid item for rec index ' + i + ', matched=' + String(matched));
+                continue;
+            }
+
+            // default metadata
+            item.table = meta.record_table || tableToUse;
+            item.record_type = meta.record_type || 'generic';
+
+            // ignore SNC records if enabled in ctx and helper exists
+            if (ctx && typeof ctx.isIgnoreSncRecordsEnabled === 'function' && ctx.isIgnoreSncRecordsEnabled() &&
+                this.utils && typeof this.utils.isSncRecord === 'function' && this.utils.isSncRecord(item)) {
+                continue;
+            }
+
+            results.push(item);
+
+            // If record inactive, add issue (use meta.checkActiveField or "active")
+            var activeField = meta.checkActiveField || 'active';
+            var isActive = true;
+            try {
+                // If active field is undefined, treat as active by default
+                if (item[activeField] === undefined) {
+                    isActive = true;
+                } else {
+                    isActive = (this.utils && typeof this.utils.toBool === 'function') ? this.utils.toBool(item[activeField]) : Boolean(item[activeField]);
+                }
+            } catch (x) {
+                isActive = true; // fail-safe
+            }
+
+            if (!isActive && meta.inactivityIssueCode) {
+                // add issue with details; use helper that avoids SNC duplicates
+                if (this.utils && typeof this.utils.addIssueUnlessSnc === 'function') {
+                    this.utils.addIssueUnlessSnc(ctx, meta.inactivityIssueCode,
+                        (meta.inactivityIssueMsg || 'Inactive record: "' + (item.name || 'Unnamed') + '"'),
+                        (meta.inactivitySeverity || 'low'), {
+                            record_table: meta.record_table || tableToUse,
+                            record_sys_id: item.sys_id,
+                            category: meta.category || 'automation'
+                        }, item);
+                } else if (ctx && typeof ctx.addIssue === 'function') {
+                    // fallback if utility not available
+                    ctx.addIssue(meta.inactivityIssueCode,
+                        (meta.inactivityIssueMsg || 'Inactive record: "' + (item.name || 'Unnamed') + '"'),
+                        (meta.inactivitySeverity || 'low'), {
+                            record_table: meta.record_table || tableToUse,
+                            record_sys_id: item.sys_id,
+                            category: meta.category || 'automation'
+                        });
+                }
+            }
+        } catch (e) {
+            // log record id and stack so we can locate the problematic record
+            var recId = 'no-id';
+            try {
+                if (rec) {
+                    if (typeof rec.getUniqueValue === 'function') recId = rec.getUniqueValue() || recId;
+                    else if (rec.sys_id) recId = rec.sys_id;
+                }
+            } catch (ignore) {}
+            gs.error('_checkRecordsGeneric error processing record ' + recId + ': ' + (e && e.message));
+            gs.error((e && e.stack) || '');
+
+            // debug: preview some keys of rec (safe)
+            try { gs.info('_checkRecordsGeneric record preview keys: ' + JSON.stringify(Object.keys(rec).slice(0, 20))); } catch (ignore) {}
+            // continue to next record rather than aborting whole loop
+        }
+    }
+
+    // Add metrics/category via helper (assumed present)
+    if (this.utils && typeof this.utils.addCategoryAndMetrics === 'function') {
+        this.utils.addCategoryAndMetrics(ctx, 'automation', meta.record_type || 'generic', meta.displayName || (meta.record_type || 'Generic'), results, {
+            table: meta.record_table || tableToUse,
+            icon: meta.icon || 'fa-cube',
+            color: meta.color || '#6c757d'
+        });
+    }
+
+    // optional many-items issue
+    if (meta.manyThreshold && results.length > meta.manyThreshold) {
+        if (ctx && typeof ctx.addIssue === 'function') {
+            ctx.addIssue(meta.manyIssueCode || 'MANY_' + (meta.record_type || 'ITEMS').toUpperCase(),
+                (meta.manyIssueMsg || (meta.record_type || 'Items') + ' has ' + results.length + ' entries. Check for redundancy.'),
+                meta.manySeverity || 'medium', {
+                    record_table: meta.record_table || tableToUse,
+                    record_filter: meta.record_filter || ''
+                });
+        }
+    }
+
+    return results;
+},
+
+    // === Generic query with optional memoization ===
+    // buildQueryFn(gr) should modify the GlideRecord (addQuery, addNotNullQuery, setLimit, etc)
+    getRecords: function(table, buildQueryFn, fields, limit /*,cacheKey*/ ) {
+        /* cacheKey = cacheKey || table + '|' + (buildQueryFn ? '' : 'all');
+         if (this.cache.query[cacheKey]) return this.cache.query[cacheKey].slice(0);*/
+
+        var results = [];
+        var gr = new GlideRecord(table);
+        try {
+            if (typeof buildQueryFn === 'function') buildQueryFn(gr);
+            if (limit && typeof gr.setLimit === 'function') gr.setLimit(limit);
+            gr.query();
+            while (gr.next()) {
+                var obj = {
+                    sys_id: gr.getUniqueValue()
+                };
+                gs.info('wwa fields ' + fields)
+
+                if (fields && Array.isArray(fields)) {
+                    for (var i = 0; i < fields.length; i++) {
+                        try {
+                            obj[fields[i]] = this.safeGet(gr, fields[i]);
+                        } catch (e) {
+                            obj[fields[i]] = '';
+                        }
+                    }
+                } else {
+                    // minimal shape
+                    obj.name = this.safeGet(gr, 'name') || '';
+                }
+                results.push(obj);
+                gs.info('wwa obj ' + JSON.stringify(obj))
+            }
+        } catch (e) {
+            // swallow errors to keep scanning resilient
+            results = [];
+        }
+        //this.cache.query[cacheKey] = results;
+        return results.slice(0);
+    },
 
     type: 'FHScanUtils'
 };]]></script>
@@ -447,13 +398,13 @@ FHScanUtils.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 18:06:27</sys_created_on>
         <sys_id>df241fac8352761083e1b4a6feaad360</sys_id>
-        <sys_mod_count>6</sys_mod_count>
+        <sys_mod_count>47</sys_mod_count>
         <sys_name>FHScanUtils</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_df241fac8352761083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 03:37:09</sys_updated_on>
+        <sys_updated_on>2026-01-05 22:24:09</sys_updated_on>
     </sys_script_include>
 </record_update>
