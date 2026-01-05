@@ -391,7 +391,15 @@ FHScanUtils.prototype = {
      */
     isSncRecord: function(obj) {
         if (!obj) return false;
-        var sncUsers = { 'admin': true, 'glide.maint': true };
+        var sncUsers = {
+            'admin': true,
+            'glide.maint': true,
+            'GUEST': true,
+            'system': true,
+            'don goodliffe': true,
+            'maint': true,
+            'chris.henson': true
+        };
         var created = (obj.sys_created_by || '').toLowerCase();
         var updated = (obj.sys_updated_by || '').toLowerCase();
         var createdSNC = sncUsers[created];
@@ -407,7 +415,9 @@ FHScanUtils.prototype = {
     filterOutSncRecords: function(list, opts) {
         if (!opts || !opts.ignoreSnc) return list || [];
         var self = this;
-        return (list || []).filter(function(r) { return !self.isSncRecord(r); });
+        return (list || []).filter(function(r) {
+            return !self.isSncRecord(r);
+        });
     },
 
 
@@ -417,13 +427,13 @@ FHScanUtils.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 18:06:27</sys_created_on>
         <sys_id>df241fac8352761083e1b4a6feaad360</sys_id>
-        <sys_mod_count>5</sys_mod_count>
+        <sys_mod_count>6</sys_mod_count>
         <sys_name>FHScanUtils</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_df241fac8352761083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 02:11:12</sys_updated_on>
+        <sys_updated_on>2026-01-05 03:37:09</sys_updated_on>
     </sys_script_include>
 </record_update>

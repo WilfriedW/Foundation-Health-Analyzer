@@ -30,7 +30,7 @@ FHAnalysisContext.prototype = {
             include_children_tables: this._isTrue(config.include_children_tables),
             analyze_references: this._isTrue(config.analyze_references),
             include_ldap: this._isTrue(config.include_ldap),
-            ignore_snc_records: this._isTrue(config.ignore_snc_records) // skip ServiceNow base records (admin/glide.maint)
+            ignore_servicenow_records: this._isTrue(config.ignore_servicenow_records)
         };
 
         // Initialize categories structure for standardized output
@@ -94,7 +94,7 @@ FHAnalysisContext.prototype = {
      * @returns {Boolean}
      */
     isIgnoreSncRecordsEnabled: function() {
-        return this.options.ignore_snc_records === true;
+        return this.options.ignore_servicenow_records === true;
     },
 
     // ==================== TABLE HIERARCHY HELPERS ====================
@@ -444,13 +444,13 @@ FHAnalysisContext.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:27:30</sys_created_on>
         <sys_id>f17a0204835a321083e1b4a6feaad360</sys_id>
-        <sys_mod_count>16</sys_mod_count>
+        <sys_mod_count>19</sys_mod_count>
         <sys_name>FHAnalysisContext</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 01:42:07</sys_updated_on>
+        <sys_updated_on>2026-01-05 03:28:41</sys_updated_on>
     </sys_script_include>
 </record_update>
