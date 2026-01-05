@@ -100,17 +100,21 @@ FHCheckAutomation.prototype = {
 			gs.info('ctx.isIgnoreSncRecordsEnabled(): '+ ctx.isIgnoreSncRecordsEnabled());
 			gs.info('this.utils.isSncRecord(jobItem):  '  +this.utils.isSncRecord(jobItem));
 
-            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(jobItem)) {
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                this.utils.isSncRecord && this.utils.isSncRecord(jobItem)) {
                 continue;
             }
             scheduledJobs.push(jobItem);
 
             if (!isActive) {
-                ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + (job.name || 'Unnamed') + '"', 'low', {
-                    record_table: 'sysauto_script',
-                    record_sys_id: job.sys_id,
-                    category: 'automation'
-                });
+                if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                    this.utils.isSncRecord && this.utils.isSncRecord(jobItem))) {
+                    ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + (job.name || 'Unnamed') + '"', 'low', {
+                        record_table: 'sysauto_script',
+                        record_sys_id: job.sys_id,
+                        category: 'automation'
+                    });
+                }
             }
         }
 
@@ -150,18 +154,22 @@ FHCheckAutomation.prototype = {
                     sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
                 };
 
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(flowItem)) {
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                    this.utils.isSncRecord && this.utils.isSncRecord(flowItem)) {
                     continue;
                 }
 
                 flows.push(flowItem);
 
                 if (!isActive) {
-                    ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low', {
-                        record_table: 'sys_hub_flow',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'automation'
-                    });
+                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                        this.utils.isSncRecord && this.utils.isSncRecord(flowItem))) {
+                        ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low', {
+                            record_table: 'sys_hub_flow',
+                            record_sys_id: gr.getUniqueValue(),
+                            category: 'automation'
+                        });
+                    }
                 }
             }
         } catch (e) {
@@ -213,20 +221,24 @@ FHCheckAutomation.prototype = {
                     sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
                 };
 
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(wfItem)) {
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                    this.utils.isSncRecord && this.utils.isSncRecord(wfItem)) {
                     continue;
                 }
 
                 workflows.push(wfItem);
 
                 if (!isActive || !isPublished) {
-                    var code = !isPublished ? 'UNPUBLISHED_WORKFLOW' : 'INACTIVE_WORKFLOW';
-                    var msg = (!isPublished ? 'Unpublished' : 'Inactive') + ' workflow: "' + wfName + '"';
-                    ctx.addIssue(code, msg, 'low', {
-                        record_table: 'wf_workflow',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'automation'
-                    });
+                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                        this.utils.isSncRecord && this.utils.isSncRecord(wfItem))) {
+                        var code = !isPublished ? 'UNPUBLISHED_WORKFLOW' : 'INACTIVE_WORKFLOW';
+                        var msg = (!isPublished ? 'Unpublished' : 'Inactive') + ' workflow: "' + wfName + '"';
+                        ctx.addIssue(code, msg, 'low', {
+                            record_table: 'wf_workflow',
+                            record_sys_id: gr.getUniqueValue(),
+                            category: 'automation'
+                        });
+                    }
                 }
             }
         } catch (e) {
@@ -282,18 +294,22 @@ FHCheckAutomation.prototype = {
                     sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
                 };
 
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(notifItem)) {
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                    this.utils.isSncRecord && this.utils.isSncRecord(notifItem)) {
                     continue;
                 }
 
                 notifications.push(notifItem);
 
                 if (!isActive) {
-                    ctx.addIssue('INACTIVE_NOTIFICATION', 'Inactive notification: "' + name + '"', 'low', {
-                        record_table: 'sysevent_email_action',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'automation'
-                    });
+                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                        this.utils.isSncRecord && this.utils.isSncRecord(notifItem))) {
+                        ctx.addIssue('INACTIVE_NOTIFICATION', 'Inactive notification: "' + name + '"', 'low', {
+                            record_table: 'sysevent_email_action',
+                            record_sys_id: gr.getUniqueValue(),
+                            category: 'automation'
+                        });
+                    }
                 }
             }
         } catch (e) {
@@ -336,18 +352,22 @@ FHCheckAutomation.prototype = {
                     sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
                 };
 
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(uiItem)) {
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                    this.utils.isSncRecord && this.utils.isSncRecord(uiItem)) {
                     continue;
                 }
 
                 uiActions.push(uiItem);
 
                 if (!active) {
-                    ctx.addIssue('INACTIVE_UI_ACTION', 'Inactive UI Action: "' + name + '"', 'low', {
-                        record_table: 'sys_ui_action',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'automation'
-                    });
+                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                        this.utils.isSncRecord && this.utils.isSncRecord(uiItem))) {
+                        ctx.addIssue('INACTIVE_UI_ACTION', 'Inactive UI Action: "' + name + '"', 'low', {
+                            record_table: 'sys_ui_action',
+                            record_sys_id: gr.getUniqueValue(),
+                            category: 'automation'
+                        });
+                    }
                 }
             }
         } catch (e) {
@@ -455,18 +475,22 @@ FHCheckAutomation.prototype = {
                         sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
                     };
 
-                    if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(inItem)) {
+                    if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                        this.utils.isSncRecord && this.utils.isSncRecord(inItem)) {
                         continue;
                     }
 
                     inboundEmails.push(inItem);
 
                     if (!isActive) {
-                        ctx.addIssue('INACTIVE_INBOUND_EMAIL', 'Inactive inbound email action: "' + (ctx.safeGetValue(gr, 'name') || 'Unnamed') + '"', 'low', {
-                            record_table: 'sysevent_in_email_action',
-                            record_sys_id: gr.getUniqueValue(),
-                            category: 'automation'
-                        });
+                        if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                              this.utils.isSncRecord && this.utils.isSncRecord(inItem))) {
+                            ctx.addIssue('INACTIVE_INBOUND_EMAIL', 'Inactive inbound email action: "' + (ctx.safeGetValue(gr, 'name') || 'Unnamed') + '"', 'low', {
+                                record_table: 'sysevent_in_email_action',
+                                record_sys_id: gr.getUniqueValue(),
+                                category: 'automation'
+                            });
+                        }
                     }
                 }
             }

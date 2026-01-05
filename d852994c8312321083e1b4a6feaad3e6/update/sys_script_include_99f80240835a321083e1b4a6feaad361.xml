@@ -250,18 +250,24 @@ FHCheckTable.prototype = {
                     sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
                 };
 
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(item)) {
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                    this.utils.isSncRecord && this.utils.isSncRecord(item)) {
                     continue;
                 }
 
                 businessRules.push(item);
 
                 if (!isActive) {
+                    if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                        this.utils.isSncRecord && this.utils.isSncRecord(item)) {
+                        // skip raising issue for SNC base record
+                    } else {
                     ctx.addIssue('INACTIVE_BUSINESS_RULE', 'Inactive business rule: "' + brName + '"', 'low', {
                         record_table: 'sys_script',
                         record_sys_id: gr.getUniqueValue(),
                         category: 'automation'
                     });
+                    }
                 }
             }
 
