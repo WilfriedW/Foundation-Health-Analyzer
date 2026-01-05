@@ -40,6 +40,12 @@ FHCheckSecurity.prototype = {
             create: 0,
             delete: 0
         };
+        var sncByOperation = {
+            read: 0,
+            write: 0,
+            create: 0,
+            delete: 0
+        };
 
         // Build a GlideRecord query for ACLs affecting the table or parents.
         var gr = new GlideRecord('sys_security_acl');
@@ -80,7 +86,9 @@ FHCheckSecurity.prototype = {
                 sys_updated_by: ctx.safeGetValue ? ctx.safeGetValue(gr, 'sys_updated_by') : gr.getValue('sys_updated_by')
             };
 
-            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(aclInfo)) {
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                this.utils.isSncRecord && this.utils.isSncRecord(aclInfo)) {
+                if (operation && sncByOperation.hasOwnProperty(operation)) sncByOperation[operation]++;
                 continue;
             }
 
@@ -98,18 +106,23 @@ FHCheckSecurity.prototype = {
         });
 
         if (aclsByOperation.read === 0) {
-            ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
-                record_table: 'sys_security_acl',
-                record_filter: 'nameSTARTSWITH' + tableName,
-                category: 'security'
-            });
+            // Si ignore SNC et seules ACL SNC existent, ne pas lever l'issue
+            if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && sncByOperation.read > 0)) {
+                ctx.addIssue('NO_READ_ACL', 'No read ACL defined for this table or its parents', 'medium', {
+                    record_table: 'sys_security_acl',
+                    record_filter: 'nameSTARTSWITH' + tableName,
+                    category: 'security'
+                });
+            }
         }
         if (aclsByOperation.write === 0) {
-            ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
-                record_table: 'sys_security_acl',
-                record_filter: 'nameSTARTSWITH' + tableName,
-                category: 'security'
-            });
+            if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && sncByOperation.write > 0)) {
+                ctx.addIssue('NO_WRITE_ACL', 'No write ACL defined for this table or its parents', 'medium', {
+                    record_table: 'sys_security_acl',
+                    record_filter: 'nameSTARTSWITH' + tableName,
+                    category: 'security'
+                });
+            }
         }
     },
 
