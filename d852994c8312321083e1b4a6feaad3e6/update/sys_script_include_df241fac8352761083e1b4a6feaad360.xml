@@ -19,6 +19,24 @@ FHScanUtils.prototype = {
         };
     },
 
+    /**
+     * addInQuery(gr, field, values)
+     * Helper to safely add an "IN" query on a GlideRecord for arrays/strings.
+     */
+    addInQuery: function(gr, field, values) {
+        try {
+            if (!gr || typeof gr.addQuery !== 'function' || !field) return;
+            if (Array.isArray(values)) {
+                if (!values.length) return;
+                gr.addQuery(field, 'IN', values.join(','));
+            } else if (values) {
+                gr.addQuery(field, values);
+            }
+        } catch (e) {
+            // keep failures silent to avoid breaking the scan
+        }
+    },
+
     // === Basic helpers ===
     toBool: function(value) {
         return value === true || value === 'true' || value === '1' || value === 1;
@@ -239,6 +257,9 @@ _safeApplyTransform: function(transformFn, rec, matched, configTables) {
 checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fields, meta, matcherFn, transformFn) {
     meta = meta || {};
     var results = [];
+    var postProcessFn = meta.postProcessFn;
+    var skipCategory = meta.skipCategoryAndMetrics === true;
+    var skipMany = meta.skipManyIssue === true;
 
     // Flexible tableToUse passed to this.utils.getRecords
     var tableToUse = queryTarget;
@@ -291,6 +312,15 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
 
             results.push(item);
 
+            // Optional post-processing hook (e.g., extra issues)
+            if (typeof postProcessFn === 'function') {
+                try {
+                    postProcessFn.call(this, ctx, item, rec, matched, configTables);
+                } catch (px) {
+                    gs.error('_checkRecordsGeneric postProcessFn error: ' + (px && px.message));
+                }
+            }
+
             // If record inactive, add issue (use meta.checkActiveField or "active")
             var activeField = meta.checkActiveField || 'active';
             var isActive = true;
@@ -299,7 +329,7 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
                 if (item[activeField] === undefined) {
                     isActive = true;
                 } else {
-                    isActive = (this.utils && typeof this.utils.toBool === 'function') ? this.utils.toBool(item[activeField]) : Boolean(item[activeField]);
+                    isActive = (typeof this.toBool === 'function') ? this.toBool(item[activeField]) : Boolean(item[activeField]);
                 }
             } catch (x) {
                 isActive = true; // fail-safe
@@ -307,8 +337,8 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
 
             if (!isActive && meta.inactivityIssueCode) {
                 // add issue with details; use helper that avoids SNC duplicates
-                if (this.utils && typeof this.utils.addIssueUnlessSnc === 'function') {
-                    this.utils.addIssueUnlessSnc(ctx, meta.inactivityIssueCode,
+                if (typeof this.addIssueUnlessSnc === 'function') {
+                    this.addIssueUnlessSnc(ctx, meta.inactivityIssueCode,
                         (meta.inactivityIssueMsg || 'Inactive record: "' + (item.name || 'Unnamed') + '"'),
                         (meta.inactivitySeverity || 'low'), {
                             record_table: meta.record_table || tableToUse,
@@ -348,7 +378,7 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
     var categoryKey = meta.categoryKey || meta.category || 'automation';
     var itemKey = meta.itemKey || meta.record_type || 'generic';
     var label = meta.displayName || itemKey || 'Items';
-    if (typeof this.addCategoryAndMetrics === 'function') {
+    if (!skipCategory && typeof this.addCategoryAndMetrics === 'function') {
         this.addCategoryAndMetrics(ctx, categoryKey, itemKey, label, results, {
             table: meta.record_table || tableToUse,
             icon: meta.icon || 'fa-cube',
@@ -357,7 +387,7 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
     }
 
     // optional many-items issue
-    if (meta.manyThreshold && results.length > meta.manyThreshold) {
+    if (!skipMany && meta.manyThreshold && results.length > meta.manyThreshold) {
         if (ctx && typeof ctx.addIssue === 'function') {
             ctx.addIssue(meta.manyIssueCode || 'MANY_' + (meta.record_type || 'ITEMS').toUpperCase(),
                 (meta.manyIssueMsg || (meta.record_type || 'Items') + ' has ' + results.length + ' entries. Check for redundancy.'),
@@ -387,7 +417,6 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
                 var obj = {
                     sys_id: gr.getUniqueValue()
                 };
-                gs.info('wwa fields ' + fields)
 
                 if (fields && Array.isArray(fields)) {
                     for (var i = 0; i < fields.length; i++) {
@@ -402,7 +431,6 @@ checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fiel
                     obj.name = this.safeGet(gr, 'name') || '';
                 }
                 results.push(obj);
-                gs.info('wwa obj ' + JSON.stringify(obj))
             }
         } catch (e) {
             // swallow errors to keep scanning resilient

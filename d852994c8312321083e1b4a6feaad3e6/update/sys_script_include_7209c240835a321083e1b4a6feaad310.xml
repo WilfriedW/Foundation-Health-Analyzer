@@ -116,10 +116,9 @@ FHCheckAutomation.prototype = {
 
             if (gr && typeof gr.addNotNullQuery === 'function') {
                 gr.addNotNullQuery('script');
-				gr.addQuery("scriptLIKEchange_request");
+                gr.addQuery('scriptLIKEchange_request');
             }
         };
-gs.info('WWA build query' + buildQuery);
         var fields = ['name', 'script', 'active', 'sys_created_by', 'sys_updated_by', 'run_type', 'sys_id'];
 
         // matcher: detect if the script contains any of the configured table names
@@ -186,8 +185,9 @@ gs.info('WWA build query' + buildQuery);
      */
     checkFlows: function(ctx, configTables, queryTable) {
         var tableName = ctx.getTableName();
-        var flows = [];
+        var flowIds = [];
 
+        // Collect flow sys_ids once, then reuse the generic checker for normalization
         try {
             var rawFlowIds = [];
             for (var x = 0; x < configTables.length; x++) {
@@ -196,7 +196,7 @@ gs.info('WWA build query' + buildQuery);
                     var result = sn_flow && sn_flow.AssociatedFlows && typeof sn_flow.AssociatedFlows.getFlows === 'function' ?
                         sn_flow.AssociatedFlows.getFlows(ct) : [];
                     if (result == null) {
-                        /* nothing */
+                        continue;
                     } else if (typeof result === 'string') {
                         result.split(',').forEach(function(i) {
                             if (i) rawFlowIds.push(i.trim());
@@ -211,8 +211,6 @@ gs.info('WWA build query' + buildQuery);
                         }
                     } else if (result.sys_id) {
                         rawFlowIds.push(String(result.sys_id));
-                    } else {
-                        gs.info('checkFlows: unexpected shape from getFlows for table ' + ct + ' => ' + JSON.stringify(result));
                     }
                 } catch (e) {
                     gs.error('checkFlows: error calling sn_flow.AssociatedFlows.getFlows for ' + ct + ' : ' + (e && e.message));
@@ -220,7 +218,6 @@ gs.info('WWA build query' + buildQuery);
             }
 
             var seen = {};
-            var flowIds = [];
             for (var iId = 0; iId < rawFlowIds.length; iId++) {
                 var fid = rawFlowIds[iId];
                 if (fid && !seen[fid]) {
@@ -228,79 +225,56 @@ gs.info('WWA build query' + buildQuery);
                     flowIds.push(fid);
                 }
             }
-
-            if (flowIds.length === 0) {
-                gs.info('checkFlows: no flow sys_ids found for configTables: ' + configTables.join(','));
-            } else {
-                var inList = flowIds.join(',');
-                var flowGR = this.utils.getRecords(queryTable, function(gr) {
-                    gr.addQuery('sys_id', 'IN', inList);
-                }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'description', 'sys_id'], 0);
-
-                for (var j = 0; j < flowGR.length; j++) {
-                    var flow = flowGR[j];
-                    if (!flow) continue;
-
-                    // script field may be undefined; default to empty string
-                    var scriptText = (flow.script || '') + '';
-                    var matchedTable = null;
-                    for (var t = 0; t < configTables.length; t++) {
-                        if (scriptText.indexOf(configTables[t]) > -1) {
-                            matchedTable = configTables[t];
-                            break;
-                        }
-                    }
-
-                    var isActive = this.utils.toBool(flow.active);
-                    var flowItem = {
-                        sys_id: flow.sys_id,
-                        name: flow.name || 'Unnamed',
-                        active: isActive,
-                        inherited: matchedTable,
-                        table: queryTable,
-                        matched_table: matchedTable,
-                        sys_created_by: flow.sys_created_by,
-                        sys_updated_by: flow.sys_updated_by,
-                        description: flow.description
-                    };
-
-                    if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                        this.utils.isSncRecord && this.utils.isSncRecord(flowItem)) {
-                        continue;
-                    }
-
-                    flows.push(flowItem);
-                }
-
-                for (var k = 0; k < flows.length; k++) {
-                    var fItem = flows[k];
-                    if (!fItem.active) {
-                        this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_FLOW',
-                            'Inactive flow: "' + (fItem.name || 'Unnamed') + '"', 'low', {
-                                record_table: 'sys_hub_flow',
-                                record_sys_id: fItem.sys_id,
-                                category: 'automation'
-                            }, fItem);
-                    }
-                }
-            }
         } catch (e) {
-            gs.error('FHCheckAutomation.checkFlows error: ' + (e && e.message) + ' / ' + (e && e.stack));
+            gs.error('FHCheckAutomation.checkFlows error building flow ids: ' + (e && e.message));
         }
 
-        this.utils.addCategoryAndMetrics(ctx, 'automation', 'flow', 'Flows', flows, {
-            table: 'sys_hub_flow',
-            icon: 'fa-project-diagram',
-            color: '#17a2b8'
-        });
-
-        if (flows.length > 10) {
-            ctx.addIssue('MANY_FLOWS', 'Table has ' + flows.length + ' flows. Check for redundancy.', 'medium', {
-                record_table: 'sys_hub_flow',
-                record_filter: 'trigger_tableIN' + configTables.join(','),
-                category: 'automation'
+        if (flowIds.length === 0) {
+            this.utils.addCategoryAndMetrics(ctx, 'automation', 'flow', 'Flows', [], {
+                table: queryTable || 'sys_hub_flow',
+                icon: 'fa-project-diagram',
+                color: '#17a2b8'
             });
+            return [];
         }
+
+        var matcher = function(rec, cfgTables) {
+            var script = rec && rec.script ? String(rec.script) : '';
+            for (var i = 0; i < cfgTables.length; i++) {
+                if (script.indexOf(cfgTables[i]) > -1) return cfgTables[i];
+            }
+            return true; // already filtered by flow ids; accept if script not available
+        };
+
+        var transform = function(rec, matched) {
+            return {
+                sys_id: rec.sys_id,
+                name: rec.name || 'Unnamed',
+                active: rec.active,
+                inherited: matched === true ? null : matched,
+                matched_table: matched === true ? null : matched,
+                table: queryTable || 'sys_hub_flow',
+                trigger_table: matched === true ? tableName : matched,
+                sys_created_by: rec.sys_created_by,
+                sys_updated_by: rec.sys_updated_by,
+                description: rec.description
+            };
+        };
+
+        return this.utils.checkRecordsGeneric(ctx, configTables, queryTable || 'sys_hub_flow', function(gr) {
+            gr.addQuery('sys_id', 'IN', flowIds.join(','));
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'description', 'sys_id', 'script'], {
+            record_table: 'sys_hub_flow',
+            record_type: 'flow',
+            displayName: 'Flows',
+            icon: 'fa-project-diagram',
+            color: '#17a2b8',
+            category: 'automation',
+            inactivityIssueCode: 'INACTIVE_FLOW',
+            manyThreshold: 10,
+            manyIssueCode: 'MANY_FLOWS',
+            record_filter: 'sys_idIN' + flowIds.join(',')
+        }, matcher, transform);
     },
 
 
@@ -311,64 +285,60 @@ gs.info('WWA build query' + buildQuery);
      */
     checkWorkflows: function(ctx, configTables) {
         var tableName = ctx.getTableName();
-        var workflows = [];
 
-        try {
-            var gr = new GlideRecord('wf_workflow');
-            this.utils.addInQuery(gr, 'table', configTables);
-            gr.query();
-            while (gr.next()) {
-                var wfName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
-                var wfTable = ctx.safeGetValue(gr, 'table');
-                var isActive = this.utils.toBool(gr.getValue('active'));
-                var isPublished = this.utils.toBool(gr.getValue('published'));
-                var wfItem = {
-                    sys_id: gr.getUniqueValue(),
-                    name: wfName,
-                    table: 'wf_workflow',
-                    trigger_table: wfTable,
-                    inherited: (wfTable !== tableName),
-                    active: isActive,
-                    published: isPublished,
-                    description: ctx.safeGetValue(gr, 'description'),
-                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
-                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
-                };
+        var transform = function(rec) {
+            var triggerTable = rec.table;
+            return {
+                sys_id: rec.sys_id,
+                name: rec.name || 'Unnamed',
+                table: 'wf_workflow',
+                trigger_table: triggerTable,
+                inherited: (triggerTable !== tableName),
+                active: rec.active,
+                published: rec.published,
+                description: rec.description,
+                sys_created_by: rec.sys_created_by,
+                sys_updated_by: rec.sys_updated_by
+            };
+        };
 
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                    this.utils.isSncRecord && this.utils.isSncRecord(wfItem)) {
-                    continue;
-                }
+        var postProcess = function(localCtx, item) {
+            if (!item) return;
 
-                workflows.push(wfItem);
-
-                if (!isActive || !isPublished) {
-                    var code = !isPublished ? 'UNPUBLISHED_WORKFLOW' : 'INACTIVE_WORKFLOW';
-                    var msg = (!isPublished ? 'Unpublished' : 'Inactive') + ' workflow: "' + wfName + '"';
-                    this.utils.addIssueUnlessSnc(ctx, code, msg, 'low', {
-                        record_table: 'wf_workflow',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'automation'
-                    }, wfItem);
-                }
+            var code = null;
+            var msg = null;
+            if (item.published === false || item.published === 'false') {
+                code = 'UNPUBLISHED_WORKFLOW';
+                msg = 'Unpublished workflow: "' + (item.name || 'Unnamed') + '"';
+            } else if (!this.utils.toBool(item.active)) {
+                code = 'INACTIVE_WORKFLOW';
+                msg = 'Inactive workflow: "' + (item.name || 'Unnamed') + '"';
             }
-        } catch (e) {
-            gs.error('FHCheckAutomation.checkWorkflows error: ' + (e && e.message));
-        }
 
-        this.utils.addCategoryAndMetrics(ctx, 'automation', 'workflow', 'Workflows', workflows, {
-            table: 'wf_workflow',
+            if (code) {
+                this.utils.addIssueUnlessSnc(localCtx, code, msg, 'low', {
+                    record_table: 'wf_workflow',
+                    record_sys_id: item.sys_id,
+                    category: 'automation'
+                }, item);
+            }
+        }.bind(this);
+
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'wf_workflow', function(gr) {
+            this.utils.addInQuery(gr, 'table', configTables);
+        }.bind(this), ['name', 'table', 'active', 'published', 'description', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            record_table: 'wf_workflow',
+            record_type: 'workflow',
+            displayName: 'Workflows',
             icon: 'fa-project-diagram',
-            color: '#6610f2'
-        });
-
-        if (workflows.length > 10) {
-            ctx.addIssue('MANY_WORKFLOWS', 'Table has ' + workflows.length + ' workflows. Review for consolidation.', 'medium', {
-                record_table: 'wf_workflow',
-                record_filter: 'tableIN' + configTables.join(','),
-                category: 'automation'
-            });
-        }
+            color: '#6610f2',
+            category: 'automation',
+            manyThreshold: 10,
+            manyIssueCode: 'MANY_WORKFLOWS',
+            record_filter: 'tableIN' + configTables.join(','),
+            postProcessFn: postProcess,
+            skipManyIssue: false
+        }, null, transform);
     },
 
     /**
@@ -376,60 +346,43 @@ gs.info('WWA build query' + buildQuery);
      * Notifications that reference the table in conditions or scripts.
      */
     checkNotifications: function(ctx, configTables) {
-        var notifications = [];
-        try {
-            var gr = new GlideRecord('sysevent_email_action'); // notifications table
-            gr.addNotNullQuery('condition'); // likely to have conditions referencing fields
-            gr.query();
-            while (gr.next()) {
-                var name = ctx.safeGetValue(gr, 'name') || 'Unnamed';
-                var condition = ctx.safeGetValue(gr, 'condition') || '';
-                var script = ctx.safeGetValue(gr, 'script') || '';
-                var related = false;
-                for (var t = 0; t < configTables.length; t++) {
-                    if (condition.indexOf(configTables[t]) > -1 || script.indexOf(configTables[t]) > -1) {
-                        related = true;
-                        break;
-                    }
-                }
-                if (!related) continue;
-
-                var isActive = this.utils.toBool(gr.getValue('active'));
-                var notifItem = {
-                    sys_id: gr.getUniqueValue(),
-                    name: name,
-                    table: 'sysevent_email_action',
-                    active: isActive,
-                    condition: condition,
-                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
-                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
-                };
-
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                    this.utils.isSncRecord && this.utils.isSncRecord(notifItem)) {
-                    continue;
-                }
-
-                notifications.push(notifItem);
-
-                if (!isActive) {
-                    this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_NOTIFICATION',
-                        'Inactive notification: "' + name + '"', 'low', {
-                            record_table: 'sysevent_email_action',
-                            record_sys_id: gr.getUniqueValue(),
-                            category: 'automation'
-                        }, notifItem);
+        var matcher = function(rec, cfgTables) {
+            var condition = rec && rec.condition ? String(rec.condition) : '';
+            var script = rec && rec.script ? String(rec.script) : '';
+            for (var i = 0; i < cfgTables.length; i++) {
+                if (condition.indexOf(cfgTables[i]) > -1 || script.indexOf(cfgTables[i]) > -1) {
+                    return cfgTables[i];
                 }
             }
-        } catch (e) {
-            gs.error('FHCheckAutomation.checkNotifications error: ' + (e && e.message));
-        }
+            return false;
+        };
 
-        this.utils.addCategoryAndMetrics(ctx, 'automation', 'notification', 'Notifications', notifications, {
-            table: 'sysevent_email_action',
+        var transform = function(rec, matched) {
+            return {
+                sys_id: rec.sys_id,
+                name: rec.name || 'Unnamed',
+                table: 'sysevent_email_action',
+                active: rec.active,
+                condition: rec.condition,
+                script: rec.script,
+                matched_table: matched,
+                inherited: matched,
+                sys_created_by: rec.sys_created_by,
+                sys_updated_by: rec.sys_updated_by
+            };
+        };
+
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'sysevent_email_action', function(gr) {
+            gr.addNotNullQuery('condition');
+        }, ['name', 'condition', 'script', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            record_table: 'sysevent_email_action',
+            record_type: 'notification',
+            displayName: 'Notifications',
             icon: 'fa-bell',
-            color: '#ffc107'
-        });
+            color: '#ffc107',
+            category: 'automation',
+            inactivityIssueCode: 'INACTIVE_NOTIFICATION'
+        }, matcher, transform);
     },
 
     /**
@@ -437,63 +390,39 @@ gs.info('WWA build query' + buildQuery);
      * UI Actions (sys_ui_action) related to our tables.
      */
     checkUIActions: function(ctx, configTables) {
-        var uiActions = [];
-        try {
-            var gr = new GlideRecord('sys_ui_action');
-            this.utils.addInQuery(gr, 'table', configTables);
-            gr.query();
-            while (gr.next()) {
-                var name = ctx.safeGetValue(gr, 'name') || 'Unnamed';
-                var active = this.utils.toBool(gr.getValue('active'));
-                var table = ctx.safeGetValue(gr, 'table');
-                var actionType = ctx.safeGetValue(gr, 'type');
-                var script = ctx.safeGetValue(gr, 'script') || '';
-                var uiItem = {
-                    sys_id: gr.getUniqueValue(),
-                    name: name,
-                    table: 'sys_ui_action',
-                    target_table: table,
-                    inherited: (table !== ctx.getTableName()),
-                    active: active,
-                    type: actionType,
-                    script: script,
-                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
-                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
-                };
+        var self = this;
+        var tableName = ctx.getTableName();
 
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                    this.utils.isSncRecord && this.utils.isSncRecord(uiItem)) {
-                    continue;
-                }
+        var transform = function(rec) {
+            var targetTable = rec.table;
+            return {
+                sys_id: rec.sys_id,
+                name: rec.name || 'Unnamed',
+                table: 'sys_ui_action',
+                target_table: targetTable,
+                inherited: (targetTable !== tableName),
+                active: rec.active,
+                type: rec.type,
+                script: rec.script,
+                sys_created_by: rec.sys_created_by,
+                sys_updated_by: rec.sys_updated_by
+            };
+        };
 
-                uiActions.push(uiItem);
-
-                if (!active) {
-                    this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_UI_ACTION',
-                        'Inactive UI Action: "' + name + '"', 'low', {
-                            record_table: 'sys_ui_action',
-                            record_sys_id: gr.getUniqueValue(),
-                            category: 'automation'
-                        }, uiItem);
-                }
-            }
-        } catch (e) {
-            gs.error('FHCheckAutomation.checkUIActions error: ' + (e && e.message));
-        }
-
-        this.utils.addCategoryAndMetrics(ctx, 'automation', 'ui_action', 'UI Actions', uiActions, {
-            table: 'sys_ui_action',
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'sys_ui_action', function(gr) {
+            self.utils.addInQuery(gr, 'table', configTables);
+        }, ['name', 'table', 'active', 'type', 'script', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            record_table: 'sys_ui_action',
+            record_type: 'ui_action',
+            displayName: 'UI Actions',
             icon: 'fa-mouse-pointer',
-            color: '#007bff'
-        });
-
-        if (uiActions.length > 25) {
-            ctx.addIssue('MANY_UI_ACTIONS', 'Table has ' + uiActions.length + ' UI Actions. Interface may be overloaded.', 'medium', {
-                record_table: 'sys_ui_action',
-                record_filter: 'tableIN' + configTables.join(','),
-                category: 'ui'
-            });
-        }
+            color: '#007bff',
+            category: 'automation',
+            inactivityIssueCode: 'INACTIVE_UI_ACTION',
+            manyThreshold: 25,
+            manyIssueCode: 'MANY_UI_ACTIONS',
+            record_filter: 'tableIN' + configTables.join(',')
+        }, null, transform);
     },
 
     /**
@@ -502,53 +431,37 @@ gs.info('WWA build query' + buildQuery);
      */
     checkUIPolicies: function(ctx, configTables) {
         var tableName = ctx.getTableName();
-        var uiPolicies = [];
 
-        try {
-            var gr = new GlideRecord('sys_ui_policy');
+        var transform = function(rec) {
+            var triggerTable = rec.table;
+            return {
+                sys_id: rec.sys_id,
+                name: rec.short_description || rec.name || 'Unnamed',
+                table: 'sys_ui_policy',
+                trigger_table: triggerTable,
+                inherited: (triggerTable !== tableName),
+                active: rec.active,
+                on_load: rec.on_load === 'true' || rec.on_load === true,
+                reverse_if_false: rec.reverse_if_false === 'true' || rec.reverse_if_false === true,
+                global: rec.global === 'true' || rec.global === true,
+                sys_created_by: rec.sys_created_by,
+                sys_updated_by: rec.sys_updated_by
+            };
+        };
+
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'sys_ui_policy', function(gr) {
             this.utils.addInQuery(gr, 'table', configTables);
-            gr.query();
-            while (gr.next()) {
-                var policyTable = ctx.safeGetValue(gr, 'table');
-                var name = ctx.safeGetValue(gr, 'short_description') || 'Unnamed';
-                var isActive = this.utils.toBool(gr.getValue('active'));
-                var polItem = {
-                    sys_id: gr.getUniqueValue(),
-                    name: name,
-                    table: 'sys_ui_policy',
-                    trigger_table: policyTable,
-                    inherited: (policyTable !== tableName),
-                    active: isActive,
-                    on_load: ctx.safeGetValue(gr, 'on_load') === 'true',
-                    reverse_if_false: ctx.safeGetValue(gr, 'reverse_if_false') === 'true',
-                    global: ctx.safeGetValue(gr, 'global') === 'true',
-                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
-                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
-                };
-
-                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(polItem)) {
-                    continue;
-                }
-
-                uiPolicies.push(polItem);
-            }
-        } catch (e) {
-            gs.error('FHCheckAutomation.checkUIPolicies error: ' + (e && e.message));
-        }
-
-        this.utils.addCategoryAndMetrics(ctx, 'automation', 'ui_policy', 'UI Policies', uiPolicies, {
-            table: 'sys_ui_policy',
+        }.bind(this), ['table', 'short_description', 'active', 'on_load', 'reverse_if_false', 'global', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            record_table: 'sys_ui_policy',
+            record_type: 'ui_policy',
+            displayName: 'UI Policies',
             icon: 'fa-shield-alt',
-            color: '#20c997'
-        });
-
-        if (uiPolicies.length > 15) {
-            ctx.addIssue('MANY_UI_POLICIES', 'Table has ' + uiPolicies.length + ' active UI Policies. This may slow down form loading.', 'medium', {
-                record_table: 'sys_ui_policy',
-                record_filter: 'tableIN' + configTables.join(',') + '^active=true',
-                category: 'ui'
-            });
-        }
+            color: '#20c997',
+            category: 'automation',
+            manyThreshold: 15,
+            manyIssueCode: 'MANY_UI_POLICIES',
+            record_filter: 'tableIN' + configTables.join(',') + '^active=true'
+        }, null, transform);
     },
 
     /**
@@ -559,59 +472,45 @@ gs.info('WWA build query' + buildQuery);
         var tableName = ctx.getTableName();
         var inboundEmails = [];
 
-        // sysevent_in_email_action
+        var transform = function(rec) {
+            var triggerTable = rec.table;
+            return {
+                sys_id: rec.sys_id,
+                name: rec.name || 'Unnamed',
+                table: 'sysevent_in_email_action',
+                trigger_table: triggerTable,
+                inherited: (triggerTable !== tableName),
+                active: rec.active,
+                type: rec.type,
+                action_type: rec.action_type,
+                stop_processing: rec.stop_processing === 'true' || rec.stop_processing === true,
+                sys_created_by: rec.sys_created_by,
+                sys_updated_by: rec.sys_updated_by
+            };
+        };
+
+        // Base inbound email actions
+        inboundEmails = inboundEmails.concat(this.utils.checkRecordsGeneric(ctx, configTables, 'sysevent_in_email_action', function(gr) {
+            this.utils.addInQuery(gr, 'table', configTables);
+        }.bind(this), ['name', 'table', 'active', 'type', 'action_type', 'stop_processing', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            record_table: 'sysevent_in_email_action',
+            record_type: 'inbound_email',
+            displayName: 'Inbound Email Actions',
+            icon: 'fa-inbox',
+            color: '#e83e8c',
+            category: 'automation',
+            inactivityIssueCode: 'INACTIVE_INBOUND_EMAIL',
+            skipCategoryAndMetrics: true,
+            skipManyIssue: true
+        }, null, transform));
+
+        // Flow trigger instances related to email
         try {
-            var gr = new GlideRecord('sysevent_in_email_action');
-            if (gr.isValid()) {
-                this.utils.addInQuery(gr, 'table', configTables);
-                gr.query();
-                while (gr.next()) {
-                    var emailTable = ctx.safeGetValue(gr, 'table');
-                    var isActive = this.utils.toBool(gr.getValue('active'));
-                    var inItem = {
-                        sys_id: gr.getUniqueValue(),
-                        name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
-                        table: 'sysevent_in_email_action',
-                        trigger_table: emailTable,
-                        inherited: (emailTable !== tableName),
-                        active: isActive,
-                        type: ctx.safeGetValue(gr, 'type'),
-                        action_type: ctx.safeGetValue(gr, 'action_type'),
-                        stop_processing: ctx.safeGetValue(gr, 'stop_processing') === 'true',
-                        sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
-                        sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
-                    };
-
-                    if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                        this.utils.isSncRecord && this.utils.isSncRecord(inItem)) {
-                        continue;
-                    }
-
-                    inboundEmails.push(inItem);
-
-                    if (!isActive) {
-                        this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_INBOUND_EMAIL',
-                            'Inactive inbound email action: "' + (ctx.safeGetValue(gr, 'name') || 'Unnamed') + '"', 'low', {
-                                record_table: 'sysevent_in_email_action',
-                                record_sys_id: gr.getUniqueValue(),
-                                category: 'automation'
-                            }, inItem);
-                    }
-                }
-            }
-        } catch (e) {
-            gs.error('FHCheckAutomation.checkInboundEmailActions (sysevent_in_email_action) error: ' + (e && e.message));
-        }
-
-        // sys_hub_trigger_instance (flow triggers including email)
-        try {
-            // For each configured table we look for trigger instances that reference it
             for (var i = 0; i < configTables.length; i++) {
                 var tableToCheck = configTables[i];
                 var trigGr = new GlideRecord('sys_hub_trigger_instance');
                 if (!trigGr.isValid()) continue;
                 trigGr.addQuery('trigger_type', 'IS', 'email');
-                // Many trigger instances store trigger_config or caches - search in trigger_config
                 trigGr.addQuery('trigger_config', 'LIKE', tableToCheck);
                 trigGr.query();
                 while (trigGr.next()) {
@@ -662,6 +561,8 @@ gs.info('WWA build query' + buildQuery);
                 category: 'automation'
             });
         }
+
+        return inboundEmails;
     },
 
     type: 'FHCheckAutomation'
