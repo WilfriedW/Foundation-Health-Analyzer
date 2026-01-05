@@ -18,19 +18,17 @@ FHCheckTable.prototype = {
 
     /**
      * execute(ctx)
-     * Primary public entrypoint to execute automation checks
+     * Primary public entrypoint to execute table checks
      * @param {Object} ctx - FHAnalysisContext
      */
     execute: function(ctx) {
         if (!ctx) return;
 
-        // Register table category first
+        var tablesToCheck = ctx.getTablesToCheck();
+        if (!tablesToCheck || !tablesToCheck.length) return;
+
         ctx.registerCategory('table', 'Table', 'fa-table');
 
-        // Get tables to check from centralized context logic
-        var tablesToCheck = ctx.getTablesToCheck();
-
-        // Run individual checks 
         this._checkTableSummary(ctx, tablesToCheck);
         this._checkFieldUsage(ctx, tablesToCheck);
         this._checkReferenceFields(ctx, tablesToCheck);
@@ -38,15 +36,9 @@ FHCheckTable.prototype = {
         this._checkClientScripts(ctx, tablesToCheck);
         this._checkCustomFields(ctx, tablesToCheck);
 
-        if (ctx.isDeepScanEnabled())
-            this.optionsHandler.deepScanScripts(ctx);
-
-        if (ctx.isAnalyzeReferencesEnabled())
-            this.optionsHandler.analyzeIntegrationDependencies(ctx);
-
-        if (ctx.isLdapEnabled())
-            this.optionsHandler.analyzeLdapConfiguration(ctx);
-
+        if (ctx.isDeepScanEnabled()) this.optionsHandler.deepScanScripts(ctx);
+        if (ctx.isAnalyzeReferencesEnabled()) this.optionsHandler.analyzeIntegrationDependencies(ctx);
+        if (ctx.isLdapEnabled()) this.optionsHandler.analyzeLdapConfiguration(ctx);
     },
 
     /**
@@ -54,93 +46,123 @@ FHCheckTable.prototype = {
      * and add a "Table Summary" item in the 'table' category for UI.
      * Uses categories structure only, no metrics.
      */
-    _checkTableSummary: function(ctx, configTables) {
-        //var tableName = ctx.getTableName();
-        var tableSummary = [];
-        var tableLabel = null;
-        var recordCount = 0;
+    _checkTableSummary: function(ctx, tablesToCheck) {
+        var summaries = [];
 
-        try {
-            var ga = new GlideAggregate(configTables);
-            ga.addAggregate('COUNT');
-            ga.query();
-            if (ga.next()) {
-                recordCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
-            } else {
-                recordCount = 0;
+        for (var i = 0; i < tablesToCheck.length; i++) {
+            var tableName = tablesToCheck[i];
+            var label = tableName;
+            var exists = false;
+            var recordCount = 0;
+
+            try {
+                var grObj = new GlideRecord('sys_db_object');
+                if (grObj.get('name', tableName)) {
+                    exists = true;
+                    label = ctx.safeGetValue(grObj, 'label') || ctx.safeGetValue(grObj, 'name') || tableName;
+                } else {
+                    exists = false;
+                    ctx.addIssue('TABLE_NOT_FOUND', 'Table "' + tableName + '" does not exist in the system', 'high');
+                }
+            } catch (e) {
+                exists = false;
             }
-        } catch (e) {
-            gs.error('FHCheckTable._checkTableSummary record count error for ' + configTables + ': ' + e);
-            recordCount = 0;
+
+            if (exists) {
+                try {
+                    var ga = new GlideAggregate(tableName);
+                    ga.addAggregate('COUNT');
+                    ga.query();
+                    if (ga.next()) {
+                        recordCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
+                    }
+                } catch (e2) {
+                    gs.error('FHCheckTable._checkTableSummary record count error for ' + tableName + ': ' + e2);
+                    recordCount = 0;
+                }
+
+                if (recordCount === 0) {
+                    ctx.addIssue('EMPTY_TABLE', 'Table "' + tableName + '" contains no records.', 'low', {
+                        record_table: tableName
+                    });
+                } else if (recordCount > 100000) {
+                    ctx.addIssue('LARGE_TABLE', 'Table "' + tableName + '" has ' + recordCount + ' records — consider archiving.', 'medium', {
+                        record_table: tableName
+                    });
+                }
+            }
+
+            summaries.push({
+                table: tableName,
+                label: label,
+                exists: !!exists,
+                record_count: recordCount
+            });
         }
 
-        if (recordCount === 0) {
-            ctx.addIssue('EMPTY_TABLE', 'Table "' + configTables + '" contains no records.', 'low', {
-                record_table: configTables
-            });
-        } else if (recordCount > 100000) {
-            ctx.addIssue('LARGE_TABLE', 'Table "' + configTables + '" has ' + configTables + ' records — consider archiving.', 'medium', {
-                record_table: configTables
-            });
-        }
-
-
-        tableSummary.push({
-            table: configTables,
-            label: tableLabel,
-            record_count: recordCount,
-
-        });
-
-        this.utils.addCategoryAndMetrics(ctx, 'table', 'table_summary', 'Table Summary', tableSummary, {
+        this.utils.addCategoryAndMetrics(ctx, 'table', 'table_summary', 'Table Summary', summaries, {
             table: 'sys_db_object',
             icon: 'fa-table',
-            color: '#17a2b8',
+            color: '#17a2b8'
         });
     },
 
     /**
      * Check field usage / custom fields (u_), mandatory, types
      */
-    _checkFieldUsage: function(ctx,configTables) {
-        var tableName = ctx.getTableName();
-        var fields = this.utils.getRecords('sys_dictionary', function(gr) {
-            gr.addQuery('name', configTables);
-            gr.addQuery('internal_type', '!=', 'collection'); // exclure l’entrée collection
-        }, ['element', 'column_label', 'internal_type', 'mandatory', 'max_length', 'default_value'], 0, 'dict:' + configTables);
-
+    _checkFieldUsage: function(ctx, tablesToCheck) {
+        var summaries = [];
         var customFields = [];
-        var summary = {
-            table: configTables,
-            total_count: fields.length,
-            custom_count: 0,
-            mandatory_count: 0,
-            max_length_over_255: 0
-        };
 
-        for (var i = 0; i < fields.length; i++) {
-            var f = fields[i];
-            var isCustom = (f.element || '').indexOf('u_') === 0;
-            var isMandatory = (f.mandatory === 'true' || f.mandatory === true);
-            var maxLen = parseInt(f.max_length, 10) || 0;
+        for (var i = 0; i < tablesToCheck.length; i++) {
+            var tableName = tablesToCheck[i];
+            var fields = this.utils.getRecords('sys_dictionary', function(gr) {
+                gr.addQuery('name', tableName);
+                gr.addQuery('internal_type', '!=', 'collection');
+            }, ['element', 'column_label', 'internal_type', 'mandatory', 'max_length', 'default_value'], 0, 'dict:' + tableName);
 
-            if (isCustom) {
-                customFields.push({
-                    sys_id: f.sys_id,
-                    name: f.element,
-                    label: f.column_label,
-                    type: f.internal_type,
-                    mandatory: isMandatory,
-                    max_length: maxLen,
-                    table: 'sys_dictionary'
-                });
-                summary.custom_count++;
+            var summary = {
+                table: tableName,
+                total_count: fields.length,
+                custom_count: 0,
+                mandatory_count: 0,
+                max_length_over_255: 0
+            };
+
+            for (var j = 0; j < fields.length; j++) {
+                var f = fields[j];
+                var isCustom = (f.element || '').indexOf('u_') === 0;
+                var isMandatory = (f.mandatory === 'true' || f.mandatory === true);
+                var maxLen = parseInt(f.max_length, 10) || 0;
+
+                if (isCustom) {
+                    customFields.push({
+                        sys_id: f.sys_id,
+                        name: f.element,
+                        label: f.column_label,
+                        type: f.internal_type,
+                        mandatory: isMandatory,
+                        max_length: maxLen,
+                        table: tableName
+                    });
+                    summary.custom_count++;
+                }
+                if (isMandatory) summary.mandatory_count++;
+                if (maxLen > 255) summary.max_length_over_255++;
             }
-            if (isMandatory) summary.mandatory_count++;
-            if (maxLen > 255) summary.max_length_over_255++;
+
+            summaries.push(summary);
+
+            if (summary.max_length_over_255 > 0) {
+                ctx.addIssue('LONG_TEXT_FIELDS', summary.max_length_over_255 + ' fields with max_length > 255 on "' + tableName + '".', 'low', {
+                    record_table: 'sys_dictionary',
+                    record_filter: 'name=' + tableName + '^max_length>255',
+                    category: 'table'
+                });
+            }
         }
 
-        this.utils.addCategoryAndMetrics(ctx, 'table', 'fields_summary', 'Fields Summary', [summary], {
+        this.utils.addCategoryAndMetrics(ctx, 'table', 'fields_summary', 'Fields Summary', summaries, {
             table: 'sys_dictionary',
             icon: 'fa-list',
             color: '#6c757d'
@@ -155,16 +177,9 @@ FHCheckTable.prototype = {
         }
 
         if (customFields.length > 50) {
-            ctx.addIssue('MANY_CUSTOM_FIELDS', 'Table has ' + customFields.length + ' custom fields (u_).', 'medium', {
+            ctx.addIssue('MANY_CUSTOM_FIELDS', 'Table(s) have ' + customFields.length + ' custom fields (u_).', 'medium', {
                 record_table: 'sys_dictionary',
-                record_filter: 'name=' + configTables + '^elementSTARTSWITHu_',
-                category: 'table'
-            });
-        }
-        if (summary.max_length_over_255 > 0) {
-            ctx.addIssue('LONG_TEXT_FIELDS', summary.max_length_over_255 + ' fields with max_length > 255.', 'low', {
-                record_table: 'sys_dictionary',
-                record_filter: 'name=' + configTables + '^max_length>255',
+                record_filter: 'elementSTARTSWITHu_',
                 category: 'table'
             });
         }
@@ -173,24 +188,34 @@ FHCheckTable.prototype = {
     /**
      * Check reference fields (dictionary.reference not empty)
      */
-    _checkReferenceFields: function(ctx,configTables) {
-
-        var tableName = ctx.getTableName();
-        var refs = this.utils.getRecords('sys_dictionary', function(gr) {
-            gr.addQuery('name', configTables);
-            gr.addNotNullQuery('reference');
-        }, ['element', 'column_label', 'reference', 'reference_qual'], 0, 'dictref:' + configTables);
-
+    _checkReferenceFields: function(ctx, tablesToCheck) {
         var refItems = [];
-        for (var i = 0; i < refs.length; i++) {
-            refItems.push({
-                sys_id: refs[i].sys_id,
-                name: refs[i].element,
-                label: refs[i].column_label,
-                reference: refs[i].reference,
-                reference_qual: refs[i].reference_qual,
-                table: 'sys_dictionary'
-            });
+
+        for (var i = 0; i < tablesToCheck.length; i++) {
+            var tableName = tablesToCheck[i];
+            var refs = this.utils.getRecords('sys_dictionary', function(gr) {
+                gr.addQuery('name', tableName);
+                gr.addNotNullQuery('reference');
+            }, ['element', 'column_label', 'reference', 'reference_qual'], 0, 'dictref:' + tableName);
+
+            for (var j = 0; j < refs.length; j++) {
+                refItems.push({
+                    sys_id: refs[j].sys_id,
+                    name: refs[j].element,
+                    label: refs[j].column_label,
+                    reference: refs[j].reference,
+                    reference_qual: refs[j].reference_qual,
+                    table: tableName
+                });
+            }
+
+            if (refs.length === 0) {
+                ctx.addIssue('NO_REFERENCE_FIELDS', 'No reference fields found on table "' + tableName + '".', 'low', {
+                    record_table: 'sys_dictionary',
+                    record_filter: 'name=' + tableName + '^referenceISNOTEMPTY',
+                    category: 'table'
+                });
+            }
         }
 
         this.utils.addCategoryAndMetrics(ctx, 'table', 'reference_fields', 'Reference Fields', refItems, {
@@ -198,19 +223,10 @@ FHCheckTable.prototype = {
             icon: 'fa-link',
             color: '#6f42c1'
         });
-
-        if (refItems.length === 0) {
-            ctx.addIssue('NO_REFERENCE_FIELDS', 'No reference fields found on table.', 'low', {
-                record_table: 'sys_dictionary',
-                record_filter: 'name=' + configTables + '^referenceISNOTEMPTY',
-                category: 'table'
-            });
-        }
     },
 
-    _checkBusinessRules: function(ctx,configTables) {
-        var tableName = ctx.getTableName();
-        var tablesToCheck = ctx.getTablesToCheck();
+    _checkBusinessRules: function(ctx, tablesToCheck) {
+        var primaryTable = ctx.getTableName();
         var businessRules = [];
 
         try {
@@ -227,7 +243,7 @@ FHCheckTable.prototype = {
                     table: 'sys_script',
                     collection: brTable,
                     active: isActive,
-                    inherited: (brTable !== configTables),
+                    inherited: (brTable !== primaryTable),
                     when: ctx.safeGetValue(gr, 'when'),
                     order: ctx.safeGetValue(gr, 'order')
                 });
@@ -253,7 +269,7 @@ FHCheckTable.prototype = {
             if (activeCount > 50) {
                 ctx.addIssue('MANY_BUSINESS_RULES', 'Table has ' + businessRules.length + ' business rules, ' + activeCount + ' active. This may impact performance.', 'medium', {
                     record_table: 'sys_script',
-                    record_filter: 'collection=' + configTables + '^active=true',
+                    record_filter: 'collectionIN' + tablesToCheck.join(',') + '^active=true',
                     category: 'automation'
                 });
             }
@@ -262,9 +278,8 @@ FHCheckTable.prototype = {
         }
     },
 
-    _checkClientScripts: function(ctx,configTables) {
-        var tableName = ctx.getTableName();
-        var tablesToCheck = ctx.getTablesToCheck();
+    _checkClientScripts: function(ctx, tablesToCheck) {
+        var primaryTable = ctx.getTableName();
         var clientScripts = [];
 
         try {
@@ -281,7 +296,7 @@ FHCheckTable.prototype = {
                     type: ctx.safeGetValue(gr, 'type'),
                     ui_type: ctx.safeGetValue(gr, 'ui_type'),
                     active: true,
-                    inherited: (ctx.safeGetValue(gr, 'table') !== configTables)
+                    inherited: (ctx.safeGetValue(gr, 'table') !== primaryTable)
                 });
             }
 
@@ -294,7 +309,7 @@ FHCheckTable.prototype = {
             if (clientScripts.length > 15) {
                 ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
                     record_table: 'sys_script_client',
-                    record_filter: 'table=' + configTables + '^active=true',
+                    record_filter: 'tableIN' + tablesToCheck.join(',') + '^active=true',
                     category: 'automation'
                 });
             }
@@ -307,23 +322,26 @@ FHCheckTable.prototype = {
      * _checkCustomFields(ctx)
      * Custom fields (prefix u_)
      */
-    _checkCustomFields: function(ctx,configTables) {
-        var tableName = ctx.getTableName();
+    _checkCustomFields: function(ctx, tablesToCheck) {
         var customFields = [];
-        var gr = new GlideRecord('sys_dictionary');
-        gr.addQuery('name', configTables);
-        gr.addQuery('internal_type', '!=', 'collection');
-        gr.addQuery('element', 'STARTSWITH', 'u_');
-        gr.query();
-        while (gr.next()) {
-            customFields.push({
-                sys_id: gr.getUniqueValue(),
-                name: gr.getValue('element'),
-                label: ctx.safeGetValue(gr, 'column_label') || ctx.safeGetValue(gr, 'label'),
-                type: ctx.safeGetValue(gr, 'internal_type'),
-                mandatory: (ctx.safeGetValue(gr, 'mandatory') === 'true'),
-                table: 'sys_dictionary'
-            });
+
+        for (var i = 0; i < tablesToCheck.length; i++) {
+            var tableName = tablesToCheck[i];
+            var gr = new GlideRecord('sys_dictionary');
+            gr.addQuery('name', tableName);
+            gr.addQuery('internal_type', '!=', 'collection');
+            gr.addQuery('element', 'STARTSWITH', 'u_');
+            gr.query();
+            while (gr.next()) {
+                customFields.push({
+                    sys_id: gr.getUniqueValue(),
+                    name: gr.getValue('element'),
+                    label: ctx.safeGetValue(gr, 'column_label') || ctx.safeGetValue(gr, 'label'),
+                    type: ctx.safeGetValue(gr, 'internal_type'),
+                    mandatory: (ctx.safeGetValue(gr, 'mandatory') === 'true'),
+                    table: tableName
+                });
+            }
         }
 
         this.utils.addCategoryAndMetrics(ctx, 'table', 'custom_fields', 'Custom Fields', customFields, {
@@ -333,9 +351,9 @@ FHCheckTable.prototype = {
         });
 
         if (customFields.length > 50) {
-            ctx.addIssue('MANY_CUSTOM_FIELDS', 'Table has ' + customFields.length + ' custom fields (u_).', 'medium', {
+            ctx.addIssue('MANY_CUSTOM_FIELDS', 'Table(s) have ' + customFields.length + ' custom fields (u_).', 'medium', {
                 record_table: 'sys_dictionary',
-                record_filter: 'name=' + configTables + '^elementSTARTSWITHu_',
+                record_filter: 'elementSTARTSWITHu_',
                 category: 'table'
             });
         }

@@ -340,9 +340,12 @@ FHScanUtils.prototype = {
             var itemsArray = items || [];
             if (!Array.isArray(itemsArray)) itemsArray = [itemsArray];
 
-            // Register category if not exists
+            // Register category if not exists (do not override existing label/icon)
             if (ctx.registerCategory && typeof ctx.registerCategory === 'function') {
-                ctx.registerCategory(categoryKey, label || categoryKey, options.icon || 'fa-folder');
+                var existingCat = ctx.getCategory && ctx.getCategory(categoryKey);
+                var catLabel = existingCat && existingCat.label ? existingCat.label : (label || categoryKey);
+                var catIcon = existingCat && existingCat.icon ? existingCat.icon : (options.icon || 'fa-folder');
+                ctx.registerCategory(categoryKey, catLabel, catIcon);
             }
 
             // Add items to category
