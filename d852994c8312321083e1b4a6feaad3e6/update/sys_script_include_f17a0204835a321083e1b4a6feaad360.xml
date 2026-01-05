@@ -29,7 +29,8 @@ FHAnalysisContext.prototype = {
             deep_scan: this._isTrue(config.deep_scan),
             include_children_tables: this._isTrue(config.include_children_tables),
             analyze_references: this._isTrue(config.analyze_references),
-            include_ldap: this._isTrue(config.include_ldap)
+            include_ldap: this._isTrue(config.include_ldap),
+            ignore_snc_records: this._isTrue(config.ignore_snc_records) // skip ServiceNow base records (admin/glide.maint)
         };
 
         // Initialize categories structure for standardized output
@@ -86,6 +87,14 @@ FHAnalysisContext.prototype = {
      */
     isLdapEnabled: function() {
         return this.options.include_ldap === true;
+    },
+
+    /**
+     * Check if ServiceNow base records should be ignored (created/admin or glide.maint and never updated by others)
+     * @returns {Boolean}
+     */
+    isIgnoreSncRecordsEnabled: function() {
+        return this.options.ignore_snc_records === true;
     },
 
     // ==================== TABLE HIERARCHY HELPERS ====================

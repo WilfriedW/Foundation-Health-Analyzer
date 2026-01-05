@@ -47,8 +47,9 @@ FHCheckSecurity.prototype = {
         // Construct an encoded query: name starting with tableName or any parent table
         var encoded = '';
         for (var i = 0; i < tablesToCheck.length; i++) {
-            if (i === 0) encoded += 'nameSTARTSWITH' + tablesToCheck[i];
-            else encoded += '^ORnameSTARTSWITH' + tablesToCheck[i];
+            var tbl = tablesToCheck[i];
+            if (i > 0) encoded += '^OR';
+            encoded += 'name=' + tbl + '^ORnameSTARTSWITH' + tbl + '.';
         }
         gr.addEncodedQuery(encoded);
         gr.addQuery('active', true);
@@ -74,8 +75,14 @@ FHCheckSecurity.prototype = {
                 inherited: (aclTable !== tableName),
                 operation: operation,
                 admin_overrides: (ctx.safeGetValue ? ctx.safeGetValue(gr, 'admin_overrides') === 'true' : gr.getValue('admin_overrides') === 'true'),
-                condition: (ctx.safeGetValue ? !!ctx.safeGetValue(gr, 'condition') : !!gr.getValue('condition'))
+                condition: (ctx.safeGetValue ? !!ctx.safeGetValue(gr, 'condition') : !!gr.getValue('condition')),
+                sys_created_by: ctx.safeGetValue ? ctx.safeGetValue(gr, 'sys_created_by') : gr.getValue('sys_created_by'),
+                sys_updated_by: ctx.safeGetValue ? ctx.safeGetValue(gr, 'sys_updated_by') : gr.getValue('sys_updated_by')
             };
+
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(aclInfo)) {
+                continue;
+            }
 
             acls.push(aclInfo);
 

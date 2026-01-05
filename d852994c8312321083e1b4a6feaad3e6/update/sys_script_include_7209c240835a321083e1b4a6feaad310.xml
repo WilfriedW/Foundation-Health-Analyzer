@@ -84,15 +84,21 @@ FHCheckAutomation.prototype = {
             if (!matchedTable) continue;
 
             var isActive = this.utils.toBool(job.active);
-            scheduledJobs.push({
+            var jobItem = {
                 sys_id: job.sys_id,
                 name: job.name || 'Unnamed',
                 active: isActive,
                 inherited: matchedTable !== tableName,
                 table: 'sysauto_script',
                 matched_table: matchedTable,
-                run_type: job.run_type || ''
-            });
+                run_type: job.run_type || '',
+                sys_created_by: job.sys_created_by,
+                sys_updated_by: job.sys_updated_by
+            };
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(jobItem)) {
+                continue;
+            }
+            scheduledJobs.push(jobItem);
 
             if (!isActive) {
                 ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + (job.name || 'Unnamed') + '"', 'low', {
@@ -126,7 +132,7 @@ FHCheckAutomation.prototype = {
                 var flowName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
                 var flowTable = ctx.safeGetValue(gr, 'trigger_table');
                 var isActive = this.utils.toBool(gr.getValue('active'));
-                flows.push({
+                var flowItem = {
                     sys_id: gr.getUniqueValue(),
                     name: flowName,
                     table: 'sys_hub_flow',
@@ -134,8 +140,16 @@ FHCheckAutomation.prototype = {
                     inherited: (flowTable !== tableName),
                     active: isActive,
                     trigger_type: ctx.safeGetValue(gr, 'trigger_type'),
-                    description: ctx.safeGetValue(gr, 'description')
-                });
+                    description: ctx.safeGetValue(gr, 'description'),
+                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                };
+
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(flowItem)) {
+                    continue;
+                }
+
+                flows.push(flowItem);
 
                 if (!isActive) {
                     ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low', {
@@ -181,7 +195,7 @@ FHCheckAutomation.prototype = {
                 var wfTable = ctx.safeGetValue(gr, 'table');
                 var isActive = this.utils.toBool(gr.getValue('active'));
                 var isPublished = this.utils.toBool(gr.getValue('published'));
-                workflows.push({
+                var wfItem = {
                     sys_id: gr.getUniqueValue(),
                     name: wfName,
                     table: 'wf_workflow',
@@ -189,8 +203,16 @@ FHCheckAutomation.prototype = {
                     inherited: (wfTable !== tableName),
                     active: isActive,
                     published: isPublished,
-                    description: ctx.safeGetValue(gr, 'description')
-                });
+                    description: ctx.safeGetValue(gr, 'description'),
+                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                };
+
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(wfItem)) {
+                    continue;
+                }
+
+                workflows.push(wfItem);
 
                 if (!isActive || !isPublished) {
                     var code = !isPublished ? 'UNPUBLISHED_WORKFLOW' : 'INACTIVE_WORKFLOW';
@@ -245,13 +267,21 @@ FHCheckAutomation.prototype = {
                 if (!related) continue;
 
                 var isActive = this.utils.toBool(gr.getValue('active'));
-                notifications.push({
+                var notifItem = {
                     sys_id: gr.getUniqueValue(),
                     name: name,
                     table: 'sysevent_email_action',
                     active: isActive,
-                    condition: condition
-                });
+                    condition: condition,
+                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                };
+
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(notifItem)) {
+                    continue;
+                }
+
+                notifications.push(notifItem);
 
                 if (!isActive) {
                     ctx.addIssue('INACTIVE_NOTIFICATION', 'Inactive notification: "' + name + '"', 'low', {
@@ -288,7 +318,7 @@ FHCheckAutomation.prototype = {
                 var table = ctx.safeGetValue(gr, 'table');
                 var actionType = ctx.safeGetValue(gr, 'type');
                 var script = ctx.safeGetValue(gr, 'script') || '';
-                uiActions.push({
+                var uiItem = {
                     sys_id: gr.getUniqueValue(),
                     name: name,
                     table: 'sys_ui_action',
@@ -296,8 +326,16 @@ FHCheckAutomation.prototype = {
                     inherited: (table !== ctx.getTableName()),
                     active: active,
                     type: actionType,
-                    script: script
-                });
+                    script: script,
+                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                };
+
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(uiItem)) {
+                    continue;
+                }
+
+                uiActions.push(uiItem);
 
                 if (!active) {
                     ctx.addIssue('INACTIVE_UI_ACTION', 'Inactive UI Action: "' + name + '"', 'low', {
@@ -342,7 +380,7 @@ FHCheckAutomation.prototype = {
                 var policyTable = ctx.safeGetValue(gr, 'table');
                 var name = ctx.safeGetValue(gr, 'short_description') || 'Unnamed';
                 var isActive = this.utils.toBool(gr.getValue('active'));
-                uiPolicies.push({
+                var polItem = {
                     sys_id: gr.getUniqueValue(),
                     name: name,
                     table: 'sys_ui_policy',
@@ -351,8 +389,16 @@ FHCheckAutomation.prototype = {
                     active: isActive,
                     on_load: ctx.safeGetValue(gr, 'on_load') === 'true',
                     reverse_if_false: ctx.safeGetValue(gr, 'reverse_if_false') === 'true',
-                    global: ctx.safeGetValue(gr, 'global') === 'true'
-                });
+                    global: ctx.safeGetValue(gr, 'global') === 'true',
+                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                };
+
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(polItem)) {
+                    continue;
+                }
+
+                uiPolicies.push(polItem);
             }
         } catch (e) {
             gs.error('FHCheckAutomation.checkUIPolicies error: ' + (e && e.message));
@@ -390,7 +436,7 @@ FHCheckAutomation.prototype = {
                 while (gr.next()) {
                     var emailTable = ctx.safeGetValue(gr, 'table');
                     var isActive = this.utils.toBool(gr.getValue('active'));
-                    inboundEmails.push({
+                    var inItem = {
                         sys_id: gr.getUniqueValue(),
                         name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
                         table: 'sysevent_in_email_action',
@@ -399,8 +445,16 @@ FHCheckAutomation.prototype = {
                         active: isActive,
                         type: ctx.safeGetValue(gr, 'type'),
                         action_type: ctx.safeGetValue(gr, 'action_type'),
-                        stop_processing: ctx.safeGetValue(gr, 'stop_processing') === 'true'
-                    });
+                        stop_processing: ctx.safeGetValue(gr, 'stop_processing') === 'true',
+                        sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                        sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                    };
+
+                    if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(inItem)) {
+                        continue;
+                    }
+
+                    inboundEmails.push(inItem);
 
                     if (!isActive) {
                         ctx.addIssue('INACTIVE_INBOUND_EMAIL', 'Inactive inbound email action: "' + (ctx.safeGetValue(gr, 'name') || 'Unnamed') + '"', 'low', {

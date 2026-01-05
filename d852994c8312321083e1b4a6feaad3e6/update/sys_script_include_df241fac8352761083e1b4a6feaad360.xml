@@ -385,6 +385,31 @@ FHScanUtils.prototype = {
         return meta;
     },
 
+    /**
+     * Check if a record is a ServiceNow base record (admin / glide.maint creation and not modified by others)
+     * @param {Object} obj - record with sys_created_by/sys_updated_by
+     */
+    isSncRecord: function(obj) {
+        if (!obj) return false;
+        var sncUsers = { 'admin': true, 'glide.maint': true };
+        var created = (obj.sys_created_by || '').toLowerCase();
+        var updated = (obj.sys_updated_by || '').toLowerCase();
+        var createdSNC = sncUsers[created];
+        var updatedSNC = sncUsers[updated] || updated === '';
+        return createdSNC && (!updated || updatedSNC);
+    },
+
+    /**
+     * Filter out ServiceNow base records if option enabled
+     * @param {Array} list
+     * @param {Object} opts { ignoreSnc: boolean }
+     */
+    filterOutSncRecords: function(list, opts) {
+        if (!opts || !opts.ignoreSnc) return list || [];
+        var self = this;
+        return (list || []).filter(function(r) { return !self.isSncRecord(r); });
+    },
+
 
     type: 'FHScanUtils'
 };]]></script>

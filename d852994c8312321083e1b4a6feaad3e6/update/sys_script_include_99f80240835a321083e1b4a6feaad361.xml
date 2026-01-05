@@ -237,7 +237,7 @@ FHCheckTable.prototype = {
                 var brName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
                 var brTable = ctx.safeGetValue(gr, 'collection');
                 var isActive = this.utils.toBool(gr.getValue('active'));
-                businessRules.push({
+                var item = {
                     sys_id: gr.getUniqueValue(),
                     name: brName,
                     table: 'sys_script',
@@ -245,8 +245,16 @@ FHCheckTable.prototype = {
                     active: isActive,
                     inherited: (brTable !== primaryTable),
                     when: ctx.safeGetValue(gr, 'when'),
-                    order: ctx.safeGetValue(gr, 'order')
-                });
+                    order: ctx.safeGetValue(gr, 'order'),
+                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                };
+
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(item)) {
+                    continue;
+                }
+
+                businessRules.push(item);
 
                 if (!isActive) {
                     ctx.addIssue('INACTIVE_BUSINESS_RULE', 'Inactive business rule: "' + brName + '"', 'low', {
@@ -288,7 +296,7 @@ FHCheckTable.prototype = {
             gr.addQuery('active', true);
             gr.query();
             while (gr.next()) {
-                clientScripts.push({
+                var csItem = {
                     sys_id: gr.getUniqueValue(),
                     name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
                     table: 'sys_script_client',
@@ -296,8 +304,16 @@ FHCheckTable.prototype = {
                     type: ctx.safeGetValue(gr, 'type'),
                     ui_type: ctx.safeGetValue(gr, 'ui_type'),
                     active: true,
-                    inherited: (ctx.safeGetValue(gr, 'table') !== primaryTable)
-                });
+                    inherited: (ctx.safeGetValue(gr, 'table') !== primaryTable),
+                    sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                    sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+                };
+
+                if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(csItem)) {
+                    continue;
+                }
+
+                clientScripts.push(csItem);
             }
 
             this.utils.addCategoryAndMetrics(ctx, 'automation', 'client_scripts', 'Client Scripts', clientScripts, {

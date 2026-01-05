@@ -52,13 +52,19 @@ FHCheckIntegration.prototype = {
         while (gr.next()) {
             var dsName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
             var isActive = this.utils.toBool(gr.getValue('active'));
-            dataSources.push({
+            var dsItem = {
                 sys_id: gr.getUniqueValue(),
                 name: dsName,
                 type: ctx.safeGetValue(gr, 'type'),
                 active: isActive,
-                last_run: ctx.safeGetValue(gr, 'last_run_on')
-            });
+                last_run: ctx.safeGetValue(gr, 'last_run_on'),
+                sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+            };
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(dsItem)) {
+                continue;
+            }
+            dataSources.push(dsItem);
             if (!isActive) {
                 ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
                     record_table: 'sys_data_source',
@@ -132,12 +138,20 @@ FHCheckIntegration.prototype = {
         while (gr.next()) {
             var tmName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
             var isActive = this.utils.toBool(gr.getValue('active'));
-            transformMaps.push({
+            var tmItem = {
                 sys_id: gr.getUniqueValue(),
                 name: tmName,
                 active: isActive,
-                source_table: ctx.safeGetValue(gr, 'source_table')
-            });
+                source_table: ctx.safeGetValue(gr, 'source_table'),
+                sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+            };
+
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(tmItem)) {
+                continue;
+            }
+
+            transformMaps.push(tmItem);
             if (isActive) activeCount++;
             else {
                 inactiveCount++;
@@ -171,12 +185,18 @@ FHCheckIntegration.prototype = {
                 }
             }
             if (!include) continue;
-            restApis.push({
+            var restItem = {
                 sys_id: gr.getUniqueValue(),
                 name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
                 http_method: ctx.safeGetValue(gr, 'http_method'),
-                active: this.utils.toBool(gr.getValue('active'))
-            });
+                active: this.utils.toBool(gr.getValue('active')),
+                sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+            };
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(restItem)) {
+                continue;
+            }
+            restApis.push(restItem);
         }
 
         var meta = {
