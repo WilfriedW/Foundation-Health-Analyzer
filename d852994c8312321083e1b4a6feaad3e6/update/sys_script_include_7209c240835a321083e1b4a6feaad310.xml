@@ -107,14 +107,12 @@ FHCheckAutomation.prototype = {
             scheduledJobs.push(jobItem);
 
             if (!isActive) {
-                if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                    this.utils.isSncRecord && this.utils.isSncRecord(jobItem))) {
-                    ctx.addIssue('INACTIVE_SCHEDULED_JOB', 'Inactive scheduled job: "' + (job.name || 'Unnamed') + '"', 'low', {
+                this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_SCHEDULED_JOB',
+                    'Inactive scheduled job: "' + (job.name || 'Unnamed') + '"', 'low', {
                         record_table: 'sysauto_script',
                         record_sys_id: job.sys_id,
                         category: 'automation'
-                    });
-                }
+                    }, jobItem);
             }
         }
 
@@ -162,14 +160,12 @@ FHCheckAutomation.prototype = {
                 flows.push(flowItem);
 
                 if (!isActive) {
-                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                        this.utils.isSncRecord && this.utils.isSncRecord(flowItem))) {
-                        ctx.addIssue('INACTIVE_FLOW', 'Inactive flow: "' + flowName + '"', 'low', {
+                    this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_FLOW',
+                        'Inactive flow: "' + flowName + '"', 'low', {
                             record_table: 'sys_hub_flow',
                             record_sys_id: gr.getUniqueValue(),
                             category: 'automation'
-                        });
-                    }
+                        }, flowItem);
                 }
             }
         } catch (e) {
@@ -229,16 +225,13 @@ FHCheckAutomation.prototype = {
                 workflows.push(wfItem);
 
                 if (!isActive || !isPublished) {
-                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                        this.utils.isSncRecord && this.utils.isSncRecord(wfItem))) {
-                        var code = !isPublished ? 'UNPUBLISHED_WORKFLOW' : 'INACTIVE_WORKFLOW';
-                        var msg = (!isPublished ? 'Unpublished' : 'Inactive') + ' workflow: "' + wfName + '"';
-                        ctx.addIssue(code, msg, 'low', {
-                            record_table: 'wf_workflow',
-                            record_sys_id: gr.getUniqueValue(),
-                            category: 'automation'
-                        });
-                    }
+                    var code = !isPublished ? 'UNPUBLISHED_WORKFLOW' : 'INACTIVE_WORKFLOW';
+                    var msg = (!isPublished ? 'Unpublished' : 'Inactive') + ' workflow: "' + wfName + '"';
+                    this.utils.addIssueUnlessSnc(ctx, code, msg, 'low', {
+                        record_table: 'wf_workflow',
+                        record_sys_id: gr.getUniqueValue(),
+                        category: 'automation'
+                    }, wfItem);
                 }
             }
         } catch (e) {
@@ -302,14 +295,12 @@ FHCheckAutomation.prototype = {
                 notifications.push(notifItem);
 
                 if (!isActive) {
-                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                        this.utils.isSncRecord && this.utils.isSncRecord(notifItem))) {
-                        ctx.addIssue('INACTIVE_NOTIFICATION', 'Inactive notification: "' + name + '"', 'low', {
+                    this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_NOTIFICATION',
+                        'Inactive notification: "' + name + '"', 'low', {
                             record_table: 'sysevent_email_action',
                             record_sys_id: gr.getUniqueValue(),
                             category: 'automation'
-                        });
-                    }
+                        }, notifItem);
                 }
             }
         } catch (e) {
@@ -360,14 +351,12 @@ FHCheckAutomation.prototype = {
                 uiActions.push(uiItem);
 
                 if (!active) {
-                    if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                        this.utils.isSncRecord && this.utils.isSncRecord(uiItem))) {
-                        ctx.addIssue('INACTIVE_UI_ACTION', 'Inactive UI Action: "' + name + '"', 'low', {
+                    this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_UI_ACTION',
+                        'Inactive UI Action: "' + name + '"', 'low', {
                             record_table: 'sys_ui_action',
                             record_sys_id: gr.getUniqueValue(),
                             category: 'automation'
-                        });
-                    }
+                        }, uiItem);
                 }
             }
         } catch (e) {
@@ -483,14 +472,12 @@ FHCheckAutomation.prototype = {
                     inboundEmails.push(inItem);
 
                     if (!isActive) {
-                        if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                              this.utils.isSncRecord && this.utils.isSncRecord(inItem))) {
-                            ctx.addIssue('INACTIVE_INBOUND_EMAIL', 'Inactive inbound email action: "' + (ctx.safeGetValue(gr, 'name') || 'Unnamed') + '"', 'low', {
+                        this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_INBOUND_EMAIL',
+                            'Inactive inbound email action: "' + (ctx.safeGetValue(gr, 'name') || 'Unnamed') + '"', 'low', {
                                 record_table: 'sysevent_in_email_action',
                                 record_sys_id: gr.getUniqueValue(),
                                 category: 'automation'
-                            });
-                        }
+                            }, inItem);
                     }
                 }
             }

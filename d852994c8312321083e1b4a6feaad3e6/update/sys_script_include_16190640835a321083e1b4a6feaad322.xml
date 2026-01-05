@@ -66,14 +66,11 @@ FHCheckIntegration.prototype = {
             }
             dataSources.push(dsItem);
             if (!isActive) {
-                if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                      this.utils.isSncRecord && this.utils.isSncRecord(dsItem))) {
-                    ctx.addIssue('INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
-                        record_table: 'sys_data_source',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'integration'
-                    });
-                }
+                this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
+                    record_table: 'sys_data_source',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'integration'
+                }, dsItem);
             }
         }
 
@@ -158,14 +155,11 @@ FHCheckIntegration.prototype = {
             if (isActive) activeCount++;
             else {
                 inactiveCount++;
-                if (!(ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                      this.utils.isSncRecord && this.utils.isSncRecord(tmItem))) {
-                    ctx.addIssue('INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low', {
-                        record_table: 'sys_transform_map',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'integration'
-                    });
-                }
+                this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low', {
+                    record_table: 'sys_transform_map',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'integration'
+                }, tmItem);
             }
         }
 

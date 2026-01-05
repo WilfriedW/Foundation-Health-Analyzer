@@ -421,6 +421,25 @@ FHScanUtils.prototype = {
         });
     },
 
+    /**
+     * addIssueUnlessSnc(ctx, code, message, severity, metadata, record)
+     * - Skips the issue if ignore_snc_records option is enabled AND record is SNC
+     * - record: object with sys_created_by/sys_updated_by (optional)
+     */
+    addIssueUnlessSnc: function(ctx, code, message, severity, metadata, record) {
+        try {
+            if (ctx && ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
+                record && this.isSncRecord && this.isSncRecord(record)) {
+                return; // ignore SNC-only records
+            }
+        } catch (e) {
+            // fall through to addIssue
+        }
+        if (ctx && ctx.addIssue) {
+            ctx.addIssue(code, message, severity, metadata);
+        }
+    },
+
 
     type: 'FHScanUtils'
 };]]></script>

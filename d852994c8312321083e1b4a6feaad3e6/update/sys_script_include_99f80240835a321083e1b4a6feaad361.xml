@@ -258,16 +258,12 @@ FHCheckTable.prototype = {
                 businessRules.push(item);
 
                 if (!isActive) {
-                    if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-                        this.utils.isSncRecord && this.utils.isSncRecord(item)) {
-                        // skip raising issue for SNC base record
-                    } else {
-                    ctx.addIssue('INACTIVE_BUSINESS_RULE', 'Inactive business rule: "' + brName + '"', 'low', {
-                        record_table: 'sys_script',
-                        record_sys_id: gr.getUniqueValue(),
-                        category: 'automation'
-                    });
-                    }
+                    this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_BUSINESS_RULE',
+                        'Inactive business rule: "' + brName + '"', 'low', {
+                            record_table: 'sys_script',
+                            record_sys_id: gr.getUniqueValue(),
+                            category: 'automation'
+                        }, item);
                 }
             }
 
@@ -329,7 +325,7 @@ FHCheckTable.prototype = {
             });
 
             if (clientScripts.length > 15) {
-                ctx.addIssue('MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
+                this.utils.addIssueUnlessSnc(ctx, 'MANY_CLIENT_SCRIPTS', 'Table has ' + clientScripts.length + ' active client scripts. This may impact user experience.', 'medium', {
                     record_table: 'sys_script_client',
                     record_filter: 'tableIN' + tablesToCheck.join(',') + '^active=true',
                     category: 'automation'
