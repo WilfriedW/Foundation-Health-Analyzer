@@ -19,10 +19,10 @@ FHCheckAutomationV2.prototype = {
     /**
      * Executes verification for a configured item (e.g., Flow, Change Request)
      * @param {GlideRecord} configRecord - Configuration record from your "Items to Verify" table
+     * @param {FHAnalysisContext} ctx - contexte d'exécution (pour récupérer les tables config)
      * @returns {Object} - Verification result { success: Boolean, data: Array, errors: Array, metadata: Object }
      */
-    runVerification: function(configRecord) {
-		gs.info(JSON.stringify(configRecord))
+    runVerification: function(configRecord, ctx) {
         var result = {
             success: false, // Default to false; set to true if execution completes
             data: [], // Array to store verified records
@@ -32,12 +32,23 @@ FHCheckAutomationV2.prototype = {
 
         try {
             // --- 1. Extract configuration parameters ---
-            var tableName = configRecord.table.toString() ||''; // Target table (e.g., 'flow', 'change_request')
-            var queryType = configRecord.query_type.toString() ||''; // 'script' or 'encoded_query'
-            var queryValue = configRecord.query_value.toString() ||''; // Encoded query (e.g., 'active=false')
-            var fields = JSON.parse(configRecord.fields || '[]'); // Fields to retrieve (e.g., ['name', 'active'])
-            var issuesConfig = JSON.parse(configRecord.issues || '{}'); // Issue thresholds (e.g., { inactivityIssueCode: 'INACTIVE' })
-            var queryScript = configRecord.query_script.toString() ||''; // Custom script (e.g., for Flow associations)
+            var tableName = this._safeGet(configRecord, 'table') || '';
+            var queryType = (this._safeGet(configRecord, 'query_type') || 'encoded').toLowerCase(); // 'script' or 'encoded'
+            var queryValue = this._safeGet(configRecord, 'query_value') || ''; // Encoded query (e.g., 'active=false')
+            var fields = this._safeParse(this._safeGet(configRecord, 'fields'), []);
+            if (!Array.isArray(fields)) {
+                fields = String(fields || '')
+                    .split(',')
+                    .map(function(f) {
+                        return f.trim().replace(/['"]/g, '');
+                    })
+                    .filter(function(f) {
+                        return f;
+                    });
+            }
+            var issuesConfig = this._safeParse(this._safeGet(configRecord, 'issues'), {}); // Issue thresholds (e.g., { inactivityIssueCode: 'INACTIVE' })
+            var queryScript = this._safeGet(configRecord, 'query_script') || ''; // Custom script (e.g., for Flow associations)
+            var configTables = (ctx && typeof ctx.getTablesToCheck === 'function') ? ctx.getTablesToCheck() : [];
 
             // --- 2. Build the query based on type ---
             var gr = new GlideRecord(tableName);
@@ -47,9 +58,24 @@ FHCheckAutomationV2.prototype = {
                 // WARNING: Replace 'eval' with a secure alternative in production!
                 if (queryScript) {
                     var scriptResults = [];
-                    eval(queryScript); // Executes user-defined script (e.g., 'for (...) { scriptResults.push(...); }')
-                    if (scriptResults.length > 0) {
-                        gr.addQuery('sys_id', 'IN', scriptResults.join(','));
+                    // variables utilitaires exposées dans le script
+                    var flowIds = scriptResults; // alias pour le script de l'image (flowIds.push)
+                    var configTablesLocal = configTables;
+                    try {
+                        /* eslint-disable no-eval */
+                        eval(queryScript); // Executes user-defined script (e.g., 'for (...) { scriptResults.push(...); }')
+                        /* eslint-enable no-eval */
+                    } catch (eScript) {
+                        result.errors.push("Query script error: " + eScript.message);
+                        gs.error("[FHCheckAutomationV2] Query script error: " + eScript.message);
+                    }
+                    var ids = this._flattenIds(scriptResults);
+                    if (ids.length > 0) {
+                        gr.addQuery('sys_id', 'IN', ids.join(','));
+                    } else {
+                        // Pas d'ID retourné par le script => rien à analyser
+                        result.success = true;
+                        return result;
                     }
                 }
             } else {
@@ -116,10 +142,11 @@ FHCheckAutomationV2.prototype = {
             item.issues = []; // Reset issues for this record
 
             // --- Rule 1: Check for inactive Flows ---
-            if (item.table === 'flow' && item.values.active === 'false') {
+            var activeVal = (item.values.active || '').toString().toLowerCase();
+            if (activeVal === 'false') {
                 item.issues.push({
                     code: issuesConfig.inactivityIssueCode || 'INACTIVE',
-                    message: 'This Flow is inactive.',
+                    message: 'Inactive record.',
                     severity: 'high',
                     details: {
                         field: 'active',
@@ -149,6 +176,49 @@ FHCheckAutomationV2.prototype = {
         });
 
         return result;
+    },
+
+    _safeParse: function(str, fallback) {
+        if (fallback === undefined) fallback = {};
+        try {
+            if (!str) return fallback;
+            return JSON.parse(str);
+        } catch (e) {
+            return fallback;
+        }
+    },
+
+    _safeGet: function(rec, field) {
+        try {
+            if (!rec) return '';
+            if (typeof rec.getValue === 'function') return rec.getValue(field);
+            return rec[field] || '';
+        } catch (e) {
+            return '';
+        }
+    },
+
+    _flattenIds: function(list) {
+        var ids = [];
+        if (!list) return ids;
+        var pushId = function(v) {
+            if (!v) return;
+            if (typeof v === 'string') {
+                if (v.indexOf(',') > -1) {
+                    v.split(',').forEach(pushId);
+                } else {
+                    ids.push(v);
+                }
+            } else if (Array.isArray(v)) {
+                v.forEach(pushId);
+            } else if (v.sys_id) {
+                ids.push(String(v.sys_id));
+            } else if (v.getUniqueValue && typeof v.getUniqueValue === 'function') {
+                ids.push(String(v.getUniqueValue()));
+            }
+        };
+        pushId(list);
+        return ids;
     },
 
     type: 'FHCheckAutomationV2'

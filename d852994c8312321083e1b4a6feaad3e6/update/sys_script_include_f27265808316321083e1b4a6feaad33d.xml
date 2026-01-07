@@ -16,8 +16,8 @@
 var FHAnalyzer = Class.create();
 FHAnalyzer.prototype = {
     initialize: function() {
-        this.resultsTable = 'x_1310794_founda_0_fha_results';
-        this.configTable = 'x_1310794_founda_0_fha_configuration';
+        this.resultsTable = 'x_1310794_founda_0_results';
+        this.configTable = 'x_1310794_founda_0_configurations';
         this.logPrefix = '[FHA] ';
     },
 
@@ -38,7 +38,7 @@ FHAnalyzer.prototype = {
      * @returns {String} Table name or empty string
      */
     _getTableInfoFromReference: function(gr) {
-        var tableRef = gr.table_reference;
+        var tableRef = gr.table;
         if (tableRef && !tableRef.nil()) {
             var tableGr = tableRef.getRefRecord();
             if (tableGr) {
@@ -74,7 +74,7 @@ FHAnalyzer.prototype = {
                 display_name: gr.getValue('name') || '',
                 table_name: tableInfo.name,
                 table_label: tableInfo.label,
-                table_ref: tableInfo.table_reference.sys_id.toString(),
+                table_ref: tableInfo.sys_id,
                 description: gr.getValue('description') || ''
             });
         }
@@ -91,6 +91,9 @@ FHAnalyzer.prototype = {
         var gr = new GlideRecord(this.configTable);
         if (gr.get(configSysId)) {
             var tableInfo = this._getTableInfoFromReference(gr);
+            var verificationList = (gr.getValue('verification_items') || '').split(',').filter(function(v) {
+                return v && v.trim();
+            });
             return {
                 sys_id: gr.sys_id.toString(),
                 name: gr.getValue('name') || '',
@@ -98,13 +101,12 @@ FHAnalyzer.prototype = {
                 table_label: tableInfo.label,
                 table_sys_id: tableInfo.sys_id,
                 description: gr.getValue('description') || '',
-                active: gr.getValue('active'),
-                include_children_tables: gr.getValue('include_children_tables'),
-                analyze_references: gr.getValue('analyze_references'),
-                deep_scan: gr.getValue('deep_scan'),
-                ignore_servicenow_records: gr.getValue('ignore_servicenow_records'),
-                include_ldap: gr.getValue('include_ldap')
-
+                active: this._isTrue(gr.getValue('active')),
+                include_children_tables: this._isTrue(gr.getValue('include_children_tables')),
+                deep_scan: this._isTrue(gr.getValue('deep_scan')),
+                ignore_servicenow_records: this._isTrue(gr.getValue('ignore_servicenow_records')),
+                include_ldap: this._isTrue(gr.getValue('include_ldap')),
+                verification_items: verificationList
             };
         }
         return null;
@@ -128,22 +130,19 @@ FHAnalyzer.prototype = {
         }
         var resultObj = null;
         try {
-            var detailJson = gr.getValue('detail_json') || '';
+            var detailJson = gr.getValue('details') || '';
             resultObj = detailJson ? JSON.parse(detailJson) : {};
         } catch (e) {
             return {
                 success: false,
-                error: 'Invalid detail_json: ' + e.message
+                error: 'Invalid details: ' + e.message
             };
         }
 
-        // resultObj.table_name = resultObj.table_name || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('name') || '') : '');
-        // resultObj.table_label = resultObj.table_label || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('label') || '') : '');
-        // resultObj.number = resultObj.number || gr.getValue('number') || '';
-        // resultObj.health_score = resultObj.health_score || parseInt(gr.getValue('health_score'), 10) || 0;
-        // resultObj.issue_found = resultObj.issue_found || parseInt(gr.getValue('issue_found'), 10) || 0;
-        // resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
-        // resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
+        resultObj.number = resultObj.number || gr.getValue('number') || '';
+        resultObj.state = resultObj.state || gr.getValue('state') || '';
+        resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
+        resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
 
         return {
             success: true,
@@ -192,28 +191,20 @@ FHAnalyzer.prototype = {
         var gr = new GlideRecord(this.resultsTable);
         gr.initialize();
 
-        // Set table_name reference (sys_db_object)
-        gr.setValue('table_name', config.table_sys_id);
+        // Set status/state
+        gr.setValue('state', 'Completed');
 
-        // Set status
-        gr.setValue('status', 'completed');
-
-        // Calculate and set health score
-        var healthScore = this._calculateHealthScore(result);
-        gr.setValue('health_score', healthScore);
-
-        // Set issue count
-        var issueCount = result.issues ? result.issues.length : 0;
-        gr.setValue('issue_found', issueCount);
-
-        // Store full details as JSON in detail_json field
+        // Store full details as JSON in details field
         var detailObj = {
+            config: config,
             issues: result.issues || [],
             categories: result.categories || {},
+            verification_items: result.verification_items || [],
             execution_metadata: result.execution_metadata || {},
-            options: config
+            options: config,
+            parameters: parameters || {}
         };
-        gr.setValue('detail_json', JSON.stringify(detailObj));
+        gr.setValue('details', JSON.stringify(detailObj));
 
         var sysId = gr.insert();
         if (sysId) {
@@ -221,25 +212,6 @@ FHAnalyzer.prototype = {
         }
 
         throw new Error('Failed to save analysis result');
-    },
-
-    /**
-     * Calculate health score based on issues
-     * @private
-     * @param {Object} result - Analysis result
-     * @returns {Number} Health score (0-100)
-     */
-    _calculateHealthScore: function(result) {
-        if (!result || !result.issues) return 100;
-
-        var score = 100;
-        result.issues.forEach(function(issue) {
-            if (issue.severity === 'high') score -= 15;
-            else if (issue.severity === 'medium') score -= 5;
-            else score -= 2;
-        });
-
-        return Math.max(0, Math.min(100, score));
     },
 
     type: 'FHAnalyzer'

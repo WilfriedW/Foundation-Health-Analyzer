@@ -25,6 +25,18 @@ FHAnalysisContext.prototype = {
         this.issues = [];
         this.categories = {};
 
+        // Options centralisées pour l'exécution
+        this.options = {
+            deep_scan: config && config.deep_scan,
+            include_children_tables: config && config.include_children_tables,
+            analyze_references: (config && config.analyze_references) || false,
+            include_ldap: config && config.include_ldap,
+            ignore_servicenow_records: config && config.ignore_servicenow_records
+        };
+
+        // Stocke les résultats des verification_items V2
+        this._verificationResults = [];
+
         this._executionMetadata = {
             duration_ms: 0
         };
@@ -357,6 +369,7 @@ FHAnalysisContext.prototype = {
             issues: this.issues,
             categories: this.categories,
             execution_metadata: this._executionMetadata,
+            verification_items: this._verificationResults || [],
             hasBlockingIssues: function() {
                 return self.issues.some(function(issue) {
                     return issue.severity === 'high';

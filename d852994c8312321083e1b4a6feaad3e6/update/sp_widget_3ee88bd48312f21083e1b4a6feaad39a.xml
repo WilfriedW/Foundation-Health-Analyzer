@@ -883,13 +883,13 @@ function getCatItem(catId, typeId) {
         <script><![CDATA[(function() {
     // Load available configurations
     data.configurations = [];
-    var configGr = new GlideRecord('x_1310794_founda_0_fha_configuration');
+    var configGr = new GlideRecord('x_1310794_founda_0_configurations');
     configGr.addQuery('active', true);
     configGr.orderBy('name');
     configGr.query();
     
     while (configGr.next()) {
-        var tableRef = configGr.table_reference.getRefRecord();
+        var tableRef = configGr.table.getRefRecord();
         
         // Helper to check boolean values
         var isTrue = function(val) {
@@ -912,29 +912,35 @@ function getCatItem(catId, typeId) {
     
     // Load recent analyses
     data.recentAnalyses = [];
-    var resultsGr = new GlideRecord('x_1310794_founda_0_fha_results');
-    resultsGr.addQuery('status', 'completed');
+    var resultsGr = new GlideRecord('x_1310794_founda_0_results');
+    resultsGr.addQuery('state', 'Completed');
     resultsGr.orderByDesc('sys_created_on');
     resultsGr.setLimit(10);
     resultsGr.query();
     
     while (resultsGr.next()) {
-        // Get table display name from reference or detail_json
+        var det = {};
+        var issues = [];
         var tableDisplayName = '';
-        
-        if (resultsGr.table_name && !resultsGr.table_name.nil()) {
-            var tableRefGr = resultsGr.table_name.getRefRecord();
-            if (tableRefGr) {
-                tableDisplayName = tableRefGr.getValue('label') || tableRefGr.getValue('name') || '';
-            }
-        }
+        try {
+            det = JSON.parse(resultsGr.getValue('details') || '{}');
+            issues = det.issues || [];
+            tableDisplayName = (det.config && (det.config.table_label || det.config.table_name)) || '';
+        } catch(e) {}
+        var score = 100;
+        issues.forEach(function(issue) {
+            if (issue.severity === 'high') score -= 15;
+            else if (issue.severity === 'medium') score -= 5;
+            else score -= 2;
+        });
+        score = Math.max(0, score);
         
         data.recentAnalyses.push({
             sys_id: resultsGr.getUniqueValue(),
             number: resultsGr.getValue('number'),
             table_name: tableDisplayName,
-            health_score: parseInt(resultsGr.getValue('health_score'), 10) || 0,
-            issue_count: parseInt(resultsGr.getValue('issue_found'), 10) || 0,
+            health_score: score,
+            issue_count: issues.length,
             created_on: resultsGr.getValue('sys_created_on')
         });
     }
@@ -979,43 +985,35 @@ function getCatItem(catId, typeId) {
             case 'get_recent_analyses':
                 data.success = true;
                 data.analyses = [];
-                var gr = new GlideRecord('x_1310794_founda_0_fha_results');
-                gr.addQuery('status', 'completed');
+                var gr = new GlideRecord('x_1310794_founda_0_results');
+                gr.addQuery('state', 'Completed');
                 gr.orderByDesc('sys_created_on');
                 gr.setLimit(10);
                 gr.query();
                 
                 while (gr.next()) {
-                    // Get table display name from reference or detail_json
                     var tblName = '';
-                    
-                    // Method 1: Try reference field
-                if (gr.table_name && !gr.table_name.nil()) {
-                        var tblRef = gr.table_name.getRefRecord();
-                        if (tblRef) {
-                            tblName = tblRef.getValue('label') || tblRef.getValue('name') || '';
-                        }
-                    }
-                    
-                    // Method 2: Fallback to detail_json
-                    if (!tblName) {
-                        try {
-                            var dJson = gr.getValue('detail_json');
-                            if (dJson) {
-                                var dObj = JSON.parse(dJson);
-                                tblName = dObj.table_label || dObj.table_name || '';
-                            }
-                        } catch(ex) {
-                            // Ignore parse errors
-                        }
-                    }
+                    var detObj = {};
+                    var iss = [];
+                    try {
+                        detObj = JSON.parse(gr.getValue('details') || '{}');
+                        tblName = (detObj.config && (detObj.config.table_label || detObj.config.table_name)) || '';
+                        iss = detObj.issues || [];
+                    } catch(ex) {}
+                    var sc = 100;
+                    iss.forEach(function(issue) {
+                        if (issue.severity === 'high') sc -= 15;
+                        else if (issue.severity === 'medium') sc -= 5;
+                        else sc -= 2;
+                    });
+                    sc = Math.max(0, sc);
                     
                     data.analyses.push({
-                    sys_id: gr.getUniqueValue(),
-                    number: gr.getValue('number'),
+                        sys_id: gr.getUniqueValue(),
+                        number: gr.getValue('number'),
                         table_name: tblName,
-                    health_score: parseInt(gr.getValue('health_score'), 10) || 0,
-                    issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                        health_score: sc,
+                        issue_count: iss.length,
                         created_on: gr.getValue('sys_created_on')
                     });
                 }

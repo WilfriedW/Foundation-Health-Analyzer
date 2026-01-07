@@ -26,27 +26,129 @@ FHAnalysisEngine.prototype = {
      */
     run: function(config) {
         var ctx = new FHAnalysisContext(config);
-        //var checks = FHCheckRegistry.getChecks(config);
-
-        this.utils.analysis(ctx);
-
-
         var start = new Date().getTime();
-        for (var i = 0; i < checks.length; i++) {
-            try {
-                checks[i].execute(ctx);
-            } catch (e) {
-                ctx.addIssue(
-                    'CHECK_ERROR',
-                    'Error in ' + checks[i].type + ': ' + e.message,
-                    'high'
-                );
+
+        // Si des verification_items sont configurés, on utilise le nouveau moteur V2.
+        if (config && config.verification_items && config.verification_items.length) {
+            this._runVerificationItems(ctx, config);
+        } else {
+            // Fallback sur le registre existant si aucun item n'est configuré.
+            var checks = FHCheckRegistry.getChecks(config);
+            for (var i = 0; i < checks.length; i++) {
+                try {
+                    checks[i].execute(ctx);
+                } catch (e) {
+                    ctx.addIssue(
+                        'CHECK_ERROR',
+                        'Error in ' + checks[i].type + ': ' + e.message,
+                        'high'
+                    );
+                }
             }
         }
 
         ctx.setDuration(new Date().getTime() - start);
 
-        return ctx.toResult();
+        var out = ctx.toResult();
+        if (ctx._verificationResults) {
+            out.verification_items = ctx._verificationResults;
+        }
+        return out;
+    },
+
+    /**
+     * Charge et exécute les verification_items définis sur la configuration.
+     * @param {FHAnalysisContext} ctx
+     * @param {Object} config
+     */
+    _runVerificationItems: function(ctx, config) {
+        var items = this._loadVerificationItems(config.verification_items);
+        var checker = new FHCheckAutomationV2();
+        var results = [];
+
+        for (var i = 0; i < items.length; i++) {
+            var itemGr = items[i];
+            var category = itemGr.getValue('category') || 'automation';
+            var name = itemGr.getValue('name') || itemGr.getDisplayValue('table') || category;
+            var metadata = this._safeParse(itemGr.getValue('metadata'), {});
+            var label = metadata.label || name;
+            var itemType = (metadata.itemType || name || 'item').toLowerCase();
+
+            ctx.registerCategory(category, label, metadata.icon || 'fa-folder');
+
+            var verificationResult = checker.runVerification(itemGr, ctx);
+            var records = verificationResult.data || [];
+
+            ctx.addCategoryItems(category, itemType, label, records, {
+                table: itemGr.getValue('table'),
+                icon: metadata.icon || 'fa-folder',
+                color: metadata.color || '#6c757d'
+            });
+
+            // Ajout des issues détectées par item
+            for (var r = 0; r < records.length; r++) {
+                var rec = records[r];
+                if (!rec || !rec.issues) continue;
+                for (var k = 0; k < rec.issues.length; k++) {
+                    var issue = rec.issues[k] || {};
+                    ctx.addIssue(issue.code || 'ISSUE', issue.message || 'Issue detected', issue.severity || 'low', {
+                        record_table: rec.table,
+                        record_sys_id: rec.sys_id,
+                        category: category
+                    });
+                }
+            }
+
+            // Gestion des erreurs d'exécution
+            if (verificationResult.errors && verificationResult.errors.length) {
+                for (var e = 0; e < verificationResult.errors.length; e++) {
+                    ctx.addIssue('CHECK_ERROR', verificationResult.errors[e], 'high', {
+                        category: category
+                    });
+                }
+            }
+
+            results.push({
+                item_sys_id: itemGr.getUniqueValue(),
+                name: name,
+                category: category,
+                records: records,
+                errors: verificationResult.errors || []
+            });
+        }
+
+        ctx._verificationResults = results;
+    },
+
+    /**
+     * Charge les GlideRecord des verification_items par sys_id.
+     * @param {Array} ids
+     * @returns {Array}
+     */
+    _loadVerificationItems: function(ids) {
+        var out = [];
+        if (!ids || !ids.length) return out;
+
+        var gr = new GlideRecord('x_1310794_founda_0_verification_items');
+        gr.addQuery('sys_id', 'IN', ids.join(','));
+        gr.query();
+        while (gr.next()) {
+            out.push(gr);
+        }
+        return out;
+    },
+
+    /**
+     * Parse JSON avec repli sécurisé.
+     */
+    _safeParse: function(val, fallback) {
+        if (fallback === undefined) fallback = {};
+        try {
+            if (!val) return fallback;
+            return JSON.parse(val);
+        } catch (e) {
+            return fallback;
+        }
     },
 
     type: 'FHAnalysisEngine'

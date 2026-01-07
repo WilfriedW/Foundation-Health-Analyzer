@@ -625,13 +625,12 @@
     var pageSize = (input && input.pageSize) || 20;
     var search = (input && input.search) || '';
     var status = (input && input.status) || 'all';
-    var scoreRange = (input && input.scoreRange) || 'all';
     var sortField = (input && input.sortField) || 'sys_created_on';
     var sortDirection = (input && input.sortDirection) || 'desc';
     
     // Handle actions
     if (input && input.action === 'delete_analysis') {
-        var delGr = new GlideRecord('x_1310794_founda_0_fha_results');
+        var delGr = new GlideRecord('x_1310794_founda_0_results');
         if (delGr.get(input.sys_id)) {
             delGr.deleteRecord();
             data.success = true;
@@ -640,47 +639,24 @@
     }
     
     // Build query
-    var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+    var gr = new GlideRecord('x_1310794_founda_0_results');
     
     // Apply filters
     if (status !== 'all') {
-        gr.addQuery('status', status);
+        gr.addQuery('state', status);
     }
     
     if (search) {
-        var qc = gr.addQuery('number', 'CONTAINS', search);
-        qc.addOrCondition('table_name', 'CONTAINS', search);
-    }
-    
-    if (scoreRange !== 'all') {
-        if (scoreRange === 'good') {
-            gr.addQuery('health_score', '>=', 70);
-        } else if (scoreRange === 'medium') {
-            gr.addQuery('health_score', '>=', 40);
-            gr.addQuery('health_score', '<', 70);
-        } else if (scoreRange === 'poor') {
-            gr.addQuery('health_score', '<', 40);
-        }
+        gr.addQuery('number', 'CONTAINS', search);
     }
     
     // Get total count
-    var countGr = new GlideAggregate('x_1310794_founda_0_fha_results');
+    var countGr = new GlideAggregate('x_1310794_founda_0_results');
     if (status !== 'all') {
-        countGr.addQuery('status', status);
+        countGr.addQuery('state', status);
     }
     if (search) {
-        var qc2 = countGr.addQuery('number', 'CONTAINS', search);
-        qc2.addOrCondition('table_name', 'CONTAINS', search);
-    }
-    if (scoreRange !== 'all') {
-        if (scoreRange === 'good') {
-            countGr.addQuery('health_score', '>=', 70);
-        } else if (scoreRange === 'medium') {
-            countGr.addQuery('health_score', '>=', 40);
-            countGr.addQuery('health_score', '<', 70);
-        } else if (scoreRange === 'poor') {
-            countGr.addQuery('health_score', '<', 40);
-        }
+        countGr.addQuery('number', 'CONTAINS', search);
     }
     countGr.addAggregate('COUNT');
     countGr.query();
@@ -700,38 +676,25 @@
     gr.query();
     
     while (gr.next()) {
-        // Get table display name
-        var tableDisplayName = '';
-        var tableName = '';
-        if (gr.table_name && !gr.table_name.nil()) {
-            var tableRef = gr.table_name.getRefRecord();
-            if (tableRef) {
-							gs.info("WWA table ref : "+tableRef.getValue('label'))
-                tableDisplayName = tableRef.getValue('label') || tableRef.getValue('name') || '';
-                tableName = tableRef.getValue('name') || '';
-            }
-        }
-     
-		
-        // Parse detail_json for issue counts
         var issues = [];
         var highCount = 0;
         var mediumCount = 0;
         var lowCount = 0;
+        var tableDisplayName = '';
+        var tableName = '';
         
         try {
-            var detailJson = gr.getValue('detail_json');
-            if (detailJson) {
-                var detail = JSON.parse(detailJson);
-                issues = detail.issues || [];
-                issues.forEach(function(issue) {
-                    if (issue.severity === 'high') highCount++;
-                    else if (issue.severity === 'medium') mediumCount++;
-                    else if (issue.severity === 'low') lowCount++;
-                });
-            }
+            var detailObj = JSON.parse(gr.getValue('details') || '{}');
+            issues = detailObj.issues || [];
+            issues.forEach(function(issue) {
+                if (issue.severity === 'high') highCount++;
+                else if (issue.severity === 'medium') mediumCount++;
+                else if (issue.severity === 'low') lowCount++;
+            });
+            tableDisplayName = (detailObj.config && (detailObj.config.table_label || detailObj.config.table_name)) || '';
+            tableName = (detailObj.config && detailObj.config.table_name) || '';
         } catch(e) {
-            // Ignore parse errors
+            // ignore parse errors
         }
         
         data.analyses.push({
@@ -739,12 +702,12 @@
             number: gr.getValue('number') || '',
             table_name: tableName,
             table_label: tableDisplayName || 'N/A',
-            health_score: parseInt(gr.getValue('health_score'), 10) || 0,
-            issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+            health_score: calculateScore(issues),
+            issue_count: issues.length,
             high_count: highCount,
             medium_count: mediumCount,
             low_count: lowCount,
-            status: gr.getValue('status') || '',
+            status: gr.getValue('state') || '',
             created_on: gr.getValue('sys_created_on') || '',
             created_by: gr.getDisplayValue('sys_created_by') || ''
         });
@@ -766,6 +729,16 @@
             if (a.health_score < 40) data.stats.criticalCount++;
         });
         data.stats.avgScore = Math.round(totalScore / data.analyses.length);
+    }
+
+    function calculateScore(issues) {
+        var score = 100;
+        (issues || []).forEach(function(issue) {
+            if (issue.severity === 'high') score -= 15;
+            else if (issue.severity === 'medium') score -= 5;
+            else score -= 2;
+        });
+        return Math.max(0, score);
     }
     
     data.success = true;

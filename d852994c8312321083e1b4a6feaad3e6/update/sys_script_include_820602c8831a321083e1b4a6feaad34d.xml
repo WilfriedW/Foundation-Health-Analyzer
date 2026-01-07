@@ -21,10 +21,7 @@ var FHCheckRegistry = {
      */
     getChecks: function(config) {
         return [
-            // new FHCheckTable(),
-            // new FHCheckIntegration(),
-             new FHCheckAutomation(),
-            // new FHCheckSecurity(),
+            new FHCheckAutomationV2()
         ];
     }
 };]]></script>
