@@ -98,13 +98,13 @@ FHAnalyzer.prototype = {
                 table_label: tableInfo.label,
                 table_sys_id: tableInfo.sys_id,
                 description: gr.getValue('description') || '',
-                active: this._isTrue(gr.getValue('active')),
-                include_children_tables: this._isTrue(gr.getValue('include_children_tables')),
-                analyze_references: this._isTrue(gr.getValue('analyze_references')),
-                deep_scan: this._isTrue(gr.getValue('deep_scan')),
-				ignore_servicenow_records: this._isTrue(gr.getValue('ignore_servicenow_records')),
-                include_ldap: this._isTrue(gr.getValue('include_ldap'))
-				
+                active: gr.getValue('active'),
+                include_children_tables: gr.getValue('include_children_tables'),
+                analyze_references: gr.getValue('analyze_references'),
+                deep_scan: gr.getValue('deep_scan'),
+                ignore_servicenow_records: gr.getValue('ignore_servicenow_records'),
+                include_ldap: gr.getValue('include_ldap')
+
             };
         }
         return null;
@@ -137,14 +137,13 @@ FHAnalyzer.prototype = {
             };
         }
 
-        // Compléter quelques champs utiles (fallback)
-        resultObj.table_name = resultObj.table_name || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('name') || '') : '');
-        resultObj.table_label = resultObj.table_label || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('label') || '') : '');
-        resultObj.number = resultObj.number || gr.getValue('number') || '';
-        resultObj.health_score = resultObj.health_score || parseInt(gr.getValue('health_score'), 10) || 0;
-        resultObj.issue_found = resultObj.issue_found || parseInt(gr.getValue('issue_found'), 10) || 0;
-        resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
-        resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
+        // resultObj.table_name = resultObj.table_name || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('name') || '') : '');
+        // resultObj.table_label = resultObj.table_label || (gr.table_name && gr.table_name.getRefRecord ? (gr.table_name.getRefRecord().getValue('label') || '') : '');
+        // resultObj.number = resultObj.number || gr.getValue('number') || '';
+        // resultObj.health_score = resultObj.health_score || parseInt(gr.getValue('health_score'), 10) || 0;
+        // resultObj.issue_found = resultObj.issue_found || parseInt(gr.getValue('issue_found'), 10) || 0;
+        // resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
+        // resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
 
         return {
             success: true,
@@ -170,7 +169,6 @@ FHAnalyzer.prototype = {
         var engine = new FHAnalysisEngine();
         var engineResult = engine.run(config);
 
-        // Save result to database
         var resultSysId = this._saveResult(config, engineResult, parameters);
 
         return {
@@ -250,13 +248,13 @@ FHAnalyzer.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>50</sys_mod_count>
+        <sys_mod_count>51</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 07:52:11</sys_updated_on>
+        <sys_updated_on>2026-01-06 07:53:34</sys_updated_on>
     </sys_script_include>
 </record_update>

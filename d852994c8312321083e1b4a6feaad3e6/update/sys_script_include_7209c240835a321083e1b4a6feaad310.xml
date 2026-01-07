@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
     <sys_script_include action="INSERT_OR_UPDATE">
         <access>package_private</access>
-        <active>true</active>
+        <active>false</active>
         <api_name>x_1310794_founda_0.FHCheckAutomation</api_name>
         <caller_access/>
         <client_callable>false</client_callable>
@@ -23,150 +23,35 @@ FHCheckAutomation.prototype = {
      */
     execute: function(ctx) {
         if (!ctx) return;
-
         ctx.registerCategory('automation', 'Automation', 'fa-cogs');
 
         // Get tables to check from centralized context logic
         var tablesToCheck = ctx.getTablesToCheck();
 
         // Run individual checks 
-        this.checkScheduledJobs(ctx, tablesToCheck, 'sysauto_script');
-        //this.checkFlows(ctx, tablesToCheck, 'sys_hub_flow');
-        //this.checkWorkflows(ctx, tablesToCheck,'wf_workflow');
-        // this.checkNotifications(ctx, tablesToCheck);
-        // this.checkUIActions(ctx, tablesToCheck);
-        // this.checkUIPolicies(ctx, tablesToCheck);
-        // this.checkInboundEmailActions(ctx, tablesToCheck);
+        this.checkScheduledJobs(ctx, tablesToCheck);
+        this.checkFlows(ctx, tablesToCheck);
+        this.checkWorkflows(ctx, tablesToCheck);
+        this.checkNotifications(ctx, tablesToCheck);
+        this.checkUIActions(ctx, tablesToCheck);
+        this.checkUIPolicies(ctx, tablesToCheck);
+        this.checkInboundEmailActions(ctx, tablesToCheck);
+        //this.checkInboundEmailFlows(ctx, tablesToCheck);
 
-        if (ctx.options.deep_scan) this.optionsHandler.deepScanScripts(ctx);
-        if (ctx.options.analyze_references) this.optionsHandler.analyzeIntegrationDependencies(ctx);
-        if (ctx.options.include_ldap) this.optionsHandler.analyzeLdapConfiguration(ctx);
+
+        // if (ctx.config.deep_scan) this.optionsHandler.deepScanScripts(ctx);
+        // if (ctx.config.analyze_references) this.optionsHandler.analyzeIntegrationDependencies(ctx);
+        // if (ctx.config.include_ldap) this.optionsHandler.analyzeLdapConfiguration(ctx);
     },
 
-    /**
-     * checkScheduledJobs(ctx, configTables)
-     * Find scheduled jobs (sysauto_script) whose scripts reference our tables.
-     */
-    // checkScheduledJobs: function(ctx, configTables, queryTable) {
-    //     var scheduledJobs = [];
-    //     try {
-    //         var jobs = this.utils.getRecords(queryTable, function(gr) {
-    //             gr.addNotNullQuery('script');
-    //         }, ['name', 'script', 'active', 'sys_created_by', 'sys_updated_by', 'run_type', ], 0);
-
-    //         for (var i = 0; i < jobs.length; i++) {
-    //             var job = jobs[i];
-    //             var scriptText = job.script || '';
-    //             var matchedTable = null;
-    //             for (var t = 0; t < configTables.length; t++) {
-    //                 if (scriptText.indexOf(configTables[t]) > -1) {
-    //                     matchedTable = configTables[t];
-    //                     break;
-    //                 }
-    //             }
-    //             if (!matchedTable) continue;
-    //             var isActive = this.utils.toBool(job.active);
-    //             var jobItem = {
-    //                 sys_id: job.sys_id,
-    //                 name: job.name || 'Unnamed',
-    //                 active: isActive,
-    //                 inherited: matchedTable,
-    //                 table: queryTable,
-    //                 matched_table: matchedTable,
-    //                 run_type: job.run_type || '',
-    //                 sys_created_by: job.sys_created_by,
-    //                 sys_updated_by: job.sys_updated_by
-    //             };
-
-
-    //             if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() &&
-    //                 this.utils.isSncRecord && this.utils.isSncRecord(jobItem)) {
-    //                 continue;
-    //         transformFn   }
-    //             scheduledJobs.push(jobItem);
-
-    //             if (!isActive) {
-    //                 this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_SCHEDULED_JOB',
-    //                     'Inactive scheduled job: "' + (job.name || 'Unnamed') + '"', 'low', {
-    //                         record_table: 'sysauto_script',
-    //                         record_sys_id: job.sys_id,
-    //                         category: 'automation'
-    //                     }, jobItem);
-    //             }
-    //         }
-    //     } catch (e) {
-    //         gs.error('FHCheckAutomation.checkScheduledJobs error: ' + (e && e.message));
-
-    //     }
-
-
-    //     this.utils.addCategoryAndMetrics(ctx, 'automation', 'scheduled_job', 'Scheduled Jobs', scheduledJobs, {
-    //         table: 'sysauto_script',
-    //         icon: 'fa-clock',
-    //         color: '#6f42c1'
-    //     });
-    // },
-
-	
     // Specific scheduled jobs checker — uses the generic above.
-    // Comments in English.
-    checkScheduledJobs: function(ctx, configTables, queryTable) {
-        // buildQuery: add any additional query constraints to the GlideRecord
-        var buildQuery = function(gr) {
-
-            if (gr && typeof gr.addNotNullQuery === 'function') {
-                gr.addNotNullQuery('script');
-                gr.addQuery('scriptLIKEchange_request');
-            }
-        };
-        var fields = ['name', 'script', 'active', 'sys_created_by', 'sys_updated_by', 'run_type', 'sys_id'];
-
-        // matcher: detect if the script contains any of the configured table names
-        var matcher = function(rec, cfgTables) {
-            var script = '';
-            // prefer GlideRecord getValue for safe access
-            if (rec) {
-                if (typeof rec.getValue === 'function') script = (rec.getValue('script') || '');
-                else script = (rec.script || '') + '';
-            }
-            for (var i = 0; i < cfgTables.length; i++) {
-                if (script.indexOf(cfgTables[i]) > -1) return cfgTables[i];
-            }
-            return false;
-        };
-
-        // transform: normalize the record into a simple object used by reporting
-        var transform = function(rec, matched) {
-            // safe getter that works with GlideRecord or plain object
-            var get = function(field) {
-                if (!rec) return undefined;
-                if (typeof rec.getValue === 'function') return rec.getValue(field);
-                return rec[field];
-            };
-
-            // prefer getUniqueValue if available for sys_id
-            var id = '';
-            try {
-                if (rec && typeof rec.getUniqueValue === 'function') id = rec.getUniqueValue();
-                else id = get('sys_id') || '';
-            } catch (e) {
-                id = get('sys_id') || '';
-            }
-
-            return {
-                sys_id: id,
-                name: get('name') || 'Unnamed',
-                active: get('active'),
-                inherited: matched,
-                matched_table: matched,
-                run_type: get('run_type'),
-                sys_created_by: get('sys_created_by'),
-                sys_updated_by: get('sys_updated_by')
-            };
-        };
-
-        // call generic checker (note: we pass meta inline)
-        return this.utils.checkRecordsGeneric(ctx, configTables, queryTable || 'sysauto_script', buildQuery, fields, {
+    checkScheduledJobs: function(ctx, configTables) {
+        var query = configTables.map(function(t) {
+            return 'scriptLIKE' + t;
+        }).join('^OR');
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'sysauto_script', function(gr) {
+            gr.addEncodedQuery(query);
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
             record_table: 'sysauto_script',
             record_type: 'scheduled_job',
             displayName: 'Scheduled Jobs',
@@ -176,94 +61,22 @@ FHCheckAutomation.prototype = {
             category: 'automation',
             manyThreshold: 50,
             manyIssueCode: 'MANY_SCHEDULED_JOBS'
-        }, matcher, transform);
+        });
     },
 
     /**
      * checkFlows(ctx, configTables)
      * Check flows (sys_hub_flow) for trigger_table matching our config tables.
      */
-    checkFlows: function(ctx, configTables, queryTable) {
-        var tableName = ctx.getTableName();
-        var flowIds = [];
-
-        // Collect flow sys_ids once, then reuse the generic checker for normalization
-        try {
-            var rawFlowIds = [];
-            for (var x = 0; x < configTables.length; x++) {
-                var ct = configTables[x];
-                try {
-                    var result = sn_flow && sn_flow.AssociatedFlows && typeof sn_flow.AssociatedFlows.getFlows === 'function' ?
-                        sn_flow.AssociatedFlows.getFlows(ct) : [];
-                    if (result == null) {
-                        continue;
-                    } else if (typeof result === 'string') {
-                        result.split(',').forEach(function(i) {
-                            if (i) rawFlowIds.push(i.trim());
-                        });
-                    } else if (Array.isArray(result)) {
-                        for (var r = 0; r < result.length; r++) {
-                            var item = result[r];
-                            if (!item) continue;
-                            if (typeof item === 'string') rawFlowIds.push(item);
-                            else if (item.sys_id) rawFlowIds.push(String(item.sys_id));
-                            else if (item.getUniqueValue && typeof item.getUniqueValue === 'function') rawFlowIds.push(String(item.getUniqueValue()));
-                        }
-                    } else if (result.sys_id) {
-                        rawFlowIds.push(String(result.sys_id));
-                    }
-                } catch (e) {
-                    gs.error('checkFlows: error calling sn_flow.AssociatedFlows.getFlows for ' + ct + ' : ' + (e && e.message));
-                }
-            }
-
-            var seen = {};
-            for (var iId = 0; iId < rawFlowIds.length; iId++) {
-                var fid = rawFlowIds[iId];
-                if (fid && !seen[fid]) {
-                    seen[fid] = true;
-                    flowIds.push(fid);
-                }
-            }
-        } catch (e) {
-            gs.error('FHCheckAutomation.checkFlows error building flow ids: ' + (e && e.message));
+    checkFlows: function(ctx, configTables) {
+        flowIds = [];
+        for (var x = 0; x < configTables.length; x++) {
+            var result = sn_flow.AssociatedFlows.getFlows(configTables[x]);
+            flowIds.push(result);
         }
-
-        if (flowIds.length === 0) {
-            this.utils.addCategoryAndMetrics(ctx, 'automation', 'flow', 'Flows', [], {
-                table: queryTable || 'sys_hub_flow',
-                icon: 'fa-project-diagram',
-                color: '#17a2b8'
-            });
-            return [];
-        }
-
-        var matcher = function(rec, cfgTables) {
-            var script = rec && rec.script ? String(rec.script) : '';
-            for (var i = 0; i < cfgTables.length; i++) {
-                if (script.indexOf(cfgTables[i]) > -1) return cfgTables[i];
-            }
-            return true; // already filtered by flow ids; accept if script not available
-        };
-
-        var transform = function(rec, matched) {
-            return {
-                sys_id: rec.sys_id,
-                name: rec.name || 'Unnamed',
-                active: rec.active,
-                inherited: matched === true ? null : matched,
-                matched_table: matched === true ? null : matched,
-                table: queryTable || 'sys_hub_flow',
-                trigger_table: matched === true ? tableName : matched,
-                sys_created_by: rec.sys_created_by,
-                sys_updated_by: rec.sys_updated_by,
-                description: rec.description
-            };
-        };
-
-        return this.utils.checkRecordsGeneric(ctx, configTables, queryTable || 'sys_hub_flow', function(gr) {
-            gr.addQuery('sys_id', 'IN', flowIds.join(','));
-        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'description', 'sys_id', 'script'], {
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'sys_hub_flow', function(gr) {
+            gr.addEncodedQuery("sys_idIN" + flowIds.join(','));
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
             record_table: 'sys_hub_flow',
             record_type: 'flow',
             displayName: 'Flows',
@@ -273,60 +86,18 @@ FHCheckAutomation.prototype = {
             inactivityIssueCode: 'INACTIVE_FLOW',
             manyThreshold: 10,
             manyIssueCode: 'MANY_FLOWS',
-            record_filter: 'sys_idIN' + flowIds.join(',')
-        }, matcher, transform);
+        });
     },
-
-
 
     /**
      * checkWorkflows(ctx, configTables)
      * Legacy workflows (wf_workflow) that target our tables.
      */
     checkWorkflows: function(ctx, configTables) {
-        var tableName = ctx.getTableName();
-
-        var transform = function(rec) {
-            var triggerTable = rec.table;
-            return {
-                sys_id: rec.sys_id,
-                name: rec.name || 'Unnamed',
-                table: 'wf_workflow',
-                trigger_table: triggerTable,
-                inherited: (triggerTable !== tableName),
-                active: rec.active,
-                published: rec.published,
-                description: rec.description,
-                sys_created_by: rec.sys_created_by,
-                sys_updated_by: rec.sys_updated_by
-            };
-        };
-
-        var postProcess = function(localCtx, item) {
-            if (!item) return;
-
-            var code = null;
-            var msg = null;
-            if (item.published === false || item.published === 'false') {
-                code = 'UNPUBLISHED_WORKFLOW';
-                msg = 'Unpublished workflow: "' + (item.name || 'Unnamed') + '"';
-            } else if (!this.utils.toBool(item.active)) {
-                code = 'INACTIVE_WORKFLOW';
-                msg = 'Inactive workflow: "' + (item.name || 'Unnamed') + '"';
-            }
-
-            if (code) {
-                this.utils.addIssueUnlessSnc(localCtx, code, msg, 'low', {
-                    record_table: 'wf_workflow',
-                    record_sys_id: item.sys_id,
-                    category: 'automation'
-                }, item);
-            }
-        }.bind(this);
 
         return this.utils.checkRecordsGeneric(ctx, configTables, 'wf_workflow', function(gr) {
-            this.utils.addInQuery(gr, 'table', configTables);
-        }.bind(this), ['name', 'table', 'active', 'published', 'description', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            gr.addEncodedQuery("tableIN" + configTables);
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
             record_table: 'wf_workflow',
             record_type: 'workflow',
             displayName: 'Workflows',
@@ -335,10 +106,49 @@ FHCheckAutomation.prototype = {
             category: 'automation',
             manyThreshold: 10,
             manyIssueCode: 'MANY_WORKFLOWS',
-            record_filter: 'tableIN' + configTables.join(','),
-            postProcessFn: postProcess,
             skipManyIssue: false
-        }, null, transform);
+        });
+        // var tableName = ctx.getTableName();
+
+        // var transform = function(rec) {
+        //     var triggerTable = rec.table;
+        //     return {
+        //         sys_id: rec.sys_id,
+        //         name: rec.name || 'Unnamed',
+        //         table: 'wf_workflow',
+        //         trigger_table: triggerTable,
+        //         inherited: (triggerTable !== tableName),
+        //         active: rec.active,
+        //         published: rec.published,
+        //         description: rec.description,
+        //         sys_created_by: rec.sys_created_by,
+        //         sys_updated_by: rec.sys_updated_by
+        //     };
+        // };
+
+        // var postProcess = function(localCtx, item) {
+        //     if (!item) return;
+
+        //     var code = null;
+        //     var msg = null;
+        //     if (item.published === false || item.published === 'false') {
+        //         code = 'UNPUBLISHED_WORKFLOW';
+        //         msg = 'Unpublished workflow: "' + (item.name || 'Unnamed') + '"';
+        //     } else if (!this.utils.toBool(item.active)) {
+        //         code = 'INACTIVE_WORKFLOW';
+        //         msg = 'Inactive workflow: "' + (item.name || 'Unnamed') + '"';
+        //     }
+
+        //     if (code) {
+        //         this.utils.addIssueUnlessSnc(localCtx, code, msg, 'low', {
+        //             record_table: 'wf_workflow',
+        //             record_sys_id: item.sys_id,
+        //             category: 'automation'
+        //         }, item);
+        //     }
+        // }.bind(this);
+
+
     },
 
     /**
@@ -346,35 +156,9 @@ FHCheckAutomation.prototype = {
      * Notifications that reference the table in conditions or scripts.
      */
     checkNotifications: function(ctx, configTables) {
-        var matcher = function(rec, cfgTables) {
-            var condition = rec && rec.condition ? String(rec.condition) : '';
-            var script = rec && rec.script ? String(rec.script) : '';
-            for (var i = 0; i < cfgTables.length; i++) {
-                if (condition.indexOf(cfgTables[i]) > -1 || script.indexOf(cfgTables[i]) > -1) {
-                    return cfgTables[i];
-                }
-            }
-            return false;
-        };
-
-        var transform = function(rec, matched) {
-            return {
-                sys_id: rec.sys_id,
-                name: rec.name || 'Unnamed',
-                table: 'sysevent_email_action',
-                active: rec.active,
-                condition: rec.condition,
-                script: rec.script,
-                matched_table: matched,
-                inherited: matched,
-                sys_created_by: rec.sys_created_by,
-                sys_updated_by: rec.sys_updated_by
-            };
-        };
-
         return this.utils.checkRecordsGeneric(ctx, configTables, 'sysevent_email_action', function(gr) {
-            gr.addNotNullQuery('condition');
-        }, ['name', 'condition', 'script', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            gr.addEncodedQuery("collectionIN" + configTables);
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
             record_table: 'sysevent_email_action',
             record_type: 'notification',
             displayName: 'Notifications',
@@ -382,7 +166,7 @@ FHCheckAutomation.prototype = {
             color: '#ffc107',
             category: 'automation',
             inactivityIssueCode: 'INACTIVE_NOTIFICATION'
-        }, matcher, transform);
+        });
     },
 
     /**
@@ -390,28 +174,9 @@ FHCheckAutomation.prototype = {
      * UI Actions (sys_ui_action) related to our tables.
      */
     checkUIActions: function(ctx, configTables) {
-        var self = this;
-        var tableName = ctx.getTableName();
-
-        var transform = function(rec) {
-            var targetTable = rec.table;
-            return {
-                sys_id: rec.sys_id,
-                name: rec.name || 'Unnamed',
-                table: 'sys_ui_action',
-                target_table: targetTable,
-                inherited: (targetTable !== tableName),
-                active: rec.active,
-                type: rec.type,
-                script: rec.script,
-                sys_created_by: rec.sys_created_by,
-                sys_updated_by: rec.sys_updated_by
-            };
-        };
-
         return this.utils.checkRecordsGeneric(ctx, configTables, 'sys_ui_action', function(gr) {
-            self.utils.addInQuery(gr, 'table', configTables);
-        }, ['name', 'table', 'active', 'type', 'script', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            gr.addEncodedQuery("tableIN" + configTables);
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
             record_table: 'sys_ui_action',
             record_type: 'ui_action',
             displayName: 'UI Actions',
@@ -422,7 +187,7 @@ FHCheckAutomation.prototype = {
             manyThreshold: 25,
             manyIssueCode: 'MANY_UI_ACTIONS',
             record_filter: 'tableIN' + configTables.join(',')
-        }, null, transform);
+        });
     },
 
     /**
@@ -430,28 +195,9 @@ FHCheckAutomation.prototype = {
      * UI Policies (sys_ui_policy) for the tables.
      */
     checkUIPolicies: function(ctx, configTables) {
-        var tableName = ctx.getTableName();
-
-        var transform = function(rec) {
-            var triggerTable = rec.table;
-            return {
-                sys_id: rec.sys_id,
-                name: rec.short_description || rec.name || 'Unnamed',
-                table: 'sys_ui_policy',
-                trigger_table: triggerTable,
-                inherited: (triggerTable !== tableName),
-                active: rec.active,
-                on_load: rec.on_load === 'true' || rec.on_load === true,
-                reverse_if_false: rec.reverse_if_false === 'true' || rec.reverse_if_false === true,
-                global: rec.global === 'true' || rec.global === true,
-                sys_created_by: rec.sys_created_by,
-                sys_updated_by: rec.sys_updated_by
-            };
-        };
-
         return this.utils.checkRecordsGeneric(ctx, configTables, 'sys_ui_policy', function(gr) {
-            this.utils.addInQuery(gr, 'table', configTables);
-        }.bind(this), ['table', 'short_description', 'active', 'on_load', 'reverse_if_false', 'global', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            gr.addEncodedQuery("tableIN" + configTables);
+        }, ['short_description', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
             record_table: 'sys_ui_policy',
             record_type: 'ui_policy',
             displayName: 'UI Policies',
@@ -460,8 +206,7 @@ FHCheckAutomation.prototype = {
             category: 'automation',
             manyThreshold: 15,
             manyIssueCode: 'MANY_UI_POLICIES',
-            record_filter: 'tableIN' + configTables.join(',') + '^active=true'
-        }, null, transform);
+        });
     },
 
     /**
@@ -469,30 +214,9 @@ FHCheckAutomation.prototype = {
      * Check inbound email actions and flow trigger instances related to email.
      */
     checkInboundEmailActions: function(ctx, configTables) {
-        var tableName = ctx.getTableName();
-        var inboundEmails = [];
-
-        var transform = function(rec) {
-            var triggerTable = rec.table;
-            return {
-                sys_id: rec.sys_id,
-                name: rec.name || 'Unnamed',
-                table: 'sysevent_in_email_action',
-                trigger_table: triggerTable,
-                inherited: (triggerTable !== tableName),
-                active: rec.active,
-                type: rec.type,
-                action_type: rec.action_type,
-                stop_processing: rec.stop_processing === 'true' || rec.stop_processing === true,
-                sys_created_by: rec.sys_created_by,
-                sys_updated_by: rec.sys_updated_by
-            };
-        };
-
-        // Base inbound email actions
-        inboundEmails = inboundEmails.concat(this.utils.checkRecordsGeneric(ctx, configTables, 'sysevent_in_email_action', function(gr) {
-            this.utils.addInQuery(gr, 'table', configTables);
-        }.bind(this), ['name', 'table', 'active', 'type', 'action_type', 'stop_processing', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'sysevent_in_email_action', function(gr) {
+            gr.addEncodedQuery("tableIN" + configTables);
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
             record_table: 'sysevent_in_email_action',
             record_type: 'inbound_email',
             displayName: 'Inbound Email Actions',
@@ -502,68 +226,26 @@ FHCheckAutomation.prototype = {
             inactivityIssueCode: 'INACTIVE_INBOUND_EMAIL',
             skipCategoryAndMetrics: true,
             skipManyIssue: true
-        }, null, transform));
-
-        // Flow trigger instances related to email
-        try {
-            for (var i = 0; i < configTables.length; i++) {
-                var tableToCheck = configTables[i];
-                var trigGr = new GlideRecord('sys_hub_trigger_instance');
-                if (!trigGr.isValid()) continue;
-                trigGr.addQuery('trigger_type', 'IS', 'email');
-                trigGr.addQuery('trigger_config', 'LIKE', tableToCheck);
-                trigGr.query();
-                while (trigGr.next()) {
-                    var triggerConfig = ctx.safeGetValue(trigGr, 'trigger_config') || '';
-                    var related = false;
-                    for (var t = 0; t < configTables.length; t++) {
-                        if (triggerConfig.indexOf(configTables[t]) > -1) {
-                            related = true;
-                            break;
-                        }
-                    }
-                    if (!related) continue;
-
-                    var flowRef = trigGr.getValue('flow');
-                    var flowName = '';
-                    if (flowRef) {
-                        var flowRecord = this.utils.getRecordBySysId('sys_hub_flow', flowRef, ['name']);
-                        if (flowRecord) flowName = flowRecord.name || '';
-                    }
-
-                    inboundEmails.push({
-                        sys_id: trigGr.getUniqueValue(),
-                        name: flowName || 'Flow Trigger',
-                        table: 'sys_hub_trigger_instance',
-                        trigger_table: tableToCheck,
-                        inherited: false,
-                        active: true,
-                        type: 'flow_trigger',
-                        action_type: 'email',
-                        stop_processing: false
-                    });
-                }
-            }
-        } catch (e) {
-            gs.error('FHCheckAutomation.checkInboundEmailActions (trigger instances) error: ' + (e && e.message));
-        }
-
-        this.utils.addCategoryAndMetrics(ctx, 'automation', 'inbound_email', 'Inbound Email Actions', inboundEmails, {
-            table: 'sysevent_in_email_action',
-            icon: 'fa-inbox',
-            color: '#e83e8c'
         });
-
-        if (inboundEmails.length > 10) {
-            ctx.addIssue('MANY_INBOUND_EMAILS', 'Table has ' + inboundEmails.length + ' inbound email actions. Review for efficiency.', 'low', {
-                record_table: 'sysevent_in_email_action',
-                record_filter: 'target_tableIN' + configTables.join(','),
-                category: 'automation'
-            });
-        }
-
-        return inboundEmails;
     },
+
+    checkInboundEmailFlows: function(ctx, configTables) {
+        return this.utils.checkRecordsGeneric(ctx, configTables, 'sys_hub_trigger_instance', function(gr) {
+            gr.addQuery('trigger_type', 'IS', 'email');
+            gr.addQuery('trigger_config', 'LIKE', tableToCheck);
+        }, ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'], {
+            record_table: 'sys_hub_trigger_instance',
+            record_type: 'inbound_email_flow',
+            displayName: 'Inbound Email flows',
+            icon: 'fa-inbox',
+            color: '#e83e8c',
+            category: 'automation',
+            inactivityIssueCode: 'INACTIVE_INBOUND_FLOWS',
+            skipCategoryAndMetrics: true,
+            skipManyIssue: true
+        });
+    },
+
 
     type: 'FHCheckAutomation'
 };]]></script>
@@ -571,13 +253,13 @@ FHCheckAutomation.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:21:10</sys_created_on>
         <sys_id>7209c240835a321083e1b4a6feaad310</sys_id>
-        <sys_mod_count>80</sys_mod_count>
+        <sys_mod_count>124</sys_mod_count>
         <sys_name>FHCheckAutomation</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_7209c240835a321083e1b4a6feaad310</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 22:36:56</sys_updated_on>
+        <sys_updated_on>2026-01-07 01:03:11</sys_updated_on>
     </sys_script_include>
 </record_update>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHCheckAutomationV2</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHCheckAutomationV2</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHCheckAutomationV2 = Class.create();
+FHCheckAutomationV2.prototype = {
+    initialize: function() {
+        // Initialize utility class for logging, formatting, etc.
+        this.utils = new FHScanUtils();
+    },
+
+    /**
+     * Executes verification for a configured item (e.g., Flow, Change Request)
+     * @param {GlideRecord} configRecord - Configuration record from your "Items to Verify" table
+     * @returns {Object} - Verification result { success: Boolean, data: Array, errors: Array, metadata: Object }
+     */
+    runVerification: function(configRecord) {
+		gs.info(JSON.stringify(configRecord))
+        var result = {
+            success: false, // Default to false; set to true if execution completes
+            data: [], // Array to store verified records
+            errors: [], // Array to store execution errors
+            metadata: {} // Additional info (e.g., execution time)
+        };
+
+        try {
+            // --- 1. Extract configuration parameters ---
+            var tableName = configRecord.table.toString() ||''; // Target table (e.g., 'flow', 'change_request')
+            var queryType = configRecord.query_type.toString() ||''; // 'script' or 'encoded_query'
+            var queryValue = configRecord.query_value.toString() ||''; // Encoded query (e.g., 'active=false')
+            var fields = JSON.parse(configRecord.fields || '[]'); // Fields to retrieve (e.g., ['name', 'active'])
+            var issuesConfig = JSON.parse(configRecord.issues || '{}'); // Issue thresholds (e.g., { inactivityIssueCode: 'INACTIVE' })
+            var queryScript = configRecord.query_script.toString() ||''; // Custom script (e.g., for Flow associations)
+
+            // --- 2. Build the query based on type ---
+            var gr = new GlideRecord(tableName);
+
+            if (queryType === 'script') {
+                // Execute custom script (e.g., your Flow association logic)
+                // WARNING: Replace 'eval' with a secure alternative in production!
+                if (queryScript) {
+                    var scriptResults = [];
+                    eval(queryScript); // Executes user-defined script (e.g., 'for (...) { scriptResults.push(...); }')
+                    if (scriptResults.length > 0) {
+                        gr.addQuery('sys_id', 'IN', scriptResults.join(','));
+                    }
+                }
+            } else {
+                // Use encoded query (e.g., 'active=false^state=open')
+                gr.addEncodedQuery(queryValue);
+            }
+
+            // --- 3. Set fields to retrieve (optimize performance) ---
+            if (fields.length > 0) {
+                gr.setFields(fields.join(','));
+            }
+
+            // --- 4. Execute query and process records ---
+            gr.query();
+            while (gr.next()) {
+                result.data.push(this._processRecord(gr, fields, issuesConfig));
+            }
+
+            // --- 5. Analyze results for issues (e.g., inactive Flows) ---
+            result = this._analyzeResults(result, issuesConfig);
+            result.success = true; // Mark as successful if no exceptions
+
+        } catch (e) {
+            // Log errors to ServiceNow system logs
+            result.errors.push("Verification error: " + e.message);
+            gs.error("[FHCheckAutomation] Error: " + e.message + "\nStack: " + e.stack);
+        }
+
+        return result;
+    },
+
+    /**
+     * Processes a single record to extract relevant data
+     * @param {GlideRecord} gr - Current record
+     * @param {Array} fields - Fields to extract
+     * @param {Object} issuesConfig - Issue detection rules
+     * @returns {Object} - Processed record with values and empty issues array
+     */
+    _processRecord: function(gr, fields, issuesConfig) {
+        var record = {
+            sys_id: gr.sys_id.toString(),
+            table: gr.getTableName(),
+            values: {}, // Stores field values (e.g., { name: 'My Flow', active: 'false' })
+            issues: [] // Populated later by _analyzeResults
+        };
+
+        // Extract requested fields
+        fields.forEach(function(field) {
+            record.values[field] = gr.getDisplayValue(field);
+        });
+
+        return record;
+    },
+
+    /**
+     * Analyzes records to detect issues (e.g., inactive Flows, stale records)
+     * @param {Object} result - Current result object
+     * @param {Object} issuesConfig - Issue rules (e.g., { inactivityIssueCode: 'INACTIVE', manyThreshold: 10 })
+     * @returns {Object} - Updated result with issues
+     */
+    _analyzeResults: function(result, issuesConfig) {
+        // Example: Detect inactive Flows
+        result.data.forEach(function(item) {
+            item.issues = []; // Reset issues for this record
+
+            // --- Rule 1: Check for inactive Flows ---
+            if (item.table === 'flow' && item.values.active === 'false') {
+                item.issues.push({
+                    code: issuesConfig.inactivityIssueCode || 'INACTIVE',
+                    message: 'This Flow is inactive.',
+                    severity: 'high',
+                    details: {
+                        field: 'active',
+                        expected: 'true',
+                        actual: 'false'
+                    }
+                });
+            }
+
+            // --- Rule 2: Check for system-created records ---
+            if (item.values.sys_created_by === 'system') {
+                item.issues.push({
+                    code: 'SYSTEM_USER',
+                    message: 'Created by system user (requires review).',
+                    severity: 'medium'
+                });
+            }
+
+            // --- Rule 3: Check for too many associated records (performance risk) ---
+            if (issuesConfig.manyThreshold && result.data.length > issuesConfig.manyThreshold) {
+                item.issues.push({
+                    code: issuesConfig.manyIssueCode || 'MANY',
+                    message: `Too many records (${result.data.length} > ${issuesConfig.manyThreshold}).`,
+                    severity: 'low'
+                });
+            }
+        });
+
+        return result;
+    },
+
+    type: 'FHCheckAutomationV2'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-07 01:18:57</sys_created_on>
+        <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
+        <sys_mod_count>7</sys_mod_count>
+        <sys_name>FHCheckAutomationV2</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-07 07:17:57</sys_updated_on>
+    </sys_script_include>
+</record_update>

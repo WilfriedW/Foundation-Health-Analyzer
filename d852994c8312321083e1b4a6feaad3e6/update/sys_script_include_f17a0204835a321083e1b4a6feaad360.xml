@@ -23,19 +23,8 @@ FHAnalysisContext.prototype = {
     initialize: function(config) {
         this.config = config;
         this.issues = [];
-
-        // Initialize options with defaults
-        this.options = {
-            deep_scan: config.deep_scan,
-            include_children_tables: config.include_children_tables,
-            analyze_references: config.analyze_references,
-            include_ldap: config.include_ldap,
-            ignore_servicenow_records: config.ignore_servicenow_records
-        };
-
         this.categories = {};
 
-        // Store execution metadata (duration, etc.) - minimal, no metrics structure
         this._executionMetadata = {
             duration_ms: 0
         };
@@ -44,56 +33,6 @@ FHAnalysisContext.prototype = {
         this._tableHierarchyCache = null;
         this._childrenTablesCache = null;
         this._tablesToCheckCache = null;
-    },
-
-    /**
-     * Check if a value is truthy (handles 'true', '1', true, 1)
-     * @private
-     */
-    // _isTrue: function(val) {
-    //     return val === 'true' || val === '1' || val === true || val === 1;
-    // },
-
-    // ==================== OPTIONS HELPERS ====================
-
-    /**
-     * Check if deep scan is enabled
-     * @returns {Boolean}
-     */
-    // isDeepScanEnabled: function() {
-    //     return this.options.deep_scan === true;
-    // },
-
-    // /**
-    //  * Check if children tables should be included
-    //  * @returns {Boolean}
-    //  */
-    // isIncludeChildrenEnabled: function() {
-    //     return this.options.include_children_tables === true;
-    // },
-
-    // /**
-    //  * Check if reference analysis is enabled
-    //  * @returns {Boolean}
-    //  */
-    // isAnalyzeReferencesEnabled: function() {
-    //     return this.options.analyze_references === true;
-    // },
-
-    // /**
-    //  * Check if LDAP analysis is enabled
-    //  * @returns {Boolean}
-    //  */
-    // isLdapEnabled: function() {
-    //     return this.options.include_ldap === true;
-    // },
-
-    /**
-     * Check if ServiceNow base records should be ignored (created/admin or glide.maint and never updated by others)
-     * @returns {Boolean}
-     */
-    isIgnoreSncRecordsEnabled: function() {
-        return this.options.ignore_servicenow_records === true;
     },
 
     // ==================== TABLE HIERARCHY HELPERS ====================
@@ -196,13 +135,9 @@ FHAnalysisContext.prototype = {
      * @returns {Array} Array of table names to check
      */
     getTablesToCheck: function() {
-        // if (this._tablesToCheckCache !== null)
-        //     return this._tablesToCheckCache;
-
-        // var tables = this.getTableHierarchy().slice();
         var tables = [];
         tables.push(this.getTableName());
-        if (this.options.include_children_tables) {
+        if (this.config.include_children_tables) {
             var children = this.getChildrenTables();
             children.forEach(function(child) {
                 if (tables.indexOf(child) === -1) {
@@ -234,7 +169,7 @@ FHAnalysisContext.prototype = {
      * @param {String} tableName - Table name to search
      * @returns {Boolean} True if exact match found
      */
-    scriptContainsTable: function(script, tableName) {
+  /*  scriptContainsTable: function(script, tableName) {
         if (!script || !tableName) return false;
 
         var patterns = [
@@ -252,14 +187,14 @@ FHAnalysisContext.prototype = {
 
         return false;
     },
-
+*/
     /**
      * Check if a script updates a specific field
      * @param {String} script - Script content
      * @param {String} fieldName - Field name to check
      * @returns {Boolean} True if script updates the field
      */
-    scriptUpdatesField: function(script, fieldName) {
+    /*scriptUpdatesField: function(script, fieldName) {
         if (!script || !fieldName) return false;
 
         var patterns = [
@@ -275,7 +210,7 @@ FHAnalysisContext.prototype = {
 
         return false;
     },
-
+*/
     // ==================== CATEGORY MANAGEMENT ====================
 
     /**
@@ -351,9 +286,9 @@ FHAnalysisContext.prototype = {
      * Get all categories
      * @returns {Object} All categories
      */
-    getCategories: function() {
-        return this.categories;
-    },
+    // getCategories: function() {
+    //     return this.categories;
+    // },
 
     // ==================== ISSUE MANAGEMENT ====================
 
@@ -389,26 +324,19 @@ FHAnalysisContext.prototype = {
      * Helper to check if table exists (from categories.table)
      * @returns {Boolean} True if table exists
      */
-    isTableExists: function() {
-        var tableCategory = this.getCategory('table');
-        if (tableCategory && tableCategory.items && tableCategory.items.length > 0) {
-            for (var i = 0; i < tableCategory.items.length; i++) {
-                var item = tableCategory.items[i];
-                if (item.type === 'table_summary' && item.records && item.records.length > 0) {
-                    return item.records[0].exists === true;
-                }
-            }
-        }
-        return false;
-    },
+    // isTableExists: function() {
+    //     var tableCategory = this.getCategory('table');
+    //     if (tableCategory && tableCategory.items && tableCategory.items.length > 0) {
+    //         for (var i = 0; i < tableCategory.items.length; i++) {
+    //             var item = tableCategory.items[i];
+    //             if (item.type === 'table_summary' && item.records && item.records.length > 0) {
+    //                 return item.records[0].exists === true;
+    //             }
+    //         }
+    //     }
+    //     return false;
+    // },
 
-    /**
-     * Get execution metadata (duration, etc.)
-     * @returns {Object} Execution metadata
-     */
-    getExecutionMetadata: function() {
-        return this._executionMetadata;
-    },
 
     /**
      * Set execution duration
@@ -443,13 +371,13 @@ FHAnalysisContext.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:27:30</sys_created_on>
         <sys_id>f17a0204835a321083e1b4a6feaad360</sys_id>
-        <sys_mod_count>32</sys_mod_count>
+        <sys_mod_count>35</sys_mod_count>
         <sys_name>FHAnalysisContext</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 10:48:22</sys_updated_on>
+        <sys_updated_on>2026-01-06 08:04:00</sys_updated_on>
     </sys_script_include>
 </record_update>
