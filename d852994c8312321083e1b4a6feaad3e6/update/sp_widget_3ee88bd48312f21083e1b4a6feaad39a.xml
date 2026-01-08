@@ -10,6 +10,26 @@
   c.number = c.data.number || '';
   c.state = c.data.state || '';
   c.loading = false;
+  c.activeTab = 'resume';
+
+  c.totalRecords = function() {
+    return c.result && Array.isArray(c.result.data) ? c.result.data.length : 0;
+  };
+
+  c.totalErrors = function() {
+    return c.result && Array.isArray(c.result.errors) ? c.result.errors.length : 0;
+  };
+
+  c.totalIssues = function() {
+    if (!c.result || !Array.isArray(c.result.data)) return 0;
+    return c.result.data.reduce(function(sum, rec) {
+      return sum + (Array.isArray(rec.issues) ? rec.issues.length : 0);
+    }, 0);
+  };
+
+  c.hasErrors = function() {
+    return c.totalErrors() > 0;
+  };
 
   c.hasData = function() {
     return c.result && Array.isArray(c.result.data) && c.result.data.length > 0;
@@ -18,6 +38,14 @@
   c.recordKeys = function(rec) {
     if (!rec || !rec.values) return [];
     return Object.keys(rec.values);
+  };
+
+  c.setTab = function(tab) {
+    c.activeTab = tab;
+  };
+
+  c.isTab = function(tab) {
+    return c.activeTab === tab;
   };
 }]]></client_script>
         <controller_as>c</controller_as>
@@ -74,6 +102,29 @@
   padding: 14px 16px;
 }
 
+.fha-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.fha-tab-btn {
+  border: 1px solid #d0d6dc;
+  background: #f5f7f9;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1f2933;
+}
+
+.fha-tab-btn.active {
+  border-color: #0b5cab;
+  color: #0b5cab;
+  background: #e8f1fb;
+}
+
 .fha-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -99,15 +150,7 @@
   font-size: 12px;
   background: #eef1f3;
 }
-
-pre {
-  background: #0f172a;
-  color: #e2e8f0;
-  padding: 12px;
-  border-radius: 8px;
-  overflow: auto;
-  font-size: 12px;
-}</css>
+</css>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -189,17 +232,34 @@ pre {
   </div>
 
   <div ng-if="c.result">
-    <div class="fha-card">
+    <div class="fha-tabs">
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('resume')}" ng-click="c.setTab('resume')">Résumé</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('metadata')}" ng-click="c.setTab('metadata')" ng-if="c.result.metadata">Métadonnées</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('errors')}" ng-click="c.setTab('errors')" ng-if="c.hasErrors()">Erreurs ({{c.totalErrors()}})</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('data')}" ng-click="c.setTab('data')" ng-if="c.hasData()">Données ({{c.totalRecords()}})</button>
+    </div>
+
+    <div class="fha-card" ng-show="c.isTab('resume')">
       <div class="fha-card__head">
-        <h3>Statut</h3>
-        <span class="fha-badge">{{c.result.success === false ? 'echec' : 'ok'}}</span>
+        <h3>Résumé</h3>
+      </div>
+      <div class="fha-card__body" style="display:flex;gap:12px;flex-wrap:wrap;">
+        <span class="fha-badge">Statut : {{c.result.success === false ? 'échec' : 'succès'}}</span>
+        <span class="fha-badge">Enregistrements : {{c.totalRecords()}}</span>
+        <span class="fha-badge">Erreurs : {{c.totalErrors()}}</span>
+        <span class="fha-badge">Issues : {{c.totalIssues()}}</span>
+      </div>
+    </div>
+
+    <div class="fha-card" ng-if="c.result.metadata" ng-show="c.isTab('metadata')">
+      <div class="fha-card__head">
+        <h3>Métadonnées</h3>
       </div>
       <div class="fha-card__body">
-        <p ng-if="c.result.metadata">Metadonnees :</p>
-        <table class="fha-data-table" ng-if="c.result.metadata">
+        <table class="fha-data-table">
           <thead>
             <tr>
-              <th>Cle</th>
+              <th>Clé</th>
               <th>Valeur</th>
             </tr>
           </thead>
@@ -213,7 +273,7 @@ pre {
       </div>
     </div>
 
-    <div class="fha-card" ng-if="c.result.errors && c.result.errors.length">
+    <div class="fha-card" ng-if="c.result.errors && c.result.errors.length" ng-show="c.isTab('errors')">
       <div class="fha-card__head">
         <h3>Erreurs</h3>
         <span class="fha-badge">{{c.result.errors.length}}</span>
@@ -225,9 +285,9 @@ pre {
       </div>
     </div>
 
-    <div class="fha-card" ng-if="c.hasData()">
+    <div class="fha-card" ng-if="c.hasData()" ng-show="c.isTab('data')">
       <div class="fha-card__head">
-        <h3>Donnees</h3>
+        <h3>Données</h3>
         <span class="fha-badge">{{c.result.data.length}}</span>
       </div>
       <div class="fha-card__body">
@@ -256,15 +316,6 @@ pre {
             </ul>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div class="fha-card">
-      <div class="fha-card__head">
-        <h3>JSON brut</h3>
-      </div>
-      <div class="fha-card__body">
-        <pre>{{c.result | json:2}}</pre>
       </div>
     </div>
   </div>
