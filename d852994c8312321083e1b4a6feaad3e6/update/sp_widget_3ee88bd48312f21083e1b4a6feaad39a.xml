@@ -1,119 +1,157 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[function($scope, $location) {
+        <client_script><![CDATA[function($scope, $location, $window) {
   var c = this;
-    
-  c.analysisId = $location.search().sys_id || c.data.analysis_id || '';
-    c.result = c.data.result || null;
+
+  c.analysisId = $location.search().sys_id || c.data.analysisId || c.data.analysis_id || '';
+  c.result = c.data.result || null;
   c.error = c.data.error || null;
-  c.number = c.data.number || '';
-  c.state = c.data.state || '';
-  c.loading = false;
-  c.activeTab = 'summary';
+  c.loading = !!c.analysisId && !c.result;
+  c.activeTab = 'details';
+  c.issueCategory = 'all';
+  c.issueCategories = ['all'];
   c.issueFilters = { severity: 'all', search: '' };
-  c.categoryFilters = {};
 
   c.setTab = function(tab) { c.activeTab = tab; };
   c.isTab = function(tab) { return c.activeTab === tab; };
+  c.setIssueCategory = function(cat) { c.issueCategory = cat; };
 
-  c.getScore = function() {
-    if (!c.result) return '--';
-    return c.result.health_score || c.result.score || '--';
-  };
-
-  c.totalRecords = function() {
-    return c.result && Array.isArray(c.result.data) ? c.result.data.length : 0;
-  };
-
-  c.totalErrors = function() {
-    return c.result && Array.isArray(c.result.errors) ? c.result.errors.length : 0;
-  };
-
-  c.totalIssues = function() {
-    var issues = c.getIssues();
-    return issues.length;
-  };
-
-  c.hasErrors = function() { return c.totalErrors() > 0; };
-  c.hasData = function() { return c.result && Array.isArray(c.result.data) && c.result.data.length > 0; };
-
-  c.getIssues = function() {
-    return (c.result && Array.isArray(c.result.issues)) ? c.result.issues : [];
-  };
-
-  c.filteredIssues = function() {
-    var list = c.getIssues();
-    return list.filter(function(it) {
-      if (c.issueFilters.severity !== 'all' && it.severity !== c.issueFilters.severity) return false;
-      if (c.issueFilters.search) {
-        var t = c.issueFilters.search.toLowerCase();
-        var s = (it.message || '') + ' ' + (it.code || '') + ' ' + (it.category || '');
-        if (s.toLowerCase().indexOf(t) === -1) return false;
-      }
-      return true;
-      });
+  c.getHealthScoreClass = function(score) {
+    if (score === null || score === undefined) return 'medium';
+    if (score >= 70) return 'blue';
+    if (score >= 40) return 'amber';
+    return 'red';
   };
 
   c.getCategories = function() {
-    if (!c.result || !c.result.categories) return [];
-    return Object.keys(c.result.categories);
+    return (c.result && c.result.categories) || {};
   };
 
   c.getCategoryItems = function(catId) {
-    if (!c.result || !c.result.categories || !c.result.categories[catId]) return [];
-    var cat = c.result.categories[catId];
-    if (!cat.items) return [];
+    var cats = c.getCategories();
+    var cat = cats[catId];
+    if (!cat || !cat.items) return [];
     var out = [];
     cat.items.forEach(function(it) {
       var records = it.records || [];
       records.forEach(function(rec) {
-        out.push({
+        out.push(angular.extend({
           item_type: it.type,
           item_label: it.label || it.itemLabel,
           item_icon: it.icon || it.itemIcon,
-          item_color: it.color || it.itemColor,
-          count: it.count || records.length,
-          active_count: it.active_count || 0,
-          inactive_count: it.inactive_count || 0,
-          category: catId,
-          record: rec
-        });
+          item_color: it.color || it.itemColor
+        }, rec));
       });
     });
     return out;
   };
 
-  c.getCategoryFilter = function(catId) {
-    c.categoryFilters[catId] = c.categoryFilters[catId] || { search: '' };
-    return c.categoryFilters[catId];
-  };
-
-  c.filteredCategoryItems = function(catId) {
-    var items = c.getCategoryItems(catId);
-    var filter = c.getCategoryFilter(catId);
-    if (!filter.search) return items;
-    var t = filter.search.toLowerCase();
-    return items.filter(function(it) {
-      var rec = it.record || {};
-      var hay = (it.item_label || '') + ' ' + (rec.name || '') + ' ' + (rec.label || '') + ' ' + (rec.description || '');
-      return hay.toLowerCase().indexOf(t) !== -1;
+  c.getOptionsList = function() {
+    var opts = (c.result && c.result.options) || {};
+    return Object.keys(opts).map(function(key) {
+      return { key: key, value: opts[key] };
     });
   };
 
-  c.recordKeys = function(rec) {
-    if (!rec || !rec.values) return [];
-    return Object.keys(rec.values);
+  c.getConfigOptions = function() {
+    var cfg = (c.result && c.result.config) || {};
+    var opts = cfg.options || {};
+    return Object.keys(opts).map(function(key) {
+      return { key: key, value: opts[key] };
+    });
   };
 
-  c.getConfig = function() {
-    return (c.result && c.result.config) || {};
+  c.buildIssueCategories = function() {
+    var cats = ['all'];
+    var seen = {};
+    var issues = (c.result && c.result.issues) || [];
+    issues.forEach(function(issue) {
+      var cat = issue.category || 'general';
+      if (!seen[cat]) {
+        seen[cat] = true;
+        cats.push(cat);
+      }
+    });
+    return cats;
   };
 
-  c.getOptions = function() {
-    var cfg = c.getConfig();
-    return cfg.options || cfg || {};
+  c.filteredIssues = function() {
+    var issues = (c.result && c.result.issues) || [];
+    var cat = c.issueCategory;
+    var sev = c.issueFilters.severity;
+    var search = (c.issueFilters.search || '').toLowerCase();
+
+    return issues.filter(function(issue) {
+      if (cat !== 'all' && (issue.category || 'general') !== cat) return false;
+      if (sev !== 'all' && (issue.severity || '').toLowerCase() !== sev) return false;
+      if (search) {
+        var haystack = [
+          issue.code,
+          issue.message,
+          issue.category,
+          issue.record_table,
+          issue.record_name
+        ].join(' ').toLowerCase();
+        if (haystack.indexOf(search) === -1) return false;
+      }
+      return true;
+    });
   };
+
+  c.countIssuesByCategory = function(cat) {
+    if (!c.result || !c.result.issues) return 0;
+    if (cat === 'all') return c.result.issues.length;
+    var count = 0;
+    c.result.issues.forEach(function(issue) {
+      if ((issue.category || 'general') === cat) count++;
+    });
+    return count;
+  };
+
+  c.resetFilters = function() {
+    c.issueFilters = { severity: 'all', search: '' };
+  };
+
+  c.openRecord = function(table, sysId) {
+    if (!table || !sysId) return;
+    $window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
+  };
+
+  c.enrich = function() {
+    c.issueCategories = c.buildIssueCategories();
+  };
+
+  c.init = function() {
+    if (c.result) {
+      c.enrich();
+      c.loading = false;
+      return;
+    }
+
+    if (!c.analysisId) {
+      c.error = '${Missing analysis identifier}';
+      c.loading = false;
+      return;
+    }
+
+    c.loading = true;
+    c.server.get({ action: 'get_result', analysisId: c.analysisId }).then(function(resp) {
+      if (resp.data && resp.data.success && resp.data.analysisResult) {
+        c.result = resp.data.analysisResult;
+        c.enrich();
+        c.error = null;
+      } else {
+        c.error = (resp.data && resp.data.error) ? resp.data.error : '${Result not found}';
+      }
+      c.loading = false;
+    }, function() {
+      c.error = '${Server communication error}';
+      c.loading = false;
+    });
+  };
+
+  c.init();
 }]]></client_script>
         <controller_as>c</controller_as>
         <css>.fha-detail {
@@ -286,37 +324,56 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function() {
-    data.analysis_id = $sp.getParameter('sys_id') || '';
+    data.analysisId = $sp.getParameter('sys_id') || (input && input.analysisId) || '';
     data.result = null;
     data.error = null;
-    data.number = '';
-    data.state = '';
+    data.success = false;
 
-    function parseJSON(val) {
-        if (!val) return null;
+    function loadResult(resultId) {
+        if (!resultId) {
+            return { success: false, error: gs.getMessage('Missing result identifier') };
+        }
+
+        var gr = new GlideRecord('x_1310794_founda_0_results');
+        if (!gr.get(resultId)) {
+            return { success: false, error: gs.getMessage('Result not found') };
+        }
+
+        var parsed;
         try {
-            return JSON.parse(val);
-        } catch (e) {
-            data.error = 'Impossible de parser le JSON du resultat: ' + e.message;
-            return null;
+            parsed = JSON.parse(gr.getValue('details') || '{}');
+        } catch (err) {
+            return { success: false, error: gs.getMessage('Unable to parse analysis details') };
         }
+
+        parsed.number = parsed.number || gr.getValue('number');
+        parsed.state = parsed.state || gr.getValue('state');
+        parsed.status = parsed.status || parsed.state;
+        parsed.health_score = parsed.health_score || parsed.healthScore || gr.getValue('health_score');
+        parsed.sys_id = gr.getUniqueValue();
+        parsed.created_on = parsed.created_on || gr.getDisplayValue('sys_created_on');
+        parsed.created_by = parsed.created_by || gr.getDisplayValue('sys_created_by');
+
+        return { success: true, result: parsed };
     }
 
-    if (!data.analysis_id) {
-        data.error = 'Aucun sys_id de resultat trouve dans l URL.';
-        return;
+    var initial = loadResult(data.analysisId);
+    if (initial.success) {
+        data.result = initial.result;
+        data.success = true;
+    } else if (data.analysisId) {
+        data.error = initial.error;
     }
 
-                var gr = new GlideRecord('x_1310794_founda_0_results');
-    if (gr.get(data.analysis_id)) {
-        data.number = gr.getValue('number') || '';
-        data.state = gr.getValue('state') || '';
-        data.result = parseJSON(gr.getValue('details'));
-        if (!data.result && !data.error) {
-            data.error = 'Aucun detail JSON trouve pour ce resultat.';
+    if (input && input.action === 'get_result') {
+        var res = loadResult(input.analysisId || data.analysisId);
+        data.success = res.success;
+        if (res.success) {
+            data.analysisResult = res.result;
+            data.error = '';
+        } else {
+            data.error = res.error;
         }
-    } else {
-        data.error = 'Resultat introuvable pour le sys_id fourni.';
     }
 })();]]></script>
         <servicenow>false</servicenow>
@@ -335,10 +392,11 @@
         <template><![CDATA[<div class="fha-detail">
   <div class="fha-header">
     <h1>${Analysis detail}</h1>
-    <div class="fha-meta">
-      <span class="fha-badge">sys_id : {{c.analysisId}}</span>
-      <span class="fha-badge" ng-if="c.number">${Number}: {{c.number}}</span>
-      <span class="fha-badge" ng-if="c.state">${State}: {{c.state}}</span>
+    <div class="fha-meta" ng-if="c.result">
+      <span class="fha-badge">${Number}: {{c.result.number || c.analysisId}}</span>
+      <span class="fha-badge">${Status}: {{c.result.state || c.result.status || 'N/A'}}</span>
+      <span class="fha-badge">${Table}: {{c.result.table_label || c.result.table_name || (c.result.config && (c.result.config.table_label || c.result.config.table_name))}}</span>
+      <span class="fha-badge" ng-if="c.result.health_score !== undefined">${Health score}: {{c.result.health_score}}</span>
     </div>
   </div>
 
@@ -346,198 +404,185 @@
     {{c.error}}
   </div>
 
-  <div class="alert alert-info" ng-if="!c.error && !c.result">
-    Aucun resultat charge. Verifie le parametre sys_id.
+  <div class="alert alert-info" ng-if="c.loading">
+    ${Loading analysis results...}
   </div>
 
-  <div ng-if="c.result">
+  <div ng-if="!c.loading && c.result">
     <div class="fha-tabs">
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('summary')}" ng-click="c.setTab('summary')">${Summary}</button>
       <button class="fha-tab-btn" ng-class="{'active': c.isTab('details')}" ng-click="c.setTab('details')">${Details}</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('metadata')}" ng-click="c.setTab('metadata')" ng-if="c.result.metadata">${Metadata}</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('issues')}" ng-click="c.setTab('issues')" ng-if="c.getIssues().length">${Issues} ({{c.totalIssues()}})</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('data')}" ng-click="c.setTab('data')" ng-if="c.hasData()">${Data} ({{c.totalRecords()}})</button>
-      <button class="fha-tab-btn" ng-repeat="cat in c.getCategories()" ng-class="{'active': c.isTab('cat_' + cat)}" ng-click="c.setTab('cat_' + cat)">
-        {{cat | uppercase}}
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('issues')}" ng-click="c.setTab('issues')">
+        ${Issues} ({{(c.result.issues || []).length}})
       </button>
-  </div>
-
-    <div class="fha-card" ng-show="c.isTab('summary')">
-      <div class="fha-card__head">
-        <h3>${Summary}</h3>
-      </div>
-      <div class="fha-card__body" style="display:flex;gap:12px;flex-wrap:wrap;">
-        <span class="pill blue">${Score}: {{c.getScore()}}</span>
-        <span class="pill gray">${Records}: {{c.totalRecords()}}</span>
-        <span class="pill amber" ng-if="c.totalErrors() > 0">${Errors}: {{c.totalErrors()}}</span>
-        <span class="pill red" ng-if="c.totalIssues() > 0">${Issues}: {{c.totalIssues()}}</span>
-        </div>
-      </div>
-      
-    <div class="fha-card" ng-show="c.isTab('details')">
-      <div class="fha-card__head">
-        <h3>${Details}</h3>
-      </div>
-      <div class="fha-card__body">
-        <div class="section-title">${Analysis}</div>
-        <div class="filter-bar" style="margin-bottom:8px;">
-          <span class="pill gray">${Table}: {{c.result.table_label || c.result.table_name || 'N/A'}}</span>
-          <span class="pill gray" ng-if="c.result.duration_ms">${Duration}: {{c.result.duration_ms}} ms</span>
-          <span class="pill gray" ng-if="c.result.created_on">${Created}: {{c.result.created_on}}</span>
-          <span class="pill gray" ng-if="c.result.created_by">${By}: {{c.result.created_by}}</span>
-        </div>
-        <div class="section-title" style="margin-top:12px;">${Configuration}</div>
-        <table class="fha-data-table">
-          <tbody>
-            <tr ng-repeat="(key,val) in c.getConfig()">
-              <td style="width:200px;"><strong>{{key}}</strong></td>
-              <td>{{val}}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="section-title" style="margin-top:12px;">${Options}</div>
-        <table class="fha-data-table">
-          <tbody>
-            <tr ng-repeat="(key,val) in c.getOptions()">
-              <td style="width:200px;"><strong>{{key}}</strong></td>
-              <td>{{val}}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
     </div>
 
-    <div class="fha-card" ng-if="c.result.metadata" ng-show="c.isTab('metadata')">
-      <div class="fha-card__head">
-        <h3>${Metadata}</h3>
-      </div>
-      <div class="fha-card__body">
-        <table class="fha-data-table">
-          <thead>
-            <tr>
-              <th>${Key}</th>
-              <th>${Value}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr ng-repeat="(key,val) in c.result.metadata">
-              <td>{{key}}</td>
-              <td>{{val}}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="fha-card" ng-if="c.getIssues().length" ng-show="c.isTab('issues')">
-      <div class="fha-card__head">
-        <h3>${Issues}</h3>
-        <span class="fha-badge">{{c.totalIssues()}}</span>
-      </div>
-      <div class="fha-card__body">
-        <div class="filter-bar">
-          <label>${Severity}:</label>
-          <select ng-model="c.issueFilters.severity">
-            <option value="all">${All}</option>
-            <option value="high">${High}</option>
-            <option value="medium">${Medium}</option>
-            <option value="low">${Low}</option>
-          </select>
-          <label>${Search}:</label>
-          <input type="text" ng-model="c.issueFilters.search" placeholder="${Filter issues}" />
+    <div ng-show="c.isTab('details')">
+      <div class="fha-card">
+        <div class="fha-card__head">
+          <h3>${Overview}</h3>
         </div>
-        <table class="fha-data-table">
-          <thead>
-            <tr>
-              <th style="width:120px;">${Severity}</th>
-              <th style="width:160px;">${Category}</th>
-              <th style="width:140px;">${Code}</th>
-              <th>${Message}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr ng-repeat="issue in c.filteredIssues()">
-              <td><span class="issue-badge" ng-class="{'sev-high': issue.severity=='high','sev-medium': issue.severity=='medium','sev-low': issue.severity=='low'}">{{issue.severity | uppercase}}</span></td>
-              <td>{{issue.category || 'general'}}</td>
-              <td>{{issue.code}}</td>
-              <td>{{issue.message}}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="fha-card" ng-if="c.hasData()" ng-show="c.isTab('data')">
-      <div class="fha-card__head">
-        <h3>${Data}</h3>
-        <span class="fha-badge">{{c.result.data.length}}</span>
-      </div>
-      <div class="fha-card__body">
-        <div ng-repeat="rec in c.result.data track by rec.sys_id || $index" style="margin-bottom:16px;">
-          <h4 style="margin:0 0 6px 0;">{{rec.table || 'N/A'}} - {{rec.sys_id || 'N/A'}}</h4>
-          <table class="fha-data-table" ng-if="c.recordKeys(rec).length">
-            <thead>
-              <tr>
-                <th>${Field}</th>
-                <th>${Value}</th>
-              </tr>
-            </thead>
+        <div class="fha-card__body">
+          <table class="fha-data-table">
             <tbody>
-              <tr ng-repeat="field in c.recordKeys(rec) track by field">
-                <td>{{field}}</td>
-                <td>{{rec.values[field]}}</td>
+              <tr>
+                <td style="width:200px;"><strong>${Number}</strong></td>
+                <td>{{c.result.number || c.analysisId}}</td>
+              </tr>
+              <tr>
+                <td><strong>${Status}</strong></td>
+                <td>{{c.result.state || c.result.status || 'N/A'}}</td>
+              </tr>
+              <tr>
+                <td><strong>${Table}</strong></td>
+                <td>{{c.result.table_label || c.result.table_name || (c.result.config && (c.result.config.table_label || c.result.config.table_name))}}</td>
+              </tr>
+              <tr ng-if="c.result.health_score !== undefined">
+                <td><strong>${Health score}</strong></td>
+                <td>{{c.result.health_score}}</td>
+              </tr>
+              <tr ng-if="c.result.duration_ms">
+                <td><strong>${Duration}</strong></td>
+                <td>{{c.result.duration_ms}} ms</td>
+              </tr>
+              <tr ng-if="c.result.created_on">
+                <td><strong>${Created}</strong></td>
+                <td>{{c.result.created_on}}</td>
+              </tr>
+              <tr ng-if="c.result.created_by">
+                <td><strong>${By}</strong></td>
+                <td>{{c.result.created_by}}</td>
               </tr>
             </tbody>
           </table>
-          <div ng-if="rec.issues && rec.issues.length">
-            <strong>${Issues}:</strong>
-            <ul>
-              <li ng-repeat="issue in rec.issues track by $index">
-                {{issue.code || 'ISSUE'}} - {{issue.message || issue}}
-              </li>
-            </ul>
+        </div>
+      </div>
+
+      <div class="fha-card">
+        <div class="fha-card__head">
+          <h3>${Configuration options}</h3>
+        </div>
+        <div class="fha-card__body" ng-if="c.getConfigOptions().length">
+          <table class="fha-data-table">
+            <tbody>
+              <tr ng-repeat="opt in c.getConfigOptions()">
+                <td style="width:220px;"><strong>{{opt.key}}</strong></td>
+                <td>{{opt.value}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card__body" ng-if="!c.getConfigOptions().length">
+          <span class="pill gray">${No configuration options found}</span>
+        </div>
+      </div>
+
+      <div class="fha-card">
+        <div class="fha-card__head">
+          <h3>${Run options}</h3>
+        </div>
+        <div class="fha-card__body" ng-if="c.getOptionsList().length">
+          <table class="fha-data-table">
+            <tbody>
+              <tr ng-repeat="opt in c.getOptionsList()">
+                <td style="width:220px;"><strong>{{opt.key}}</strong></td>
+                <td>{{opt.value}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card__body" ng-if="!c.getOptionsList().length">
+          <span class="pill gray">${No options provided}</span>
+        </div>
+      </div>
+
+      <div class="fha-card" ng-repeat="(catId, cat) in c.getCategories()">
+        <div class="fha-card__head">
+          <h3>{{cat.label || catId}}</h3>
+          <span class="fha-badge">{{c.getCategoryItems(catId).length}}</span>
+        </div>
+        <div class="fha-card__body" ng-if="c.getCategoryItems(catId).length">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th style="width:180px;">${Type}</th>
+                <th>${Name}</th>
+                <th style="width:140px;">${Table}</th>
+                <th style="width:120px;">${Status}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="item in c.getCategoryItems(catId)">
+                <td>{{item.item_label || item.type || item.item_type}}</td>
+                <td>{{item.name || item.label || item.field || item.code}}</td>
+                <td>{{item.table || item.target_table || item.trigger_table}}</td>
+                <td>
+                  <span class="pill blue" ng-if="item.active !== false">${Active}</span>
+                  <span class="pill gray" ng-if="item.active === false">${Inactive}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card__body" ng-if="!c.getCategoryItems(catId).length">
+          <span class="pill gray">${No data}</span>
+        </div>
+      </div>
+    </div>
+
+    <div ng-show="c.isTab('issues')">
+      <div class="fha-card">
+        <div class="fha-card__body">
+          <div class="filter-bar">
+            <label>${Severity}:</label>
+            <select ng-model="c.issueFilters.severity">
+              <option value="all">${All}</option>
+              <option value="high">${High}</option>
+              <option value="medium">${Medium}</option>
+              <option value="low">${Low}</option>
+            </select>
+            <label>${Search}:</label>
+            <input type="text" ng-model="c.issueFilters.search" placeholder="${Filter issues}">
+            <button class="fha-tab-btn" style="border:none;" ng-click="c.resetFilters()">
+              <i class="fa fa-refresh"></i> ${Reset}
+            </button>
+          </div>
+          <div class="fha-tabs" style="margin-bottom:12px;">
+            <button class="fha-tab-btn" ng-repeat="cat in c.issueCategories" ng-class="{'active': c.issueCategory === cat}" ng-click="c.setIssueCategory(cat)">
+              {{cat === 'all' ? '${All categories}' : cat}} <span class="fha-badge">{{c.countIssuesByCategory(cat)}}</span>
+            </button>
+          </div>
+
+          <table class="fha-data-table" ng-if="c.filteredIssues().length">
+            <thead>
+              <tr>
+                <th style="width:120px;">${Severity}</th>
+                <th style="width:160px;">${Category}</th>
+                <th style="width:140px;">${Code}</th>
+                <th>${Message}</th>
+                <th style="width:60px;">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="issue in c.filteredIssues()">
+                <td><span class="issue-badge" ng-class="{'sev-high': issue.severity=='high','sev-medium': issue.severity=='medium','sev-low': issue.severity=='low'}">{{issue.severity | uppercase}}</span></td>
+                <td>{{issue.category || 'general'}}</td>
+                <td>{{issue.code}}</td>
+                <td>{{issue.message}}</td>
+                <td>
+                  <a class="fha-link" ng-if="issue.record_sys_id" ng-click="c.openRecord(issue.record_table, issue.record_sys_id)">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div ng-if="!c.filteredIssues().length" style="padding:12px 0;">
+            <span class="pill gray">${No issues to display}</span>
           </div>
         </div>
       </div>
     </div>
-
-    <div class="fha-card" ng-repeat="cat in c.getCategories()" ng-show="c.isTab('cat_' + cat)">
-      <div class="fha-card__head">
-        <h3>{{cat | uppercase}}</h3>
-        <span class="fha-badge">{{c.getCategoryItems(cat).length}}</span>
-      </div>
-      <div class="fha-card__body">
-        <div class="filter-bar">
-          <label>${Search}:</label>
-          <input type="text" ng-model="c.getCategoryFilter(cat).search" placeholder="${Filter items}" />
-        </div>
-        <table class="fha-data-table" ng-if="c.getCategoryItems(cat).length">
-          <thead>
-            <tr>
-              <th style="width:160px;">${Type}</th>
-              <th>${Name}</th>
-              <th style="width:120px;">${Status}</th>
-              <th style="width:120px;">${Counts}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr ng-repeat="item in c.filteredCategoryItems(cat)">
-              <td>{{item.item_label || item.item_type}}</td>
-              <td>{{item.record.name || item.record.label || item.record.description || 'N/A'}}</td>
-              <td>
-                <span class="pill gray" ng-if="item.record.active === false">${Inactive}</span>
-                <span class="pill blue" ng-if="item.record.active !== false">${Active}</span>
-              </td>
-              <td>
-                <span ng-if="item.count">{{item.count}} ${records}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div ng-if="!c.getCategoryItems(cat).length">${No data}</div>
-      </div>
-    </div>
-        </div>
+  </div>
 </div>]]></template>
     </sp_widget>
 </record_update>
