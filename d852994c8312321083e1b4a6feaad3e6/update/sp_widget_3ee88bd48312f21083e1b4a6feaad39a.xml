@@ -3,14 +3,24 @@
         <category>custom</category>
         <client_script><![CDATA[function($scope, $location) {
   var c = this;
-
+    
   c.analysisId = $location.search().sys_id || c.data.analysis_id || '';
-  c.result = c.data.result || null;
+    c.result = c.data.result || null;
   c.error = c.data.error || null;
   c.number = c.data.number || '';
   c.state = c.data.state || '';
   c.loading = false;
-  c.activeTab = 'resume';
+  c.activeTab = 'summary';
+  c.issueFilters = { severity: 'all', search: '' };
+  c.categoryFilters = {};
+
+  c.setTab = function(tab) { c.activeTab = tab; };
+  c.isTab = function(tab) { return c.activeTab === tab; };
+
+  c.getScore = function() {
+    if (!c.result) return '--';
+    return c.result.health_score || c.result.score || '--';
+  };
 
   c.totalRecords = function() {
     return c.result && Array.isArray(c.result.data) ? c.result.data.length : 0;
@@ -21,18 +31,74 @@
   };
 
   c.totalIssues = function() {
-    if (!c.result || !Array.isArray(c.result.data)) return 0;
-    return c.result.data.reduce(function(sum, rec) {
-      return sum + (Array.isArray(rec.issues) ? rec.issues.length : 0);
-    }, 0);
+    var issues = c.getIssues();
+    return issues.length;
   };
 
-  c.hasErrors = function() {
-    return c.totalErrors() > 0;
+  c.hasErrors = function() { return c.totalErrors() > 0; };
+  c.hasData = function() { return c.result && Array.isArray(c.result.data) && c.result.data.length > 0; };
+
+  c.getIssues = function() {
+    return (c.result && Array.isArray(c.result.issues)) ? c.result.issues : [];
   };
 
-  c.hasData = function() {
-    return c.result && Array.isArray(c.result.data) && c.result.data.length > 0;
+  c.filteredIssues = function() {
+    var list = c.getIssues();
+    return list.filter(function(it) {
+      if (c.issueFilters.severity !== 'all' && it.severity !== c.issueFilters.severity) return false;
+      if (c.issueFilters.search) {
+        var t = c.issueFilters.search.toLowerCase();
+        var s = (it.message || '') + ' ' + (it.code || '') + ' ' + (it.category || '');
+        if (s.toLowerCase().indexOf(t) === -1) return false;
+      }
+      return true;
+      });
+  };
+
+  c.getCategories = function() {
+    if (!c.result || !c.result.categories) return [];
+    return Object.keys(c.result.categories);
+  };
+
+  c.getCategoryItems = function(catId) {
+    if (!c.result || !c.result.categories || !c.result.categories[catId]) return [];
+    var cat = c.result.categories[catId];
+    if (!cat.items) return [];
+    var out = [];
+    cat.items.forEach(function(it) {
+      var records = it.records || [];
+      records.forEach(function(rec) {
+        out.push({
+          item_type: it.type,
+          item_label: it.label || it.itemLabel,
+          item_icon: it.icon || it.itemIcon,
+          item_color: it.color || it.itemColor,
+          count: it.count || records.length,
+          active_count: it.active_count || 0,
+          inactive_count: it.inactive_count || 0,
+          category: catId,
+          record: rec
+        });
+      });
+    });
+    return out;
+  };
+
+  c.getCategoryFilter = function(catId) {
+    c.categoryFilters[catId] = c.categoryFilters[catId] || { search: '' };
+    return c.categoryFilters[catId];
+  };
+
+  c.filteredCategoryItems = function(catId) {
+    var items = c.getCategoryItems(catId);
+    var filter = c.getCategoryFilter(catId);
+    if (!filter.search) return items;
+    var t = filter.search.toLowerCase();
+    return items.filter(function(it) {
+      var rec = it.record || {};
+      var hay = (it.item_label || '') + ' ' + (rec.name || '') + ' ' + (rec.label || '') + ' ' + (rec.description || '');
+      return hay.toLowerCase().indexOf(t) !== -1;
+    });
   };
 
   c.recordKeys = function(rec) {
@@ -40,12 +106,13 @@
     return Object.keys(rec.values);
   };
 
-  c.setTab = function(tab) {
-    c.activeTab = tab;
+  c.getConfig = function() {
+    return (c.result && c.result.config) || {};
   };
 
-  c.isTab = function(tab) {
-    return c.activeTab === tab;
+  c.getOptions = function() {
+    var cfg = c.getConfig();
+    return cfg.options || cfg || {};
   };
 }]]></client_script>
         <controller_as>c</controller_as>
@@ -150,6 +217,58 @@
   font-size: 12px;
   background: #eef1f3;
 }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #eef1f3;
+  font-weight: 600;
+}
+
+.pill.red { background: #fde8e8; color: #c81e1e; }
+.pill.amber { background: #fff4e5; color: #b45309; }
+.pill.blue { background: #e0f2fe; color: #075985; }
+.pill.gray { background: #f3f4f6; color: #4b5563; }
+
+.issue-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+}
+.sev-high { background: #fde8e8; color: #b91c1c; }
+.sev-medium { background: #fff4e5; color: #b45309; }
+.sev-low { background: #e0f2fe; color: #075985; }
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.filter-bar input,
+.filter-bar select {
+  padding: 6px 10px;
+  border: 1px solid #d0d6dc;
+  border-radius: 6px;
+  font-size: 13px;
+}
 </css>
         <data_table>sp_instance</data_table>
         <demo_data/>
@@ -188,7 +307,7 @@
         return;
     }
 
-    var gr = new GlideRecord('x_1310794_founda_0_results');
+                var gr = new GlideRecord('x_1310794_founda_0_results');
     if (gr.get(data.analysis_id)) {
         data.number = gr.getValue('number') || '';
         data.state = gr.getValue('state') || '';
@@ -215,11 +334,11 @@
         <sys_updated_on>2026-01-05 00:34:36</sys_updated_on>
         <template><![CDATA[<div class="fha-detail">
   <div class="fha-header">
-    <h1>Analyse detail</h1>
+    <h1>${Analysis detail}</h1>
     <div class="fha-meta">
       <span class="fha-badge">sys_id : {{c.analysisId}}</span>
-      <span class="fha-badge" ng-if="c.number">numero : {{c.number}}</span>
-      <span class="fha-badge" ng-if="c.state">etat : {{c.state}}</span>
+      <span class="fha-badge" ng-if="c.number">${Number}: {{c.number}}</span>
+      <span class="fha-badge" ng-if="c.state">${State}: {{c.state}}</span>
     </div>
   </div>
 
@@ -233,34 +352,71 @@
 
   <div ng-if="c.result">
     <div class="fha-tabs">
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('resume')}" ng-click="c.setTab('resume')">Résumé</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('metadata')}" ng-click="c.setTab('metadata')" ng-if="c.result.metadata">Métadonnées</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('errors')}" ng-click="c.setTab('errors')" ng-if="c.hasErrors()">Erreurs ({{c.totalErrors()}})</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('data')}" ng-click="c.setTab('data')" ng-if="c.hasData()">Données ({{c.totalRecords()}})</button>
-    </div>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('summary')}" ng-click="c.setTab('summary')">${Summary}</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('details')}" ng-click="c.setTab('details')">${Details}</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('metadata')}" ng-click="c.setTab('metadata')" ng-if="c.result.metadata">${Metadata}</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('issues')}" ng-click="c.setTab('issues')" ng-if="c.getIssues().length">${Issues} ({{c.totalIssues()}})</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('data')}" ng-click="c.setTab('data')" ng-if="c.hasData()">${Data} ({{c.totalRecords()}})</button>
+      <button class="fha-tab-btn" ng-repeat="cat in c.getCategories()" ng-class="{'active': c.isTab('cat_' + cat)}" ng-click="c.setTab('cat_' + cat)">
+        {{cat | uppercase}}
+      </button>
+  </div>
 
-    <div class="fha-card" ng-show="c.isTab('resume')">
+    <div class="fha-card" ng-show="c.isTab('summary')">
       <div class="fha-card__head">
-        <h3>Résumé</h3>
+        <h3>${Summary}</h3>
       </div>
       <div class="fha-card__body" style="display:flex;gap:12px;flex-wrap:wrap;">
-        <span class="fha-badge">Statut : {{c.result.success === false ? 'échec' : 'succès'}}</span>
-        <span class="fha-badge">Enregistrements : {{c.totalRecords()}}</span>
-        <span class="fha-badge">Erreurs : {{c.totalErrors()}}</span>
-        <span class="fha-badge">Issues : {{c.totalIssues()}}</span>
+        <span class="pill blue">${Score}: {{c.getScore()}}</span>
+        <span class="pill gray">${Records}: {{c.totalRecords()}}</span>
+        <span class="pill amber" ng-if="c.totalErrors() > 0">${Errors}: {{c.totalErrors()}}</span>
+        <span class="pill red" ng-if="c.totalIssues() > 0">${Issues}: {{c.totalIssues()}}</span>
+        </div>
+      </div>
+      
+    <div class="fha-card" ng-show="c.isTab('details')">
+      <div class="fha-card__head">
+        <h3>${Details}</h3>
+      </div>
+      <div class="fha-card__body">
+        <div class="section-title">${Analysis}</div>
+        <div class="filter-bar" style="margin-bottom:8px;">
+          <span class="pill gray">${Table}: {{c.result.table_label || c.result.table_name || 'N/A'}}</span>
+          <span class="pill gray" ng-if="c.result.duration_ms">${Duration}: {{c.result.duration_ms}} ms</span>
+          <span class="pill gray" ng-if="c.result.created_on">${Created}: {{c.result.created_on}}</span>
+          <span class="pill gray" ng-if="c.result.created_by">${By}: {{c.result.created_by}}</span>
+        </div>
+        <div class="section-title" style="margin-top:12px;">${Configuration}</div>
+        <table class="fha-data-table">
+          <tbody>
+            <tr ng-repeat="(key,val) in c.getConfig()">
+              <td style="width:200px;"><strong>{{key}}</strong></td>
+              <td>{{val}}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="section-title" style="margin-top:12px;">${Options}</div>
+        <table class="fha-data-table">
+          <tbody>
+            <tr ng-repeat="(key,val) in c.getOptions()">
+              <td style="width:200px;"><strong>{{key}}</strong></td>
+              <td>{{val}}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <div class="fha-card" ng-if="c.result.metadata" ng-show="c.isTab('metadata')">
       <div class="fha-card__head">
-        <h3>Métadonnées</h3>
+        <h3>${Metadata}</h3>
       </div>
       <div class="fha-card__body">
         <table class="fha-data-table">
           <thead>
             <tr>
-              <th>Clé</th>
-              <th>Valeur</th>
+              <th>${Key}</th>
+              <th>${Value}</th>
             </tr>
           </thead>
           <tbody>
@@ -273,31 +429,57 @@
       </div>
     </div>
 
-    <div class="fha-card" ng-if="c.result.errors && c.result.errors.length" ng-show="c.isTab('errors')">
+    <div class="fha-card" ng-if="c.getIssues().length" ng-show="c.isTab('issues')">
       <div class="fha-card__head">
-        <h3>Erreurs</h3>
-        <span class="fha-badge">{{c.result.errors.length}}</span>
+        <h3>${Issues}</h3>
+        <span class="fha-badge">{{c.totalIssues()}}</span>
       </div>
       <div class="fha-card__body">
-        <ul>
-          <li ng-repeat="err in c.result.errors track by $index">{{err}}</li>
-        </ul>
+        <div class="filter-bar">
+          <label>${Severity}:</label>
+          <select ng-model="c.issueFilters.severity">
+            <option value="all">${All}</option>
+            <option value="high">${High}</option>
+            <option value="medium">${Medium}</option>
+            <option value="low">${Low}</option>
+          </select>
+          <label>${Search}:</label>
+          <input type="text" ng-model="c.issueFilters.search" placeholder="${Filter issues}" />
+        </div>
+        <table class="fha-data-table">
+          <thead>
+            <tr>
+              <th style="width:120px;">${Severity}</th>
+              <th style="width:160px;">${Category}</th>
+              <th style="width:140px;">${Code}</th>
+              <th>${Message}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="issue in c.filteredIssues()">
+              <td><span class="issue-badge" ng-class="{'sev-high': issue.severity=='high','sev-medium': issue.severity=='medium','sev-low': issue.severity=='low'}">{{issue.severity | uppercase}}</span></td>
+              <td>{{issue.category || 'general'}}</td>
+              <td>{{issue.code}}</td>
+              <td>{{issue.message}}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <div class="fha-card" ng-if="c.hasData()" ng-show="c.isTab('data')">
       <div class="fha-card__head">
-        <h3>Données</h3>
+        <h3>${Data}</h3>
         <span class="fha-badge">{{c.result.data.length}}</span>
       </div>
       <div class="fha-card__body">
         <div ng-repeat="rec in c.result.data track by rec.sys_id || $index" style="margin-bottom:16px;">
-          <h4 style="margin:0 0 6px 0;">{{rec.table || 'table inconnue'}} - {{rec.sys_id || 'id inconnu'}}</h4>
+          <h4 style="margin:0 0 6px 0;">{{rec.table || 'N/A'}} - {{rec.sys_id || 'N/A'}}</h4>
           <table class="fha-data-table" ng-if="c.recordKeys(rec).length">
             <thead>
               <tr>
-                <th>Champ</th>
-                <th>Valeur</th>
+                <th>${Field}</th>
+                <th>${Value}</th>
               </tr>
             </thead>
             <tbody>
@@ -308,7 +490,7 @@
             </tbody>
           </table>
           <div ng-if="rec.issues && rec.issues.length">
-            <strong>Issues :</strong>
+            <strong>${Issues}:</strong>
             <ul>
               <li ng-repeat="issue in rec.issues track by $index">
                 {{issue.code || 'ISSUE'}} - {{issue.message || issue}}
@@ -318,7 +500,44 @@
         </div>
       </div>
     </div>
-  </div>
+
+    <div class="fha-card" ng-repeat="cat in c.getCategories()" ng-show="c.isTab('cat_' + cat)">
+      <div class="fha-card__head">
+        <h3>{{cat | uppercase}}</h3>
+        <span class="fha-badge">{{c.getCategoryItems(cat).length}}</span>
+      </div>
+      <div class="fha-card__body">
+        <div class="filter-bar">
+          <label>${Search}:</label>
+          <input type="text" ng-model="c.getCategoryFilter(cat).search" placeholder="${Filter items}" />
+        </div>
+        <table class="fha-data-table" ng-if="c.getCategoryItems(cat).length">
+          <thead>
+            <tr>
+              <th style="width:160px;">${Type}</th>
+              <th>${Name}</th>
+              <th style="width:120px;">${Status}</th>
+              <th style="width:120px;">${Counts}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="item in c.filteredCategoryItems(cat)">
+              <td>{{item.item_label || item.item_type}}</td>
+              <td>{{item.record.name || item.record.label || item.record.description || 'N/A'}}</td>
+              <td>
+                <span class="pill gray" ng-if="item.record.active === false">${Inactive}</span>
+                <span class="pill blue" ng-if="item.record.active !== false">${Active}</span>
+              </td>
+              <td>
+                <span ng-if="item.count">{{item.count}} ${records}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div ng-if="!c.getCategoryItems(cat).length">${No data}</div>
+      </div>
+    </div>
+        </div>
 </div>]]></template>
     </sp_widget>
 </record_update>
