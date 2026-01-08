@@ -228,6 +228,60 @@
   font-weight: 700;
 }
 
+.fha-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.fha-stat-card {
+  flex: 1;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.04);
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fha-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(17, 24, 39, 0.08);
+}
+
+.fha-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.fha-stat-value.danger {
+  color: #b91c1c;
+}
+
+.fha-stat-value.warning {
+  color: #b45309;
+}
+
+.fha-stat-value.info {
+  color: #075985;
+}
+
+.fha-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+
+
+
 .fha-meta {
   margin-top: 10px;
   display: flex;
@@ -427,7 +481,19 @@
   border: 1px solid transparent;
 }
 .alert-danger { background: #fef2f2; color: #b91c1c; border-color: #fecdd3; }
-.alert-info { background: #e0f2fe; color: #075985; border-color: #bae6fd; }</css>
+.alert-info { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+
+@media (max-width: 768px) {
+  .fha-stat-card {
+    flex: 1 1 45%;
+  }
+}
+
+@media (max-width: 480px) {
+  .fha-stat-card {
+    flex: 1 1 100%;
+  }
+}</css>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -501,14 +567,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>40</sys_mod_count>
+        <sys_mod_count>45</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 00:34:36</sys_updated_on>
+        <sys_updated_on>2026-01-08 18:17:50</sys_updated_on>
         <template><![CDATA[<div class="fha-detail">
   <div class="fha-header">
     <div style="display:flex;flex-direction:column;gap:6px;">
@@ -598,22 +664,11 @@
             </table>
           </div>
         </div>
-
-        <div class="fha-card">
-          <div class="fha-card__head"><h3>${Issues Summary}</h3></div>
-          <div class="fha-card__body">
-            <table class="fha-data-table">
-              <tbody>
-                <tr><td><strong>${Total Issues}</strong></td><td>{{c.getIssues().length}}</td></tr>
-                <tr><td><span class="issue-badge sev-high">HIGH</span></td><td>{{c.countBySeverity('high')}}</td></tr>
-                <tr><td><span class="issue-badge sev-medium">MEDIUM</span></td><td>{{c.countBySeverity('medium')}}</td></tr>
-                <tr><td><span class="issue-badge sev-low">LOW</span></td><td>{{c.countBySeverity('low')}}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
     </div>
+   </div>
+
+    
+    
 
     <!-- Issues -->
     <div ng-show="c.isTab('issues')">
