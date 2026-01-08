@@ -12,7 +12,6 @@
         <script><![CDATA[var FHCheckAutomationV2 = Class.create();
 FHCheckAutomationV2.prototype = {
     initialize: function() {
-        // Initialize utility class for logging, formatting, etc.
         this.utils = new FHScanUtils();
     },
 
@@ -32,39 +31,23 @@ FHCheckAutomationV2.prototype = {
 
         try {
             // --- 1. Extract configuration parameters ---
-            var tableName = this._safeGet(configRecord, 'table') || '';
-            var queryType = (this._safeGet(configRecord, 'query_type') || 'encoded').toLowerCase(); // 'script' or 'encoded'
-            var queryValue = this._safeGet(configRecord, 'query_value') || ''; // Encoded query (e.g., 'active=false')
-            var fields = this._safeParse(this._safeGet(configRecord, 'fields'), []);
-            if (!Array.isArray(fields)) {
-                fields = String(fields || '')
-                    .split(',')
-                    .map(function(f) {
-                        return f.trim().replace(/['"]/g, '');
-                    })
-                    .filter(function(f) {
-                        return f;
-                    });
-            }
+            var tableName = configRecord.table.name;
+            var queryType = configRecord.query_type.toLowerCase();
+            var queryValue = configRecord.query_value || '';
+            var queryScript = configRecord.query_script || '';
+            var fields = configRecord.fields.split(',') || [];
+
             var issuesConfig = this._safeParse(this._safeGet(configRecord, 'issues'), {}); // Issue thresholds (e.g., { inactivityIssueCode: 'INACTIVE' })
-            var queryScript = this._safeGet(configRecord, 'query_script') || ''; // Custom script (e.g., for Flow associations)
-            var configTables = (ctx && typeof ctx.getTablesToCheck === 'function') ? ctx.getTablesToCheck() : [];
 
             // --- 2. Build the query based on type ---
             var gr = new GlideRecord(tableName);
 
             if (queryType === 'script') {
-                // Execute custom script (e.g., your Flow association logic)
-                // WARNING: Replace 'eval' with a secure alternative in production!
                 if (queryScript) {
                     var scriptResults = [];
-                    // variables utilitaires exposées dans le script
-                    var flowIds = scriptResults; // alias pour le script de l'image (flowIds.push)
-                    var configTablesLocal = configTables;
+                    var flowIds = scriptResults;
                     try {
-                        /* eslint-disable no-eval */
                         eval(queryScript); // Executes user-defined script (e.g., 'for (...) { scriptResults.push(...); }')
-                        /* eslint-enable no-eval */
                     } catch (eScript) {
                         result.errors.push("Query script error: " + eScript.message);
                         gs.error("[FHCheckAutomationV2] Query script error: " + eScript.message);
@@ -73,33 +56,29 @@ FHCheckAutomationV2.prototype = {
                     if (ids.length > 0) {
                         gr.addQuery('sys_id', 'IN', ids.join(','));
                     } else {
-                        // Pas d'ID retourné par le script => rien à analyser
                         result.success = true;
                         return result;
                     }
                 }
             } else {
-                // Use encoded query (e.g., 'active=false^state=open')
-                gr.addEncodedQuery(queryValue);
+                var test = queryValue.replace("{0}", tableName);
+
+                gr.addEncodedQuery(test);
             }
 
-            // --- 3. Set fields to retrieve (optimize performance) ---
-            if (fields.length > 0) {
-                gr.setFields(fields.join(','));
-            }
-
-            // --- 4. Execute query and process records ---
+            // --- 3. Execute query and process records ---
             gr.query();
+            gs.info('wwa getRecords : ' + gr.getEncodedQuery())
+
             while (gr.next()) {
                 result.data.push(this._processRecord(gr, fields, issuesConfig));
             }
 
             // --- 5. Analyze results for issues (e.g., inactive Flows) ---
-            result = this._analyzeResults(result, issuesConfig);
+            //result = this._analyzeResults(result, issuesConfig);
             result.success = true; // Mark as successful if no exceptions
 
         } catch (e) {
-            // Log errors to ServiceNow system logs
             result.errors.push("Verification error: " + e.message);
             gs.error("[FHCheckAutomation] Error: " + e.message + "\nStack: " + e.stack);
         }
@@ -227,13 +206,13 @@ FHCheckAutomationV2.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>7</sys_mod_count>
+        <sys_mod_count>23</sys_mod_count>
         <sys_name>FHCheckAutomationV2</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-07 07:17:57</sys_updated_on>
+        <sys_updated_on>2026-01-08 08:40:35</sys_updated_on>
     </sys_script_include>
 </record_update>

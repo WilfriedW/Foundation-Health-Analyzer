@@ -28,24 +28,8 @@ FHAnalysisEngine.prototype = {
         var ctx = new FHAnalysisContext(config);
         var start = new Date().getTime();
 
-        // Si des verification_items sont configurés, on utilise le nouveau moteur V2.
-        if (config && config.verification_items && config.verification_items.length) {
-            this._runVerificationItems(ctx, config);
-        } else {
-            // Fallback sur le registre existant si aucun item n'est configuré.
-            var checks = FHCheckRegistry.getChecks(config);
-            for (var i = 0; i < checks.length; i++) {
-                try {
-                    checks[i].execute(ctx);
-                } catch (e) {
-                    ctx.addIssue(
-                        'CHECK_ERROR',
-                        'Error in ' + checks[i].type + ': ' + e.message,
-                        'high'
-                    );
-                }
-            }
-        }
+        this._runVerificationItems(ctx, config);
+
 
         ctx.setDuration(new Date().getTime() - start);
 
@@ -85,7 +69,6 @@ FHAnalysisEngine.prototype = {
                 color: metadata.color || '#6c757d'
             });
 
-            // Ajout des issues détectées par item
             for (var r = 0; r < records.length; r++) {
                 var rec = records[r];
                 if (!rec || !rec.issues) continue;
@@ -99,7 +82,6 @@ FHAnalysisEngine.prototype = {
                 }
             }
 
-            // Gestion des erreurs d'exécution
             if (verificationResult.errors && verificationResult.errors.length) {
                 for (var e = 0; e < verificationResult.errors.length; e++) {
                     ctx.addIssue('CHECK_ERROR', verificationResult.errors[e], 'high', {
@@ -131,6 +113,7 @@ FHAnalysisEngine.prototype = {
 
         var gr = new GlideRecord('x_1310794_founda_0_verification_items');
         gr.addQuery('sys_id', 'IN', ids.join(','));
+        gr.addQuery('active', true);
         gr.query();
         while (gr.next()) {
             out.push(gr);
@@ -157,13 +140,13 @@ FHAnalysisEngine.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:07:46</sys_created_on>
         <sys_id>62f58e88831a321083e1b4a6feaad34f</sys_id>
-        <sys_mod_count>11</sys_mod_count>
+        <sys_mod_count>13</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_62f58e88831a321083e1b4a6feaad34f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-07 01:10:08</sys_updated_on>
+        <sys_updated_on>2026-01-08 08:27:44</sys_updated_on>
     </sys_script_include>
 </record_update>

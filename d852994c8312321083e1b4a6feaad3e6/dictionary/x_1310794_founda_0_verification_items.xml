@@ -14,7 +14,7 @@
                 <element inactive_on_update="false" label="Encoded" sequence="0" value="encoded"/>
             </choice>
         </element>
-        <element attributes="edge_encryption_enabled=true" label="Query Script" max_length="400" name="query_script" type="string"/>
+        <element attributes="edge_encryption_enabled=true" label="Query Script" max_length="400" name="query_script" type="script"/>
         <element label="Query Value" max_length="400" name="query_value" type="string"/>
         <element default="'name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'" label="Fields" max_length="250" name="fields" type="string"/>
         <element attributes="json_view=true" label="Issues" max_length="400" name="issues" type="string"/>
