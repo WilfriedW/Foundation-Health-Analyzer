@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
     <sys_script_include action="INSERT_OR_UPDATE">
         <access>package_private</access>
-        <active>true</active>
+        <active>false</active>
         <api_name>x_1310794_founda_0.FHAnalysisEngine</api_name>
         <caller_access/>
         <client_callable>false</client_callable>
@@ -16,8 +16,8 @@ var FHAnalysisEngine = Class.create();
 FHAnalysisEngine.prototype = {
 
     initialize: function() {
-        this.optionsHandler = new FHOptionsHandler();
-        this.utils = new FHScanUtils();
+        //this.optionsHandler = new FHOptionsHandler();
+       // this.utils = new FHScanUtils();
     },
     /**
      * Run analysis with the given configuration
@@ -25,19 +25,28 @@ FHAnalysisEngine.prototype = {
      * @returns {Object} Analysis result
      */
     run: function(config) {
-        var ctx = new FHAnalysisContext(config);
-        var start = new Date().getTime();
+        //var ctx = new FHAnalysisContext(config);
+        //var start = new Date().getTime();
 
-        this._runVerificationItems(ctx, config);
+    // var config = this.getConfiguration(configSysId);
+    //     gs.info("Config active ?" + config.sys_id);
+    //     config.verification_items.forEach(item => {
+    //         gs.info("Item:" + item.name);
+    //     });
+
+        gs.info('Confixxxxxx : ' + config.table_name)
+        this._runVerificationItems(config);
 
 
-        ctx.setDuration(new Date().getTime() - start);
+        var engineResult = new FHCheckAutomationV2().run(config);
 
-        var out = ctx.toResult();
-        if (ctx._verificationResults) {
-            out.verification_items = ctx._verificationResults;
-        }
-        return out;
+        //ctx.setDuration(new Date().getTime() - start);
+
+        // var out = ctx.toResult();
+        // if (ctx._verificationResults) {
+        //     out.verification_items = ctx._verificationResults;
+        // }
+        // return out;
     },
 
     /**
@@ -45,8 +54,9 @@ FHAnalysisEngine.prototype = {
      * @param {FHAnalysisContext} ctx
      * @param {Object} config
      */
-    _runVerificationItems: function(ctx, config) {
-        var items = this._loadVerificationItems(config.verification_items);
+    _runVerificationItems: function(config) {
+        // var items = this._loadVerificationItems(config.verification_items + '');
+        var items = config.verification_items;
         var checker = new FHCheckAutomationV2();
         var results = [];
 
@@ -58,48 +68,47 @@ FHAnalysisEngine.prototype = {
             var label = metadata.label || name;
             var itemType = (metadata.itemType || name || 'item').toLowerCase();
 
-            ctx.registerCategory(category, label, metadata.icon || 'fa-folder');
+            //ctx.registerCategory(category, label, metadata.icon || 'fa-folder');
 
-            var verificationResult = checker.runVerification(itemGr, ctx);
-            var records = verificationResult.data || [];
+            // var verificationResult = checker.runVerification(itemGr, ctx);
+            // var records = verificationResult.data || [];
 
-            ctx.addCategoryItems(category, itemType, label, records, {
-                table: itemGr.getValue('table'),
-                icon: metadata.icon || 'fa-folder',
-                color: metadata.color || '#6c757d'
-            });
+            // ctx.addCategoryItems(category, itemType, label, records, {
+            //     table: itemGr.getValue('table'),
+            //     icon: metadata.icon || 'fa-folder',
+            //     color: metadata.color || '#6c757d'
+            // });
 
-            for (var r = 0; r < records.length; r++) {
-                var rec = records[r];
-                if (!rec || !rec.issues) continue;
-                for (var k = 0; k < rec.issues.length; k++) {
-                    var issue = rec.issues[k] || {};
-                    ctx.addIssue(issue.code || 'ISSUE', issue.message || 'Issue detected', issue.severity || 'low', {
-                        record_table: rec.table,
-                        record_sys_id: rec.sys_id,
-                        category: category
-                    });
-                }
-            }
+            // for (var r = 0; r < records.length; r++) {
+            //     var rec = records[r];
+            //     if (!rec || !rec.issues) continue;
+            //     for (var k = 0; k < rec.issues.length; k++) {
+            //         var issue = rec.issues[k] || {};
+            //         ctx.addIssue(issue.code || 'ISSUE', issue.message || 'Issue detected', issue.severity || 'low', {
+            //             record_table: rec.table,
+            //             record_sys_id: rec.sys_id,
+            //             category: category
+            //         });
+            //     }
+            // }
 
-            if (verificationResult.errors && verificationResult.errors.length) {
-                for (var e = 0; e < verificationResult.errors.length; e++) {
-                    ctx.addIssue('CHECK_ERROR', verificationResult.errors[e], 'high', {
-                        category: category
-                    });
-                }
-            }
+            // if (verificationResult.errors && verificationResult.errors.length) {
+            //     for (var e = 0; e < verificationResult.errors.length; e++) {
+            //         ctx.addIssue('CHECK_ERROR', verificationResult.errors[e], 'high', {
+            //             category: category
+            //         });
+            //     }
+            // }
 
             results.push({
                 item_sys_id: itemGr.getUniqueValue(),
                 name: name,
                 category: category,
-                records: records,
-                errors: verificationResult.errors || []
+                //records: records,
             });
         }
 
-        ctx._verificationResults = results;
+        //ctx._verificationResults = results;
     },
 
     /**
@@ -107,19 +116,17 @@ FHAnalysisEngine.prototype = {
      * @param {Array} ids
      * @returns {Array}
      */
-    _loadVerificationItems: function(ids) {
-        var out = [];
-        if (!ids || !ids.length) return out;
-
-        var gr = new GlideRecord('x_1310794_founda_0_verification_items');
-        gr.addQuery('sys_id', 'IN', ids.join(','));
-        gr.addQuery('active', true);
-        gr.query();
-        while (gr.next()) {
-            out.push(gr);
-        }
-        return out;
-    },
+    // _loadVerificationItems: function(ids) {
+    //     var out = [];
+    //     var gr = new GlideRecord('x_1310794_founda_0_verification_items');
+    //     gr.addQuery('sys_id', 'IN', ids);
+    //     gr.addQuery('active', true);
+    //     gr.query();
+    //     while (gr.next()) {
+    //         out.push(gr);
+    //     }
+    //     return out;
+    // },
 
     /**
      * Parse JSON avec repli sécurisé.
@@ -140,13 +147,13 @@ FHAnalysisEngine.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:07:46</sys_created_on>
         <sys_id>62f58e88831a321083e1b4a6feaad34f</sys_id>
-        <sys_mod_count>13</sys_mod_count>
+        <sys_mod_count>46</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_62f58e88831a321083e1b4a6feaad34f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-08 08:27:44</sys_updated_on>
+        <sys_updated_on>2026-01-09 20:50:30</sys_updated_on>
     </sys_script_include>
 </record_update>

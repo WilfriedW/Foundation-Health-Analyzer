@@ -28,7 +28,6 @@
             if (response.data.success) {
             c.result = response.data.runResult;
                 c.analysisId = response.data.analysisId;
-                // Refresh recent analyses
                 c.refreshRecentAnalyses();
             } else {
                 c.error = response.data.error || '${An error occurred}';
@@ -979,6 +978,7 @@
     data.configurations = [];
     var configGr = new GlideRecord('x_1310794_founda_0_configurations');
     configGr.addQuery('active', true);
+	  configGr.addQuery('sys_class_name', 'x_1310794_founda_0_configurations');
     configGr.orderBy('name');
     configGr.query();
     
@@ -1045,7 +1045,7 @@
             case 'run_analysis':
                 try {
                     var analyzer = new x_1310794_founda_0.FHAnalyzer();
-                    var result = analyzer.runAnalysis(input.configSysId, {});
+                    var result = analyzer.runAnalysis(input.configSysId);
                     
                     if (result.success) {
                         data.success = true;
@@ -1119,14 +1119,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 19:41:08</sys_created_on>
         <sys_id>223611488392321083e1b4a6feaad3db</sys_id>
-        <sys_mod_count>26</sys_mod_count>
+        <sys_mod_count>28</sys_mod_count>
         <sys_name>FHA Dashboard</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_223611488392321083e1b4a6feaad3db</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-05 04:12:10</sys_updated_on>
+        <sys_updated_on>2026-01-08 21:28:00</sys_updated_on>
         <template><![CDATA[<div class="fha-dashboard">
   
   <!-- Page Header -->
@@ -1145,7 +1145,7 @@
         <div class="fha-card-body">
           
           <!-- Configuration Selection -->
-          <div class="form-group" style="margin-bottom: 20px;">
+          <div class="form-group" style="margin-bottom: 20px`;">
             <label style="font-weight: 600; margin-bottom: 10px; display: block;">
               ${Select a configuration to analyze}
             </label>

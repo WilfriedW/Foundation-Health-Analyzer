@@ -22,154 +22,24 @@ FHAnalyzer.prototype = {
     },
 
     /**
-     * Check if a value is truthy (handles 'true', '1', true, 1)
-     * @private
-     * @param {*} val - Value to check
-     * @returns {Boolean} True if value is truthy
-     */
-    _isTrue: function(val) {
-        return val === 'true' || val === '1' || val === true || val === 1;
-    },
-
-    /**
-     * Get the table name from the table_reference field
-     * @private
-     * @param {GlideRecord} gr - Configuration GlideRecord
-     * @returns {String} Table name or empty string
-     */
-    _getTableInfoFromReference: function(gr) {
-        var tableRef = gr.table;
-        if (tableRef && !tableRef.nil()) {
-            var tableGr = tableRef.getRefRecord();
-            if (tableGr) {
-                return {
-                    name: tableGr.getValue('name') || '',
-                    label: tableGr.getValue('label') || tableGr.getValue('name') || '',
-                    sys_id: tableGr.getUniqueValue()
-                };
-            }
-        }
-        return {
-            name: '',
-            label: '',
-            sys_id: ''
-        };
-    },
-
-    /**
-     * Get all available tables for analysis
-     * @returns {Array} Array of table configurations
-     */
-    getAvailableAnalyses: function() {
-        var tables = [];
-        var gr = new GlideRecord(this.configTable);
-        gr.addQuery('active', true);
-        gr.orderBy('name');
-        gr.query();
-
-        while (gr.next()) {
-            var tableInfo = this._getTableInfoFromReference(gr);
-            tables.push({
-                config_sys_id: gr.sys_id.toString(),
-                display_name: gr.getValue('name') || '',
-                table_name: tableInfo.name,
-                table_label: tableInfo.label,
-                table_ref: tableInfo.sys_id,
-                description: gr.getValue('description') || ''
-            });
-        }
-
-        return tables;
-    },
-
-    /**
-     * Get analysis configuration by sys_id
-     * @param {String} configSysId - Configuration sys_id
-     * @returns {Object} Configuration object or null
-     */
-    getAnalysisConfiguration: function(configSysId) {
-        var gr = new GlideRecord(this.configTable);
-        if (gr.get(configSysId)) {
-            var tableInfo = this._getTableInfoFromReference(gr);
-            var verificationList = (gr.getValue('verification_items') || '').split(',').filter(function(v) {
-                return v && v.trim();
-            });
-            return {
-                sys_id: gr.sys_id.toString(),
-                name: gr.getValue('name') || '',
-                table_name: tableInfo.name,
-                table_label: tableInfo.label,
-                table_sys_id: tableInfo.sys_id,
-                description: gr.getValue('description') || '',
-                active: this._isTrue(gr.getValue('active')),
-                include_children_tables: this._isTrue(gr.getValue('include_children_tables')),
-                deep_scan: this._isTrue(gr.getValue('deep_scan')),
-                ignore_servicenow_records: this._isTrue(gr.getValue('ignore_servicenow_records')),
-                include_ldap: this._isTrue(gr.getValue('include_ldap')),
-                verification_items: verificationList
-            };
-        }
-        return null;
-    },
-    /**
-     * getAnalysisResult(sysId)
-     */
-    getAnalysisResult: function(sysId) {
-        if (!sysId) {
-            return {
-                success: false,
-                error: 'Missing analysis sys_id'
-            };
-        }
-        var gr = new GlideRecord(this.resultsTable);
-        if (!gr.get(sysId)) {
-            return {
-                success: false,
-                error: 'Analysis not found'
-            };
-        }
-        var resultObj = null;
-        try {
-            var detailJson = gr.getValue('details') || '';
-            resultObj = detailJson ? JSON.parse(detailJson) : {};
-        } catch (e) {
-            return {
-                success: false,
-                error: 'Invalid details: ' + e.message
-            };
-        }
-
-        resultObj.number = resultObj.number || gr.getValue('number') || '';
-        resultObj.state = resultObj.state || gr.getValue('state') || '';
-        resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
-        resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
-
-        return {
-            success: true,
-            result: resultObj
-        };
-    },
-
-    /**
      * Run analysis for a specific configuration
      * @param {String} configSysId - Configuration sys_id
-     * @param {Object} parameters - Analysis parameters
      * @returns {Object} Analysis result
      */
-    runAnalysis: function(configSysId, parameters) {
-        var config = this.getAnalysisConfiguration(configSysId);
-        if (!config) {
-            return {
-                success: false,
-                error: 'Invalid configuration'
-            };
-        }
+    runAnalysis: function(configSysId) {
 
-        var engine = new FHAnalysisEngine();
-        var engineResult = engine.run(config);
+        var config = this.getConfiguration(configSysId);
+        // gs.info("Config active ?" + config.sys_id);
+        // config.verification_items.forEach(item => {
+        //     gs.info("Item:" + item.name);
+        // });
 
-        var resultSysId = this._saveResult(config, engineResult, parameters);
+        //var engineResult = new FHAnalysisEngine().run(config);
 
+        var engineResult = new FHAnalysisEngineV2().runVerification(config);
+        gs.info('T ' + engineResult);
+        resultSysId = this._saveResult(config, engineResult);
+        gs.info('result sys id = ' + resultSysId);
         return {
             success: true,
             analysis_id: resultSysId,
@@ -178,16 +48,213 @@ FHAnalyzer.prototype = {
         };
     },
 
+    // /**
+    //  * Get analysis configuration by sys_id
+    //  * @param {String} configSysId - Configuration sys_id
+    //  * @returns {Object} Configuration object or null
+    //  */
+    // getAnalysisConfiguration: function(configSysId) {
+    //     try {
+
+    //         var gr = new GlideRecord(this.configTable);
+    //         if (gr.get(configSysId)) {
+    //             var config = {
+    //                 sys_id: gr.sys_id.toString(),
+    //                 name: gr.name.getDisplayValue() || '',
+    //                 table_name: gr.table.name || '',
+    //                 table_label: gr.table.label || '',
+    //                 table_sys_id: gr.table.sys_id || '',
+    //                 description: gr.description || '',
+    //                 active: gr.active,
+    //                 include_children_tables: gr.include_children_tables,
+    //                 deep_scan: gr.deep_scan,
+    //                 ignore_servicenow_records: gr.ignore_servicenow_records,
+    //                 include_ldap: gr.include_ldap,
+    //                 verification_items: this._loadVerificationItems(gr.getValue('verification_items')) || []
+    //             };
+
+    //             // Logger l'objet construit (pas le GlideRecord)
+    //             gs.info('Configuration: ' + JSON.stringify(config, null, 2));
+
+    //             // Stocker dans le champ 'details' si nécessaire
+    //             gr.setValue('details', JSON.stringify(config));
+    //             gr.update(); // N'oubliez pas de sauvegarder !
+
+    //             return config;
+    //         }
+
+    //     } catch (error) {
+    //         gs.info('Analyzer : ' + error);
+    //         // Expected output: ReferenceError: nonExistentFunction is not defined
+    //         // (Note: the exact output may be browser-dependent)
+    //     }
+    //     return null;
+    // },
+
+    getConfiguration: function(configSysId) {
+        var gr = new GlideRecord('x_1310794_founda_0_configurations');
+        if (!gr.get(configSysId)) return null;
+
+        var out = [];
+        var verificationItems = new GlideRecord('x_1310794_founda_0_verification_items');
+        verificationItems.addQuery('sys_id', 'IN', gr.getValue('verification_items'));
+        verificationItems.addQuery('active', true);
+        verificationItems.query();
+
+        while (verificationItems.next()) {
+            out.push({
+                sys_id: verificationItems.sys_id.toString(),
+                name: verificationItems.name.toString(),
+                active: Boolean(verificationItems.active),
+                category: verificationItems.category + '' || '',
+                tableSysid: verificationItems.table + '' || '',
+                tableName: verificationItems.table.name + '' || '',
+                issues: verificationItems.issues + '' || '',
+                query_type: verificationItems.query_type + '' || '',
+                fields: verificationItems.fields + '' || '',
+                metadata: verificationItems.metadata + '' || '',
+                query_value: verificationItems.query_value + '' || '',
+                query_script: verificationItems.query_script + '' || ''
+            });
+        }
+
+        return {
+            sys_id: gr.sys_id.toString(),
+            name: gr.name.toString(),
+            active: Boolean(gr.active),
+            table_name: gr.table.name || '',
+            table_label: gr.table.label || '',
+            table_sys_id: gr.table.sys_id || '',
+            description: gr.description || '',
+            include_children_tables: gr.include_children_tables,
+            deep_scan: gr.deep_scan,
+            ignore_servicenow_records: gr.ignore_servicenow_records,
+            include_ldap: gr.include_ldap,
+            verification_items: out
+        };
+    },
+
+
+    /**
+     * Charge les GlideRecord des verification_items par sys_id.
+     * @param {Array} ids
+     * @returns {Array}
+     */
+    // _loadVerificationItems: function(ids) {
+    //     var out = [];
+    //     var gr = new GlideRecord('x_1310794_founda_0_verification_items');
+    //     gr.addQuery('sys_id', 'IN', ids);
+    //     gr.addQuery('active', true);
+    //     gr.query();
+    //     while (gr.next()) {
+    //         out.push(gr);
+    //     }
+    //     return out;
+    // },
+
+
+
+    // /**
+    //  * Get the table name from the table_reference field
+    //  * @private
+    //  * @param {GlideRecord} gr - Configuration GlideRecord
+    //  * @returns {String} Table name or empty string
+    //  */
+    // _getTableInfoFromReference: function(gr) {
+    //     var tableRef = gr.table;
+    //     if (tableRef && !tableRef.nil()) {
+    //         var tableGr = tableRef.getRefRecord();
+    //         if (tableGr) {
+    //             return {
+    //                 name: tableGr.getValue('name') || '',
+    //                 label: tableGr.getValue('label') || tableGr.getValue('name') || '',
+    //                 sys_id: tableGr.getUniqueValue()
+    //             };
+    //         }
+    //     }
+    //     return {
+    //         name: '',
+    //         label: '',
+    //         sys_id: ''
+    //     };
+    // },
+
+    // /**
+    //  * Get all available tables for analysis
+    //  * @returns {Array} Array of table configurations
+    //  */
+    // getAvailableAnalyses: function() {
+    //     var tables = [];
+    //     var gr = new GlideRecord(this.configTable);
+    //     gr.addQuery('active', true);
+    //     gr.orderBy('name');
+    //     gr.query();
+
+    //     while (gr.next()) {
+    //         var tableInfo = this._getTableInfoFromReference(gr);
+    //         tables.push({
+    //             config_sys_id: gr.sys_id.toString(),
+    //             display_name: gr.getValue('name') || '',
+    //             table_name: tableInfo.name,
+    //             table_label: tableInfo.label,
+    //             table_ref: tableInfo.sys_id,
+    //             description: gr.getValue('description') || ''
+    //         });
+    //     }
+
+    //     return tables;
+    // },
+
+    // /**
+    //  * getAnalysisResult(sysId)
+    //  */
+    // getAnalysisResult: function(sysId) {
+    //     if (!sysId) {
+    //         return {
+    //             success: false,
+    //             error: 'Missing analysis sys_id'
+    //         };
+    //     }
+    //     var gr = new GlideRecord(this.resultsTable);
+    //     if (!gr.get(sysId)) {
+    //         return {
+    //             success: false,
+    //             error: 'Analysis not found'
+    //         };
+    //     }
+    //     var resultObj = null;
+    //     try {
+    //         var detailJson = gr.getValue('details') || '';
+    //         resultObj = detailJson ? JSON.parse(detailJson) : {};
+    //     } catch (e) {
+    //         return {
+    //             success: false,
+    //             error: 'Invalid details: ' + e.message
+    //         };
+    //     }
+
+    //     resultObj.number = resultObj.number || gr.getValue('number') || '';
+    //     resultObj.state = resultObj.state || gr.getValue('state') || '';
+    //     resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
+    //     resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
+
+    //     return {
+    //         success: true,
+    //         result: resultObj
+    //     };
+    // },
+
+
+
 
     /**
      * Save analysis result to database
      * @private
      * @param {Object} config - Analysis configuration
      * @param {Object} result - Analysis result
-     * @param {Object} parameters - Analysis parameters
      * @returns {String} Result sys_id
      */
-    _saveResult: function(config, result, parameters) {
+    _saveResult: function(config) {
         var gr = new GlideRecord(this.resultsTable);
         gr.initialize();
 
@@ -195,23 +262,20 @@ FHAnalyzer.prototype = {
         gr.setValue('state', 'Completed');
 
         // Store full details as JSON in details field
-        var detailObj = {
-            config: config,
-            issues: result.issues || [],
-            categories: result.categories || {},
-            verification_items: result.verification_items || [],
-            execution_metadata: result.execution_metadata || {},
-            options: config,
-            parameters: parameters || {}
-        };
-        gr.setValue('details', JSON.stringify(detailObj));
-
+        // var detailObj = {
+        //     config: config,
+        //     //issues: result.issues || [],
+        //     //categories: result.categories || {},
+        //     //verification_items: result.verification_items || [],
+        //     //execution_metadata: result.execution_metadata || {},
+        // };
+        //gr.setValue('details', JSON.stringify(detailObj));
+        gr.setValue('details', JSON.stringify(config));
+        // return gr.insert();
         var sysId = gr.insert();
         if (sysId) {
             return sysId.toString();
         }
-
-        throw new Error('Failed to save analysis result');
     },
 
     type: 'FHAnalyzer'
@@ -220,13 +284,13 @@ FHAnalyzer.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>51</sys_mod_count>
+        <sys_mod_count>89</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-06 07:53:34</sys_updated_on>
+        <sys_updated_on>2026-01-09 21:43:06</sys_updated_on>
     </sys_script_include>
 </record_update>

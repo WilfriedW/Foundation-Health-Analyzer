@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
     <sys_script_include action="INSERT_OR_UPDATE">
         <access>package_private</access>
-        <active>true</active>
+        <active>false</active>
         <api_name>x_1310794_founda_0.FHScanUtils</api_name>
         <caller_access/>
         <client_callable>false</client_callable>
@@ -274,11 +274,9 @@ FHScanUtils.prototype = {
 
         // Retrieve records with your existing helper (assumed present)
         var records = this.getRecords(tableToUse, buildQueryFn, fields, 0);
-		gs.info('wwa '+ typeof records)
         if (!Array.isArray(records) || records.length === 0) {
             return results;
         }
-        gs.info('wwa checkRecordsGeneric : records : ' + records);
 
         for (var i = 0; i < records.length; i++) {
             var rec = records[i];
@@ -289,8 +287,6 @@ FHScanUtils.prototype = {
                     this._safeApplyTransform(transformFn, rec, matched, configTables) :
                     ((typeof transformFn === 'function') ? transformFn.call(this, rec, matched, configTables) : rec);
                 
-				gs.info('wwa checkRecordsGeneric : item : ' + JSON.stringify(item));
-
                 // Ensure item is an object before proceeding
                 if (!item || typeof item !== 'object') {
                     // defensive: skip if still invalid
@@ -411,7 +407,6 @@ FHScanUtils.prototype = {
             if (typeof buildQueryFn === 'function') buildQueryFn(gr);
             if (limit && typeof gr.setLimit === 'function') gr.setLimit(limit);
             gr.query();
-            gs.info('wwa getRecords : ' + gr.getEncodedQuery() + ' Table : ' + table + ' count '+ gr.getRowCount() + ' fields : ' + fields);
             while (gr.next()) {
                 var obj = {
                     sys_id: gr.getUniqueValue()
@@ -511,13 +506,13 @@ FHScanUtils.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 18:06:27</sys_created_on>
         <sys_id>df241fac8352761083e1b4a6feaad360</sys_id>
-        <sys_mod_count>76</sys_mod_count>
+        <sys_mod_count>79</sys_mod_count>
         <sys_name>FHScanUtils</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_df241fac8352761083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-06 09:25:59</sys_updated_on>
+        <sys_updated_on>2026-01-09 07:57:48</sys_updated_on>
     </sys_script_include>
 </record_update>

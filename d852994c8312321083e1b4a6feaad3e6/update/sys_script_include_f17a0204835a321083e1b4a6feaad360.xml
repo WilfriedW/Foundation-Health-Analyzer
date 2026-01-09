@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
     <sys_script_include action="INSERT_OR_UPDATE">
         <access>package_private</access>
-        <active>true</active>
+        <active>false</active>
         <api_name>x_1310794_founda_0.FHAnalysisContext</api_name>
         <caller_access/>
         <client_callable>false</client_callable>
@@ -12,40 +12,50 @@
         <script><![CDATA[/**
  * FHAnalysisContext - Context for analysis execution
  * 
- * Centralizes:
- * - Configuration options management
- * - Table hierarchy utilities
- * - Issue tracking
- * - Metrics collection
  */
 var FHAnalysisContext = Class.create();
 FHAnalysisContext.prototype = {
     initialize: function(config) {
-        this.config = config;
-        this.issues = [];
-        this.categories = {};
+       // this.config = config;
+        // this.issues = [];
+        // this.categories = {};
 
-        // Options centralisées pour l'exécution
-        this.options = {
-            deep_scan: config && config.deep_scan,
-            include_children_tables: config && config.include_children_tables,
-            analyze_references: (config && config.analyze_references) || false,
-            include_ldap: config && config.include_ldap,
-            ignore_servicenow_records: config && config.ignore_servicenow_records
-        };
+        // this.options = {
+        //     deep_scan: config && config.deep_scan,
+        //     include_children_tables: config && config.include_children_tables,
+        //     analyze_references: (config && config.analyze_references) || false,
+        //     include_ldap: config && config.include_ldap,
+        //     ignore_servicenow_records: config && config.ignore_servicenow_records
+        // };
 
-        // Stocke les résultats des verification_items V2
-        this._verificationResults = [];
+        // this._verificationResults = [];
 
-        this._executionMetadata = {
-            duration_ms: 0
-        };
+        // this._executionMetadata = {
+        //     duration_ms: 0
+        // };
 
-        // Cache for table hierarchy (computed once, reused)
-        this._tableHierarchyCache = null;
-        this._childrenTablesCache = null;
-        this._tablesToCheckCache = null;
+        // // Cache for table hierarchy (computed once, reused)
+        // this._tableHierarchyCache = null;
+        // this._childrenTablesCache = null;
+        // this._tablesToCheckCache = null;
     },
+
+
+
+    /**
+     * Convert context to result object
+     * @returns {Object} Result object
+     */
+    // toResult: function() {
+    //     var self = this;
+    //     return {
+    //         table: this.config.table_name,
+    //         issues: this.issues,
+    //         categories: this.categories,
+    //         execution_metadata: this._executionMetadata,
+
+    //     };
+    // },
 
     // ==================== TABLE HIERARCHY HELPERS ====================
 
@@ -53,92 +63,92 @@ FHAnalysisContext.prototype = {
      * Get table name from config
      * @returns {String} Table name
      */
-    getTableName: function() {
-        return this.config && this.config.table_name ? String(this.config.table_name) : '';
-    },
+    // getTableName: function() {
+    //     return this.config && this.config.table_name ? String(this.config.table_name) : '';
+    // },
 
     /**
      * Get table hierarchy (current table + all parent tables)
      * Results are cached for performance
      * @returns {Array} Array of table names [current, parent1, parent2, ...]
      */
-    getTableHierarchy: function() {
-        if (this._tableHierarchyCache !== null) {
-            return this._tableHierarchyCache;
-        }
+//     getTableHierarchy: function() {
+//     if (this._tableHierarchyCache !== null) {
+//         return this._tableHierarchyCache;
+//     }
 
-        var tableName = this.getTableName();
-        var tables = [tableName];
+//     var tableName = this.getTableName();
+//     var tables = [tableName];
 
-        if (!tableName) {
-            this._tableHierarchyCache = tables;
-            return tables;
-        }
+//     if (!tableName) {
+//         this._tableHierarchyCache = tables;
+//         return tables;
+//     }
 
-        try {
-            var gr = new GlideRecord('sys_db_object');
-            if (gr.get('name', tableName)) {
-                var superClass = gr.super_class;
-                while (superClass && !superClass.nil()) {
-                    var parentGr = superClass.getRefRecord();
-                    if (parentGr) {
-                        var parentName = parentGr.getValue('name');
-                        if (parentName && tables.indexOf(parentName) === -1) {
-                            tables.push(parentName);
-                        }
-                        superClass = parentGr.super_class;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        } catch (e) {}
+//     try {
+//         var gr = new GlideRecord('sys_db_object');
+//         if (gr.get('name', tableName)) {
+//             var superClass = gr.super_class;
+//             while (superClass && !superClass.nil()) {
+//                 var parentGr = superClass.getRefRecord();
+//                 if (parentGr) {
+//                     var parentName = parentGr.getValue('name');
+//                     if (parentName && tables.indexOf(parentName) === -1) {
+//                         tables.push(parentName);
+//                     }
+//                     superClass = parentGr.super_class;
+//                 } else {
+//                     break;
+//                 }
+//             }
+//         }
+//     } catch (e) {}
 
-        this._tableHierarchyCache = tables;
-        return tables;
-    },
+//     this._tableHierarchyCache = tables;
+//     return tables;
+// },
 
     /**
      * Get children tables (tables that extend the current table)
      * Results are cached for performance
      * @returns {Array} Array of child table names
      */
-    getChildrenTables: function() {
-        if (this._childrenTablesCache !== null) {
-            return this._childrenTablesCache;
-        }
+    // getChildrenTables: function() {
+    //     if (this._childrenTablesCache !== null) {
+    //         return this._childrenTablesCache;
+    //     }
 
-        var tableName = this.getTableName();
-        var children = [];
+    //     var tableName = this.getTableName();
+    //     var children = [];
 
-        if (!tableName) {
-            this._childrenTablesCache = children;
-            return children;
-        }
+    //     if (!tableName) {
+    //         this._childrenTablesCache = children;
+    //         return children;
+    //     }
 
-        try {
-            var parentGr = new GlideRecord('sys_db_object');
-            if (parentGr.get('name', tableName)) {
-                var parentSysId = parentGr.getUniqueValue();
+    //     try {
+    //         var parentGr = new GlideRecord('sys_db_object');
+    //         if (parentGr.get('name', tableName)) {
+    //             var parentSysId = parentGr.getUniqueValue();
 
-                var gr = new GlideRecord('sys_db_object');
-                gr.addQuery('super_class', parentSysId);
-                gr.query();
+    //             var gr = new GlideRecord('sys_db_object');
+    //             gr.addQuery('super_class', parentSysId);
+    //             gr.query();
 
-                while (gr.next()) {
-                    var childName = gr.getValue('name');
-                    if (childName && children.indexOf(childName) === -1) {
-                        children.push(childName);
-                    }
-                }
-            }
-        } catch (e) {
-            // Ignore errors
-        }
+    //             while (gr.next()) {
+    //                 var childName = gr.getValue('name');
+    //                 if (childName && children.indexOf(childName) === -1) {
+    //                     children.push(childName);
+    //                 }
+    //             }
+    //         }
+    //     } catch (e) {
+    //         // Ignore errors
+    //     }
 
-        this._childrenTablesCache = children;
-        return children;
-    },
+    //     this._childrenTablesCache = children;
+    //     return children;
+    // },
 
     /**
      * Get all tables to check based on options
@@ -146,21 +156,21 @@ FHAnalysisContext.prototype = {
      * Results are cached for performance
      * @returns {Array} Array of table names to check
      */
-    getTablesToCheck: function() {
-        var tables = [];
-        tables.push(this.getTableName());
-        if (this.config.include_children_tables) {
-            var children = this.getChildrenTables();
-            children.forEach(function(child) {
-                if (tables.indexOf(child) === -1) {
-                    tables.push(child);
-                }
-            });
-        }
+    // getTablesToCheck: function() {
+    //     var tables = [];
+    //     tables.push(this.getTableName());
+    //     if (this.config.include_children_tables) {
+    //         var children = this.getChildrenTables();
+    //         children.forEach(function(child) {
+    //             if (tables.indexOf(child) === -1) {
+    //                 tables.push(child);
+    //             }
+    //         });
+    //     }
 
-        this._tablesToCheckCache = tables;
-        return tables;
-    },
+    //     this._tablesToCheckCache = tables;
+    //     return tables;
+    // },
 
     // ==================== UTILITY HELPERS ====================
 
@@ -170,10 +180,10 @@ FHAnalysisContext.prototype = {
      * @param {String} field - Field name
      * @returns {String} Field value or empty string
      */
-    safeGetValue: function(gr, field) {
-        var val = gr.getValue(field);
-        return (val === null || val === undefined) ? '' : String(val);
-    },
+    // safeGetValue: function(gr, field) {
+    //     var val = gr.getValue(field);
+    //     return (val === null || val === undefined) ? '' : String(val);
+    // },
 
     /**
      * Check if a script contains an exact table reference
@@ -181,7 +191,7 @@ FHAnalysisContext.prototype = {
      * @param {String} tableName - Table name to search
      * @returns {Boolean} True if exact match found
      */
-  /*  scriptContainsTable: function(script, tableName) {
+    /*  scriptContainsTable: function(script, tableName) {
         if (!script || !tableName) return false;
 
         var patterns = [
@@ -231,16 +241,16 @@ FHAnalysisContext.prototype = {
      * @param {String} label - Display label
      * @param {String} icon - FontAwesome icon class (e.g., 'fa-cogs')
      */
-    registerCategory: function(categoryId, label, icon) {
-        if (!this.categories[categoryId]) {
-            this.categories[categoryId] = {
-                id: categoryId,
-                label: label,
-                icon: icon || 'fa-folder',
-                items: []
-            };
-        }
-    },
+    // registerCategory: function(categoryId, label, icon) {
+    //     if (!this.categories[categoryId]) {
+    //         this.categories[categoryId] = {
+    //             id: categoryId,
+    //             label: label,
+    //             icon: icon || 'fa-folder',
+    //             items: []
+    //         };
+    //     }
+    // },
 
     /**
      * Add items to a category
@@ -250,49 +260,49 @@ FHAnalysisContext.prototype = {
      * @param {Array} records - Array of record objects
      * @param {Object} options - Additional options (table, icon, color)
      */
-    addCategoryItems: function(categoryId, itemType, itemLabel, records, options) {
-        // Auto-register category if not exists
-        if (!this.categories[categoryId]) {
-            this.registerCategory(categoryId, categoryId, 'fa-folder');
-        }
+    // addCategoryItems: function(categoryId, itemType, itemLabel, records, options) {
+    //     // Auto-register category if not exists
+    //     if (!this.categories[categoryId]) {
+    //         this.registerCategory(categoryId, categoryId, 'fa-folder');
+    //     }
 
-        options = options || {};
-        var activeCount = 0;
-        var inactiveCount = 0;
-        var directCount = 0;
-        var inheritedCount = 0;
+    //     options = options || {};
+    //     var activeCount = 0;
+    //     var inactiveCount = 0;
+    //     var directCount = 0;
+    //     var inheritedCount = 0;
 
-        // Calculate counts
-        records.forEach(function(r) {
-            if (r.active === true || r.active === 'true') activeCount++;
-            else inactiveCount++;
-            if (r.inherited) inheritedCount++;
-            else directCount++;
-        });
+    //     // Calculate counts
+    //     records.forEach(function(r) {
+    //         if (r.active === true || r.active === 'true') activeCount++;
+    //         else inactiveCount++;
+    //         if (r.inherited) inheritedCount++;
+    //         else directCount++;
+    //     });
 
-        this.categories[categoryId].items.push({
-            type: itemType,
-            label: itemLabel,
-            table: options.table || '',
-            icon: options.icon || 'fa-file',
-            color: options.color || '#6c757d',
-            records: records,
-            count: records.length,
-            active_count: activeCount,
-            inactive_count: inactiveCount,
-            direct_count: directCount,
-            inherited_count: inheritedCount
-        });
-    },
+    //     this.categories[categoryId].items.push({
+    //         type: itemType,
+    //         label: itemLabel,
+    //         table: options.table || '',
+    //         icon: options.icon || 'fa-file',
+    //         color: options.color || '#6c757d',
+    //         records: records,
+    //         count: records.length,
+    //         active_count: activeCount,
+    //         inactive_count: inactiveCount,
+    //         direct_count: directCount,
+    //         inherited_count: inheritedCount
+    //     });
+    // },
 
     /**
      * Get a category by ID
      * @param {String} categoryId - Category identifier
      * @returns {Object} Category object or null
      */
-    getCategory: function(categoryId) {
-        return this.categories[categoryId] || null;
-    },
+    // getCategory: function(categoryId) {
+    //     return this.categories[categoryId] || null;
+    // },
 
     /**
      * Get all categories
@@ -311,24 +321,24 @@ FHAnalysisContext.prototype = {
      * @param {String} severity - Issue severity (low, medium, high)
      * @param {Object} metadata - Optional metadata (record_table, record_sys_id, record_filter, category)
      */
-    addIssue: function(code, message, severity, metadata) {
-        var issue = {
-            code: code,
-            message: message,
-            severity: severity || 'low',
-            timestamp: new Date().toISOString()
-        };
+    // addIssue: function(code, message, severity, metadata) {
+    //     var issue = {
+    //         code: code,
+    //         message: message,
+    //         severity: severity || 'low',
+    //         timestamp: new Date().toISOString()
+    //     };
 
-        // Add metadata for record linking
-        if (metadata) {
-            if (metadata.record_table) issue.record_table = metadata.record_table;
-            if (metadata.record_sys_id) issue.record_sys_id = metadata.record_sys_id;
-            if (metadata.record_filter) issue.record_filter = metadata.record_filter;
-            if (metadata.category) issue.category = metadata.category;
-        }
+    //     // Add metadata for record linking
+    //     if (metadata) {
+    //         if (metadata.record_table) issue.record_table = metadata.record_table;
+    //         if (metadata.record_sys_id) issue.record_sys_id = metadata.record_sys_id;
+    //         if (metadata.record_filter) issue.record_filter = metadata.record_filter;
+    //         if (metadata.category) issue.category = metadata.category;
+    //     }
 
-        this.issues.push(issue);
-    },
+    //     this.issues.push(issue);
+    // },
 
     // ==================== RESULT GENERATION ====================
 
@@ -354,29 +364,11 @@ FHAnalysisContext.prototype = {
      * Set execution duration
      * @param {Number} durationMs - Duration in milliseconds
      */
-    setDuration: function(durationMs) {
-        this._executionMetadata.duration_ms = durationMs;
-    },
+    // setDuration: function(durationMs) {
+    //     this._executionMetadata.duration_ms = durationMs;
+    // },
 
-    /**
-     * Convert context to result object
-     * @returns {Object} Result object
-     */
-    toResult: function() {
-        var self = this;
-        return {
-            table: this.config.table_name,
-            issues: this.issues,
-            categories: this.categories,
-            execution_metadata: this._executionMetadata,
-            verification_items: this._verificationResults || [],
-            hasBlockingIssues: function() {
-                return self.issues.some(function(issue) {
-                    return issue.severity === 'high';
-                });
-            }
-        };
-    },
+
 
     type: 'FHAnalysisContext'
 };]]></script>
@@ -384,13 +376,13 @@ FHAnalysisContext.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 23:27:30</sys_created_on>
         <sys_id>f17a0204835a321083e1b4a6feaad360</sys_id>
-        <sys_mod_count>35</sys_mod_count>
+        <sys_mod_count>44</sys_mod_count>
         <sys_name>FHAnalysisContext</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-06 08:04:00</sys_updated_on>
+        <sys_updated_on>2026-01-09 07:56:27</sys_updated_on>
     </sys_script_include>
 </record_update>

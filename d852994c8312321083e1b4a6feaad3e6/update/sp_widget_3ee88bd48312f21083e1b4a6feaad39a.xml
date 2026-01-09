@@ -531,14 +531,14 @@
         } catch (err) {
             return { success: false, error: gs.getMessage('Unable to parse analysis details') };
         }
+					gs.info('Parsed : ' + JSON.stringify (parsed.sys_id))
 
-        parsed.number = parsed.number || gr.getValue('number');
-        parsed.state = parsed.state || gr.getValue('state');
-        parsed.status = parsed.status || parsed.state;
-        parsed.health_score = parsed.health_score || parsed.healthScore || gr.getValue('health_score');
+        parsed.number = gr.getValue('number');
+        parsed.state = gr.getValue('state');
+        parsed.health_score =gr.getValue('health_score') || '';
         parsed.sys_id = gr.getUniqueValue();
-        parsed.created_on = parsed.created_on || gr.getDisplayValue('sys_created_on');
-        parsed.created_by = parsed.created_by || gr.getDisplayValue('sys_created_by');
+        parsed.created_on = gr.getDisplayValue('sys_created_on');
+        parsed.created_by = gr.getDisplayValue('sys_created_by');
 
         return { success: true, result: parsed };
     }
@@ -567,14 +567,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>45</sys_mod_count>
+        <sys_mod_count>50</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-08 18:17:50</sys_updated_on>
+        <sys_updated_on>2026-01-09 22:12:42</sys_updated_on>
         <template><![CDATA[<div class="fha-detail">
   <div class="fha-header">
     <div style="display:flex;flex-direction:column;gap:6px;">
