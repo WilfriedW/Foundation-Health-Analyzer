@@ -254,7 +254,7 @@ FHAnalyzer.prototype = {
      * @param {Object} result - Analysis result
      * @returns {String} Result sys_id
      */
-    _saveResult: function(config) {
+    _saveResult: function(config, engineResult) {
         var gr = new GlideRecord(this.resultsTable);
         gr.initialize();
 
@@ -270,7 +270,11 @@ FHAnalyzer.prototype = {
         //     //execution_metadata: result.execution_metadata || {},
         // };
         //gr.setValue('details', JSON.stringify(detailObj));
-        gr.setValue('details', JSON.stringify(config));
+        var payload = engineResult || config || {};
+        if (payload && !payload.config && config) {
+            payload.config = config;
+        }
+        gr.setValue('details', JSON.stringify(payload));
         // return gr.insert();
         var sysId = gr.insert();
         if (sysId) {

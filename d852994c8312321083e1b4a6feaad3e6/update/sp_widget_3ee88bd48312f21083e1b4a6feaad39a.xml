@@ -9,150 +9,46 @@
   c.error = c.data.error || null;
   c.loading = !!c.analysisId && !c.result;
   c.activeTab = 'overview';
-  c.issueCategory = 'all';
-  c.issueCategories = ['all'];
-  c.issueFilters = { severity: 'all', search: '' };
 
   c.setTab = function(tab) { c.activeTab = tab; };
   c.isTab = function(tab) { return c.activeTab === tab; };
-  c.setIssueCategory = function(cat) { c.issueCategory = cat; };
 
-  c.getHealthScoreClass = function(score) {
-    if (score === null || score === undefined) return 'medium';
-    if (score >= 70) return 'blue';
-    if (score >= 40) return 'amber';
-    return 'red';
+  c.getVerificationItems = function() {
+    return (c.result && c.result.verification_items) || [];
   };
 
-  c.getCategories = function() {
-    return (c.result && c.result.categories) || {};
+  c.countTotalItems = function() {
+    return c.getVerificationItems().length;
   };
 
-  c.getCategoryItems = function(catId) {
-    var cats = c.getCategories();
-    var cat = cats[catId];
-    if (!cat || !cat.items) return [];
-    var out = [];
-    cat.items.forEach(function(it) {
-      var records = it.records || [];
-      records.forEach(function(rec) {
-        out.push(angular.extend({
-          item_type: it.type,
-          item_label: it.label || it.itemLabel,
-          item_icon: it.icon || it.itemIcon,
-          item_color: it.color || it.itemColor
-        }, rec));
-      });
-    });
-    return out;
-  };
-
-  c.getOptionsList = function() {
-    var opts = (c.result && c.result.options) || {};
-    return Object.keys(opts).map(function(key) {
-      return { key: key, value: opts[key] };
-    });
-  };
-
-  c.getConfigOptions = function() {
-    var cfg = (c.result && c.result.config) || {};
-    var opts = cfg.options || {};
-    return Object.keys(opts).map(function(key) {
-      return { key: key, value: opts[key] };
-    });
-  };
-
-  c.getIssues = function() {
-    return (c.result && c.result.issues) || [];
-  };
-
-  c.countBySeverity = function(sev) {
-    var s = (sev || '').toLowerCase();
-    return c.getIssues().filter(function(it){ return (it.severity || '').toLowerCase() === s; }).length;
-  };
-
-  c.healthScore = function() {
-    return (c.result && (c.result.health_score || c.result.healthScore)) || 0;
+  c.countActiveItems = function() {
+    return c.getVerificationItems().filter(function(item) {
+      return item.active !== false;
+    }).length;
   };
 
   c.getTableInfo = function() {
     var r = c.result || {};
     return {
-      table_name: r.table_name || (r.config && r.config.table_name),
-      table_label: r.table_label || (r.config && r.config.table_label),
-      record_count: r.record_count || (r.stats && r.stats.record_count) || (r.table && r.table.record_count) || 0,
-      custom_fields: r.custom_fields || (r.stats && r.stats.custom_fields) || 0,
-      business_rules: r.business_rules || (r.stats && r.stats.business_rules) || 0,
-      active_business_rules: r.active_business_rules || (r.stats && r.stats.active_business_rules) || 0,
-      client_scripts: r.client_scripts || (r.stats && r.stats.client_scripts) || 0,
-      active_client_scripts: r.active_client_scripts || (r.stats && r.stats.active_client_scripts) || 0
+      table_name: r.table_name || '',
+      table_label: r.table_label || '',
+      description: r.description || '',
+      include_children_tables: r.include_children_tables,
+      deep_scan: r.deep_scan,
+      ignore_servicenow_records: r.ignore_servicenow_records,
+      include_ldap: r.include_ldap
     };
   };
 
-  c.getAutomationItems = function() {
-    return c.getCategoryItems('automation');
-  };
-  c.getIntegrationItems = function() {
-    return c.getCategoryItems('integration');
-  };
-  c.getSecurityItems = function() {
-    return c.getCategoryItems('security');
+  c.booleanText = function(val) {
+    if (val === undefined || val === null) return 'N/A';
+    return val ? '${Yes}' : '${No}';
   };
 
-  c.buildIssueCategories = function() {
-    var cats = ['all'];
-    var seen = {};
-    var issues = (c.result && c.result.issues) || [];
-    issues.forEach(function(issue) {
-      var cat = issue.category || 'general';
-      if (!seen[cat]) {
-        seen[cat] = true;
-        cats.push(cat);
-      }
-    });
-    return cats;
-  };
-
-  c.filteredIssues = function() {
-    var issues = c.getIssues();
-    var cat = c.issueCategory;
-    var sev = c.issueFilters.severity;
-    var search = (c.issueFilters.search || '').toLowerCase();
-
-    return issues.filter(function(issue) {
-      if (cat !== 'all' && (issue.category || 'general') !== cat) return false;
-      if (sev !== 'all' && (issue.severity || '').toLowerCase() !== sev) return false;
-      if (search) {
-        var haystack = [
-          issue.code,
-          issue.message,
-          issue.category,
-          issue.record_table,
-          issue.record_name
-        ].join(' ').toLowerCase();
-        if (haystack.indexOf(search) === -1) return false;
-      }
-      return true;
-    });
-  };
-
-  c.countIssuesByCategory = function(cat) {
-    if (!c.result || !c.result.issues) return 0;
-    if (cat === 'all') return c.result.issues.length;
-    var count = 0;
-    c.result.issues.forEach(function(issue) {
-      if ((issue.category || 'general') === cat) count++;
-    });
-    return count;
-  };
-
-  c.resetFilters = function() {
-    c.issueFilters = { severity: 'all', search: '' };
-  };
-
-  c.openRecord = function(table, sysId) {
-    if (!table || !sysId) return;
-    $window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
+  c.truncate = function(str, len) {
+    if (!str) return '';
+    if (!len || str.length <= len) return str;
+    return str.substring(0, len) + '…';
   };
 
   c.exportJSON = function() {
@@ -161,7 +57,7 @@
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = (c.result.table_name || 'analysis') + '.json';
+    a.download = (c.result.name || c.result.table_name || 'analysis') + '.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -170,13 +66,8 @@
     $window.print();
   };
 
-  c.enrich = function() {
-    c.issueCategories = c.buildIssueCategories();
-  };
-
   c.init = function() {
     if (c.result) {
-      c.enrich();
       c.loading = false;
       return;
     }
@@ -191,7 +82,6 @@
     c.server.get({ action: 'get_result', analysisId: c.analysisId }).then(function(resp) {
       if (resp.data && resp.data.success && resp.data.analysisResult) {
         c.result = resp.data.analysisResult;
-        c.enrich();
         c.error = null;
       } else {
         c.error = (resp.data && resp.data.error) ? resp.data.error : '${Result not found}';
@@ -288,6 +178,34 @@
   gap: 10px;
   flex-wrap: wrap;
   font-size: 13px;
+}
+
+.fha-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px;
+}
+
+.fha-btn {
+  background: #0c63d4;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(12, 99, 212, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fha-btn i {
+  margin-right: 6px;
+}
+
+.fha-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(12, 99, 212, 0.3);
 }
 
 .fha-badge {
@@ -579,15 +497,15 @@
   <div class="fha-header">
     <div style="display:flex;flex-direction:column;gap:6px;">
       <h1>${Analysis Results}</h1>
-      <div style="font-size:13px;opacity:0.9;">
-        ${Detailed analysis of table:} <strong>{{c.result.table_label || c.result.table_name || (c.result.config && (c.result.config.table_label || c.result.config.table_name))}}</strong>
-        <span style="opacity:0.8;">({{c.result.table_name || (c.result.config && c.result.config.table_name)}})</span>
+      <div style="font-size:13px;opacity:0.9;" ng-if="c.result">
+        {{c.result.name || '${Configuration}'}} — <strong>{{c.getTableInfo().table_label || c.getTableInfo().table_name || 'N/A'}}</strong>
+        <span style="opacity:0.8;">({{c.getTableInfo().table_name || 'N/A'}})</span>
       </div>
       <div class="fha-meta" ng-if="c.result">
         <span class="fha-badge">{{c.result.number || c.analysisId}}</span>
+        <span class="fha-badge" ng-if="c.result.state">{{c.result.state}}</span>
         <span class="fha-badge" ng-if="c.result.created_on">{{c.result.created_on}}</span>
         <span class="fha-badge" ng-if="c.result.created_by">{{c.result.created_by}}</span>
-        <span class="fha-badge" ng-if="c.result.duration_ms">{{c.result.duration_ms}} ms</span>
       </div>
     </div>
   </div>
@@ -602,161 +520,81 @@
 
   <div ng-if="!c.loading && c.result">
 
-    <!-- Stats -->
     <div class="fha-stats">
       <div class="fha-stat-card">
-        <div class="fha-stat-value danger">{{c.healthScore()}}</div>
-        <div class="fha-stat-label">${Health Score}</div>
+        <div class="fha-stat-value">{{c.countTotalItems()}}</div>
+        <div class="fha-stat-label">Items de vérification</div>
       </div>
       <div class="fha-stat-card">
-        <div class="fha-stat-value">{{c.countBySeverity('high')}}</div>
-        <div class="fha-stat-label">${High Severity Issues}</div>
+        <div class="fha-stat-value info">{{c.countActiveItems()}}</div>
+        <div class="fha-stat-label">Items actifs</div>
       </div>
       <div class="fha-stat-card">
-        <div class="fha-stat-value warning">{{c.countBySeverity('medium')}}</div>
-        <div class="fha-stat-label">${Medium Severity Issues}</div>
-      </div>
-      <div class="fha-stat-card">
-        <div class="fha-stat-value info">{{c.countBySeverity('low')}}</div>
-        <div class="fha-stat-label">${Low Severity Issues}</div>
+        <div class="fha-stat-value warning">{{c.countTotalItems() - c.countActiveItems()}}</div>
+        <div class="fha-stat-label">Items inactifs</div>
       </div>
     </div>
 
-    <!-- Actions -->
     <div class="fha-actions">
       <button class="fha-btn" ng-click="c.exportPDF()"><i class="fa fa-file-pdf-o"></i> ${Export PDF}</button>
       <button class="fha-btn" ng-click="c.exportJSON()"><i class="fa fa-download"></i> ${Export JSON}</button>
     </div>
 
-    <!-- Tabs -->
     <div class="fha-tabs">
       <button class="fha-tab-btn" ng-class="{'active': c.isTab('overview')}" ng-click="c.setTab('overview')">${Overview}</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('issues')}" ng-click="c.setTab('issues')">
-        ${Issues} <span class="fha-badge">{{c.getIssues().length}}</span>
-      </button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('table')}" ng-click="c.setTab('table')">${Table}</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('automation')}" ng-click="c.setTab('automation')">
-        ${Automation} <span class="fha-badge">{{c.getAutomationItems().length}}</span>
-      </button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('integration')}" ng-click="c.setTab('integration')">
-        ${Integrations} <span class="fha-badge">{{c.getIntegrationItems().length}}</span>
-      </button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('security')}" ng-click="c.setTab('security')">
-        ${Security} <span class="fha-badge">{{c.getSecurityItems().length}}</span>
-      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('verification')}" ng-click="c.setTab('verification')">Items</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('json')}" ng-click="c.setTab('json')">JSON</button>
     </div>
 
-    <!-- Overview -->
     <div ng-show="c.isTab('overview')">
-      <div class="fha-grid">
-        <div class="fha-card">
-          <div class="fha-card__head"><h3>${Table Information}</h3></div>
-          <div class="fha-card__body">
-            <table class="fha-data-table">
-              <tbody>
-                <tr><td><strong>${Table name}</strong></td><td>{{c.getTableInfo().table_name || 'N/A'}}</td></tr>
-                <tr><td><strong>${Table Label}</strong></td><td>{{c.getTableInfo().table_label || 'N/A'}}</td></tr>
-                <tr><td><strong>${Record Count}</strong></td><td>{{c.getTableInfo().record_count}}</td></tr>
-                <tr><td><strong>${Custom Fields}</strong></td><td>{{c.getTableInfo().custom_fields}}</td></tr>
-                <tr><td><strong>${Business Rules}</strong></td><td>{{c.getTableInfo().business_rules}} ({{c.getTableInfo().active_business_rules}} ${Active})</td></tr>
-                <tr><td><strong>${Client Scripts}</strong></td><td>{{c.getTableInfo().client_scripts}} ({{c.getTableInfo().active_client_scripts}} ${Active})</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-    </div>
-   </div>
-
-    
-    
-
-    <!-- Issues -->
-    <div ng-show="c.isTab('issues')">
       <div class="fha-card">
+        <div class="fha-card__head"><h3>${Table Information}</h3></div>
         <div class="fha-card__body">
-          <div class="filter-bar">
-            <label>${Severity}:</label>
-            <select ng-model="c.issueFilters.severity">
-              <option value="all">${All}</option>
-              <option value="high">${High}</option>
-              <option value="medium">${Medium}</option>
-              <option value="low">${Low}</option>
-            </select>
-            <label>${Search}:</label>
-            <input type="text" ng-model="c.issueFilters.search" placeholder="${Filter issues}">
-            <button class="fha-tab-btn" style="border:none;" ng-click="c.resetFilters()">
-              <i class="fa fa-refresh"></i> ${Reset}
-            </button>
-          </div>
-
-          <table class="fha-data-table" ng-if="c.filteredIssues().length">
-            <thead>
-              <tr>
-                <th style="width:120px;">${Severity}</th>
-                <th style="width:160px;">${Category}</th>
-                <th style="width:140px;">${Code}</th>
-                <th>${Message}</th>
-                <th style="width:60px;">${Action}</th>
-              </tr>
-            </thead>
+          <table class="fha-data-table">
             <tbody>
-              <tr ng-repeat="issue in c.filteredIssues()">
-                <td><span class="issue-badge" ng-class="{'sev-high': issue.severity=='high','sev-medium': issue.severity=='medium','sev-low': issue.severity=='low'}">{{issue.severity | uppercase}}</span></td>
-                <td>{{issue.category || 'general'}}</td>
-                <td>{{issue.code}}</td>
-                <td>{{issue.message}}</td>
-                <td>
-                  <a class="fha-link" ng-if="issue.record_sys_id" ng-click="c.openRecord(issue.record_table, issue.record_sys_id)">
-                    <i class="fa fa-external-link"></i>
-                  </a>
-                </td>
-              </tr>
+              <tr><td><strong>Nom</strong></td><td>{{c.result.name || 'N/A'}}</td></tr>
+              <tr><td><strong>${Table Label}</strong></td><td>{{c.getTableInfo().table_label || 'N/A'}}</td></tr>
+              <tr><td><strong>${Table name}</strong></td><td>{{c.getTableInfo().table_name || 'N/A'}}</td></tr>
+              <tr><td><strong>${Description}</strong></td><td>{{c.getTableInfo().description || 'N/A'}}</td></tr>
+              <tr><td><strong>Inclure tables enfants</strong></td><td>{{c.booleanText(c.getTableInfo().include_children_tables)}}</td></tr>
+              <tr><td><strong>Deep scan</strong></td><td>{{c.booleanText(c.getTableInfo().deep_scan)}}</td></tr>
+              <tr><td><strong>Ignorer enregistrements ServiceNow</strong></td><td>{{c.booleanText(c.getTableInfo().ignore_servicenow_records)}}</td></tr>
+              <tr><td><strong>Inclure LDAP</strong></td><td>{{c.booleanText(c.getTableInfo().include_ldap)}}</td></tr>
             </tbody>
           </table>
-          <div ng-if="!c.filteredIssues().length" style="padding:12px 0;">
-            <span class="pill gray">${No issues to display}</span>
-          </div>
         </div>
       </div>
     </div>
 
-    <!-- Table / Automation / Integration / Security -->
-    <div ng-show="c.isTab('table')">
+    <div ng-show="c.isTab('verification')">
       <div class="fha-card">
-        <div class="fha-card__head"><h3>${Table items}</h3></div>
-        <div class="fha-card__body" ng-if="c.getCategoryItems('table').length">
+        <div class="fha-card__head"><h3>Items de vérification</h3></div>
+        <div class="fha-card__body" ng-if="c.getVerificationItems().length">
           <table class="fha-data-table">
             <thead>
               <tr>
-                <th>${Type}</th>
                 <th>${Name}</th>
+                <th>${Category}</th>
                 <th>${Table}</th>
+                <th>${Type}</th>
+                <th>${Fields}</th>
+                <th>${Query}</th>
+                <th>${Script}</th>
+                <th>${Status}</th>
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="item in c.getCategoryItems('table')">
-                <td>{{item.item_label || item.type || item.item_type}}</td>
-                <td>{{item.name || item.label || item.field || item.code}}</td>
-                <td>{{item.table}}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="fha-card__body" ng-if="!c.getCategoryItems('table').length"><span class="pill gray">${No data}</span></div>
-      </div>
-    </div>
-
-    <div ng-show="c.isTab('automation')">
-      <div class="fha-card">
-        <div class="fha-card__head"><h3>${Automation Items}</h3></div>
-        <div class="fha-card__body" ng-if="c.getAutomationItems().length">
-          <table class="fha-data-table">
-            <thead><tr><th>${Type}</th><th>${Name}</th><th>${Table}</th><th>${Status}</th></tr></thead>
-            <tbody>
-              <tr ng-repeat="item in c.getAutomationItems()">
-                <td>{{item.item_label || item.type || item.item_type}}</td>
-                <td>{{item.name || item.label}}</td>
-                <td>{{item.trigger_table || item.table}}</td>
+              <tr ng-repeat="item in c.getVerificationItems()">
+                <td>{{item.name || item.sys_id}}</td>
+                <td>{{item.category || 'N/A'}}</td>
+                <td>{{item.tableName || item.table || item.tableSysid}}</td>
+                <td>{{item.query_type || 'N/A'}}</td>
+                <td>{{item.fields || '-'}}</td>
+                <td>{{c.truncate(item.query_value, 120) || '-'}}</td>
+                <td>
+                  <span ng-if="item.query_script">{{c.truncate(item.query_script, 80)}}</span>
+                  <span ng-if="!item.query_script">-</span>
+                </td>
                 <td>
                   <span class="pill blue" ng-if="item.active !== false">${Active}</span>
                   <span class="pill gray" ng-if="item.active === false">${Inactive}</span>
@@ -765,51 +603,16 @@
             </tbody>
           </table>
         </div>
-        <div class="fha-card__body" ng-if="!c.getAutomationItems().length"><span class="pill gray">${No data}</span></div>
+        <div class="fha-card__body" ng-if="!c.getVerificationItems().length"><span class="pill gray">${No data}</span></div>
       </div>
     </div>
 
-    <div ng-show="c.isTab('integration')">
+    <div ng-show="c.isTab('json')">
       <div class="fha-card">
-        <div class="fha-card__head"><h3>${Integration Items}</h3></div>
-        <div class="fha-card__body" ng-if="c.getIntegrationItems().length">
-          <table class="fha-data-table">
-            <thead><tr><th>${Type}</th><th>${Name}</th><th>${Status}</th></tr></thead>
-            <tbody>
-              <tr ng-repeat="item in c.getIntegrationItems()">
-                <td>{{item.item_label || item.type || item.item_type}}</td>
-                <td>{{item.name || item.label}}</td>
-                <td>
-                  <span class="pill blue" ng-if="item.active !== false">${Active}</span>
-                  <span class="pill gray" ng-if="item.active === false">${Inactive}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="fha-card__head"><h3>JSON</h3></div>
+        <div class="fha-card__body">
+          <pre style="white-space:pre-wrap; word-break:break-word;">{{c.result | json:2}}</pre>
         </div>
-        <div class="fha-card__body" ng-if="!c.getIntegrationItems().length"><span class="pill gray">${No data}</span></div>
-      </div>
-    </div>
-
-    <div ng-show="c.isTab('security')">
-      <div class="fha-card">
-        <div class="fha-card__head"><h3>${Security Items}</h3></div>
-        <div class="fha-card__body" ng-if="c.getSecurityItems().length">
-          <table class="fha-data-table">
-            <thead><tr><th>${Operation}</th><th>${Name}</th><th>${Inherited}</th></tr></thead>
-            <tbody>
-              <tr ng-repeat="item in c.getSecurityItems()">
-                <td>{{item.operation || item.item_label || item.item_type}}</td>
-                <td>{{item.name || item.label}}</td>
-                <td>
-                  <span class="pill blue" ng-if="!item.inherited">${Direct}</span>
-                  <span class="pill gray" ng-if="item.inherited">${Inherited}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="fha-card__body" ng-if="!c.getSecurityItems().length"><span class="pill gray">${No data}</span></div>
       </div>
     </div>
 
