@@ -27,9 +27,11 @@
       seen[cat] = true;
     });
     c.categoryTabs = Object.keys(seen).sort();
-    if (!c.categoryTabs.length) c.categoryTabs = ['general'];
+    if (!c.categoryTabs.length) {
+      c.categoryTabs = ['general'];
+    }
     if (c.activeTab !== 'overview' && c.activeTab !== 'json' && c.categoryTabs.indexOf(c.activeTab) === -1) {
-      c.activeTab = 'all';
+      c.activeTab = c.categoryTabs[0] || 'overview';
     }
   };
 
@@ -78,11 +80,11 @@
   };
 
   c.filteredData = function(tab) {
-    var cat = tab === 'all' ? 'all' : tab;
+    var cat = tab;
     var sev = c.filters.severity;
     var search = (c.filters.search || '').toLowerCase();
     return c.getData().filter(function(item) {
-      var matchesCat = cat === 'all' ? true : (item.category || 'general') === cat;
+      var matchesCat = (item.category || 'general') === cat;
       if (!matchesCat) return false;
       if (sev !== 'all') {
         var hasSev = (item.issues || []).some(function(issue) {
@@ -601,9 +603,6 @@
 
     <div class="fha-tabs">
       <button class="fha-tab-btn" ng-class="{'active': c.isTab('overview')}" ng-click="c.setTab('overview')">Overview</button>
-      <button class="fha-tab-btn" ng-class="{'active': c.isTab('all')}" ng-click="c.setTab('all')">
-        All <span class="fha-badge">{{c.countItems()}}</span>
-      </button>
       <button class="fha-tab-btn" ng-repeat="cat in c.categoryTabs" ng-class="{'active': c.isTab(cat)}" ng-click="c.setTab(cat)">
         {{cat | uppercase}} <span class="fha-badge">{{c.filteredData(cat).length}}</span>
       </button>
@@ -612,7 +611,7 @@
 
     <div ng-show="c.isTab('overview')">
       <div class="fha-card">
-        <div class="fha-card__head"><h3>Summary</h3></div>
+        <div class="fha-card__head"><h3>Overview</h3></div>
         <div class="fha-card__body">
           <table class="fha-data-table">
             <tbody>
@@ -633,10 +632,10 @@
       </div>
     </div>
 
-    <div ng-show="c.isTab('all') || c.categoryTabs.indexOf(c.activeTab) !== -1">
+    <div ng-show="c.categoryTabs.indexOf(c.activeTab) !== -1">
       <div class="fha-card">
         <div class="fha-card__head">
-          <h3>Records</h3>
+          <h3>Category: {{c.activeTab | uppercase}}</h3>
           <div class="filter-bar">
             <label>Severity:</label>
             <select ng-model="c.filters.severity">
