@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element db_object_id="9565e2d553d23610c7233ee0a0490ee0" label="Results" max_length="40" name="x_1310794_founda_0_results" type="collection">
+        <element attributes="json_view=true" label="Details" max_length="4000" name="details" type="string"/>
+        <element attributes="edge_encryption_enabled=true" default="javascript:global.getNextObjNumberPadded();" label="Number" max_length="40" name="number" read_only="true" type="string"/>
+        <element choice="1" label="State" max_length="40" name="state" type="string">
+            <choice>
+                <element inactive_on_update="false" label="Error" sequence="0" value="Error"/>
+                <element inactive_on_update="false" label="In Progress" sequence="2" value="In Progress"/>
+                <element inactive_on_update="false" label="Completed" sequence="1" value="Completed"/>
+            </choice>
+        </element>
+    </element>
+</database>

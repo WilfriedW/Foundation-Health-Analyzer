@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>false</active>
+        <api_name>x_1310794_founda_0.FHCheckIntegration</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHCheckIntegration</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHCheckIntegration = Class.create();
+FHCheckIntegration.prototype = {
+    initialize: function() {
+        this.optionsHandler = new FHOptionsHandler();
+        this.utils = new FHScanUtils();
+    },
+
+    /**
+     * execute(ctx)
+     * @param {Object} ctx - FHAnalysisContext
+     */
+    execute: function(ctx) {
+				if (!ctx) return;
+
+
+        ctx.registerCategory('integration', 'Integrations', 'fa-plug');
+        var tablesToCheck = ctx.getTablesToCheck();
+
+        this._checkDataSources(ctx, tablesToCheck);
+        this._checkImportSets(ctx, tablesToCheck);
+        this._checkTransformMaps(ctx, tablesToCheck);
+        this._checkRestMessages(ctx, tablesToCheck);
+
+        if (ctx.options.deep_scan) this.optionsHandler.deepScanScripts(ctx);
+        if (ctx.options.analyze_references) this.optionsHandler.analyzeIntegrationDependencies(ctx);
+        if (ctx.options.include_ldap) this.optionsHandler.analyzeLdapConfiguration(ctx);
+    },
+
+    _checkDataSources: function(ctx, tablesToCheck) {
+        var dataSources = [];
+        var gr = new GlideRecord('sys_data_source');
+        this.utils.addInQuery(gr, 'import_set_table_name', tablesToCheck);
+        gr.query();
+        while (gr.next()) {
+            var dsName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
+            var isActive = this.utils.toBool(gr.getValue('active'));
+            var dsItem = {
+                sys_id: gr.getUniqueValue(),
+                name: dsName,
+                type: ctx.safeGetValue(gr, 'type'),
+                active: isActive,
+                last_run: ctx.safeGetValue(gr, 'last_run_on'),
+                sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+            };
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(dsItem)) {
+                continue;
+            }
+            dataSources.push(dsItem);
+            if (!isActive) {
+                this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_DATA_SOURCE', 'Inactive data source: "' + dsName + '"', 'low', {
+                    record_table: 'sys_data_source',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'integration'
+                }, dsItem);
+            }
+        }
+
+        this.utils.addCategoryAndMetrics(ctx, 'integration', 'data_source', 'Data Sources', dataSources, {
+            table: 'sys_data_source',
+            icon: 'fa-database',
+            color: '#6f42c1'
+        });
+    },
+
+    _checkImportSets: function(ctx, tablesToCheck) {
+        var importSets = [];
+        var thirtyDaysAgo = new GlideDateTime();
+        thirtyDaysAgo.addDaysUTC(-30);
+
+        for (var i = 0; i < tablesToCheck.length; i++) {
+            var tableName = tablesToCheck[i];
+            try {
+                var ga = new GlideAggregate('sys_import_set_run');
+                ga.addQuery('set.table_name', tableName);
+                ga.addAggregate('COUNT');
+                ga.query();
+                var importRunCount = 0;
+                if (ga.next()) importRunCount = parseInt(ga.getAggregate('COUNT'), 10) || 0;
+
+                var failedGr = new GlideRecord('sys_import_set_run');
+                failedGr.addQuery('set.table_name', tableName);
+                failedGr.addQuery('state', 'error');
+                failedGr.addQuery('sys_created_on', '>=', thirtyDaysAgo);
+                failedGr.query();
+                var failedCount = failedGr.getRowCount();
+
+                importSets.push({
+                    table_name: tableName,
+                    total_runs: importRunCount,
+                    failed_runs_last_30_days: failedCount
+                });
+
+                if (failedCount > 0) {
+                    ctx.addIssue('FAILED_IMPORTS', failedCount + ' failed imports in the last 30 days', 'medium', {
+                        record_table: 'sys_import_set_run',
+                        record_filter: 'set.table_name=' + tableName + '^state=error^sys_created_on>=' + thirtyDaysAgo.getValue(),
+                        category: 'integration'
+                    });
+                }
+            } catch (e) {}
+        }
+
+        if (importSets.length > 0) {
+            this.utils.addCategoryAndMetrics(ctx, 'integration', 'import_sets', 'Import Sets', importSets, {
+                table: 'sys_import_set_run',
+                icon: 'fa-download',
+                color: '#17a2b8'
+            });
+        }
+    },
+
+    _checkTransformMaps: function(ctx, tablesToCheck) {
+        var transformMaps = [];
+        var gr = new GlideRecord('sys_transform_map');
+        this.utils.addInQuery(gr, 'target_table', tablesToCheck);
+        gr.query();
+        var activeCount = 0,
+            inactiveCount = 0;
+        while (gr.next()) {
+            var tmName = ctx.safeGetValue(gr, 'name') || 'Unnamed';
+            var isActive = this.utils.toBool(gr.getValue('active'));
+            var tmItem = {
+                sys_id: gr.getUniqueValue(),
+                name: tmName,
+                active: isActive,
+                source_table: ctx.safeGetValue(gr, 'source_table'),
+                sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+            };
+
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(tmItem)) {
+                continue;
+            }
+
+            transformMaps.push(tmItem);
+            if (isActive) activeCount++;
+            else {
+                inactiveCount++;
+                this.utils.addIssueUnlessSnc(ctx, 'INACTIVE_TRANSFORM_MAP', 'Inactive transform map: "' + tmName + '"', 'low', {
+                    record_table: 'sys_transform_map',
+                    record_sys_id: gr.getUniqueValue(),
+                    category: 'integration'
+                }, tmItem);
+            }
+        }
+
+        this.utils.addCategoryAndMetrics(ctx, 'integration', 'transform_map', 'Transform Maps', transformMaps, {
+            table: 'sys_transform_map',
+            icon: 'fa-exchange-alt',
+            color: '#17a2b8'
+        });
+    },
+
+    _checkRestMessages: function(ctx, tablesToCheck) {
+        var restApis = [];
+        var gr = new GlideRecord('sys_ws_operation');
+        gr.addNotNullQuery('operation_script');
+        gr.query();
+        while (gr.next()) {
+            var opScript = ctx.safeGetValue(gr, 'operation_script') || '';
+            var include = false;
+            for (var i = 0; i < tablesToCheck.length; i++) {
+                if (opScript.indexOf(tablesToCheck[i]) > -1) {
+                    include = true;
+                    break;
+                }
+            }
+            if (!include) continue;
+            var restItem = {
+                sys_id: gr.getUniqueValue(),
+                name: ctx.safeGetValue(gr, 'name') || 'Unnamed',
+                http_method: ctx.safeGetValue(gr, 'http_method'),
+                active: this.utils.toBool(gr.getValue('active')),
+                sys_created_by: ctx.safeGetValue(gr, 'sys_created_by'),
+                sys_updated_by: ctx.safeGetValue(gr, 'sys_updated_by')
+            };
+            if (ctx.isIgnoreSncRecordsEnabled && ctx.isIgnoreSncRecordsEnabled() && this.utils.isSncRecord(restItem)) {
+                continue;
+            }
+            restApis.push(restItem);
+        }
+
+        var meta = {
+            table: 'sys_ws_operation',
+            icon: 'fa-plug',
+            color: '#28a745'
+        };
+        this.utils.addCategoryAndMetrics(ctx, 'integration', 'rest_apis', 'REST APIs', restApis, meta);
+    },
+
+    type: 'FHCheckIntegration'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 23:21:25</sys_created_on>
+        <sys_id>16190640835a321083e1b4a6feaad322</sys_id>
+        <sys_mod_count>21</sys_mod_count>
+        <sys_name>FHCheckIntegration</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_16190640835a321083e1b4a6feaad322</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-07 01:03:11</sys_updated_on>
+    </sys_script_include>
+</record_update>

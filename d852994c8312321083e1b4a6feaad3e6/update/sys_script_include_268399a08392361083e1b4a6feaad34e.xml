@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>false</active>
+        <api_name>x_1310794_founda_0.FHOptionsHandler</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHOptionsHandler</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHOptionsHandler = Class.create();
+FHOptionsHandler.prototype = {
+    initialize: function() {
+        this.utils = new FHScanUtils();
+    },
+
+    /**
+     * deepScanScripts(ctx)
+     * Central deep script analysis (BRs and Client Scripts).
+     * Called by other checks when deep scan option is enabled.
+     */
+    deepScanScripts: function(ctx) {
+        var tables = ctx.getTablesToCheck();
+        var sampleLimit = ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0;
+
+        var scripts = this.utils.scanScriptsForTables(tables, { types: ['business_rule', 'client_script'], sampleLimit: sampleLimit });
+        var issues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptText = s.script || '';
+            var scriptIssues = this.utils.analyzeScriptPatterns(scriptText, s.name, s.kind);
+            for (var j=0;j<scriptIssues.length;j++) {
+                scriptIssues[j].record_table = s.record_table;
+                scriptIssues[j].record_sys_id = s.sys_id;
+                scriptIssues[j].category = 'automation';
+            }
+            issues = issues.concat(scriptIssues);
+        }
+
+        for (i=0;i<issues.length;i++) {
+            var it = issues[i];
+            ctx.addIssue(it.code || 'SCRIPT_ISSUE', it.message, it.severity || 'low', {
+                record_table: it.record_table,
+                record_sys_id: it.record_sys_id,
+                category: it.category
+            });
+        }
+    },
+
+    /**
+     * Analyze automation-related scripts specifically (flows, scheduled jobs, transform maps)
+     * Kept as public for compatibility: deepScanAutomations(ctx)
+     */
+    deepScanAutomations: function(ctx) {
+        var tables = ctx.getTablesToCheck();
+        var types = ['scheduled', 'transform_map', 'transform_entry', 'scripted_rest', 'business_rule', 'client_script'];
+        var scripts = this.utils.scanScriptsForTables(tables, { types: types, sampleLimit: ctx.options && ctx.options.sampleLimit ? ctx.options.sampleLimit : 0 });
+        var allIssues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptIssues = this.utils.analyzeScriptPatterns(s.script || '', s.name, s.kind);
+            for (var k=0;k<scriptIssues.length;k++) {
+                scriptIssues[k].record_table = s.record_table;
+                scriptIssues[k].record_sys_id = s.sys_id;
+                scriptIssues[k].category = 'automation';
+            }
+            allIssues = allIssues.concat(scriptIssues);
+        }
+        for (i=0;i<allIssues.length;i++) {
+            var issue = allIssues[i];
+            ctx.addIssue(issue.code || 'AUTOMATION_SCRIPT_ISSUE', issue.message, issue.severity || 'low', {
+                record_table: issue.record_table,
+                record_sys_id: issue.record_sys_id,
+                category: 'automation'
+            });
+        }
+    },
+
+    /**
+     * deepScanTransformMaps(ctx)
+     */
+    deepScanTransformMaps: function(ctx) {
+        var tables = ctx.getTablesToCheck();
+        var scripts = this.utils.scanScriptsForTables(tables, { types: ['transform_map', 'transform_entry'] });
+        var issues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptIssues = this.utils.analyzeScriptPatterns(s.script || '', s.name, s.kind);
+            for (var j=0;j<scriptIssues.length;j++) {
+                scriptIssues[j].record_table = s.record_table;
+                scriptIssues[j].record_sys_id = s.sys_id;
+                scriptIssues[j].category = 'integration';
+            }
+            issues = issues.concat(scriptIssues);
+        }
+        // Issues are added to ctx via addIssue
+        for (i=0;i<issues.length;i++) {
+            var it = issues[i];
+            ctx.addIssue(it.code || 'TRANSFORM_SCRIPT_ISSUE', it.message, it.severity || 'low', {
+                record_table: it.record_table,
+                record_sys_id: it.record_sys_id,
+                category: 'integration'
+            });
+        }
+    },
+
+    /**
+     * analyzeIntegrationDependencies(ctx)
+     */
+    analyzeIntegrationDependencies: function(ctx) {
+        var tables = ctx.getTablesToCheck();
+        var scripts = this.utils.scanScriptsForTables(tables, { types: ['scripted_rest'] });
+        var issues = [];
+        for (var i=0;i<scripts.length;i++) {
+            var s = scripts[i];
+            var scriptIssues = this.utils.analyzeScriptPatterns(s.script || '', s.name, s.kind);
+            for (var j=0;j<scriptIssues.length;j++) {
+                scriptIssues[j].record_table = s.record_table;
+                scriptIssues[j].record_sys_id = s.sys_id;
+                scriptIssues[j].category = 'integration';
+            }
+            issues = issues.concat(scriptIssues);
+        }
+        // Issues are added to ctx via addIssue
+        for (i=0;i<issues.length;i++) {
+            var it = issues[i];
+            ctx.addIssue(it.code || 'INTEGRATION_SCRIPT_ISSUE', it.message, it.severity || 'low', {
+                record_table: it.record_table,
+                record_sys_id: it.record_sys_id,
+                category: 'integration'
+            });
+        }
+    },
+
+    /**
+     * analyzeLdapConfiguration(ctx)
+     */
+    analyzeLdapConfiguration: function(ctx) {
+        // Register LDAP category if not exists
+        ctx.registerCategory('ldap', 'LDAP', 'fa-sitemap');
+        
+        try {
+            var ldapServers = this.utils.getRecords('ldap_server', function(gr){
+            }, ['name','host'], 0, 'ldap:all');
+            
+            if (ldapServers && ldapServers.length > 0) {
+                ctx.addCategoryItems('ldap', 'ldap_servers', 'LDAP Servers', ldapServers, {
+                    table: 'ldap_server',
+                    icon: 'fa-server',
+                    color: '#17a2b8'
+                });
+            }
+        } catch (e) {
+        }
+    },
+
+    type: 'FHOptionsHandler'
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-04 08:44:25</sys_created_on>
+        <sys_id>268399a08392361083e1b4a6feaad34e</sys_id>
+        <sys_mod_count>4</sys_mod_count>
+        <sys_name>FHOptionsHandler</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_268399a08392361083e1b4a6feaad34e</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-09 08:00:26</sys_updated_on>
+    </sys_script_include>
+</record_update>

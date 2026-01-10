@@ -1,0 +1,2801 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="DELETE">
+        <category>custom</category>
+        <client_script><![CDATA[function($scope, spUtil, $location, $window) {
+  var c = this;
+    
+    // Get analysis ID from URL parameter
+    c.analysisId = $location.search().sys_id || c.data.analysisId || '';
+    c.loading = !c.data.result;
+    c.error = c.data.error || null;
+    c.result = c.data.result || null;
+    c.activeTab = 'overview';
+    
+    // Expanded sections
+    c.expandedSections = {
+        fields: false,
+        business_rules: false,
+        automation: false,
+        integration: false
+    };
+
+    // Toggle section
+    c.toggleSection = function(section) {
+        c.expandedSections[section] = !c.expandedSections[section];
+    };
+
+    // Get health score class
+    c.getHealthScoreClass = function(score) {
+        if (score >= 70) return 'good';
+        if (score >= 40) return 'medium';
+        return 'poor';
+    };
+
+    // Get severity class
+    c.getSeverityClass = function(severity) {
+        switch(severity) {
+            case 'high': return 'danger';
+            case 'medium': return 'warning';
+            case 'low': return 'info';
+            default: return 'default';
+        }
+    };
+
+    // Count issues by severity
+    c.countBySeverity = function(severity) {
+        if (!c.result || !c.result.issues) return 0;
+        return c.result.issues.filter(function(i) { return i.severity === severity; }).length;
+    };
+
+    // Get issues by category
+    c.getIssuesByCategory = function(category) {
+        if (!c.result || !c.result.issues) return [];
+        return c.result.issues.filter(function(i) { return i.category === category; });
+    };
+
+    // Get metrics
+    c.getMetrics = function() {
+        return (c.result && c.result.metrics) ? c.result.metrics : {};
+    };
+
+    // Get custom fields
+    c.getCustomFields = function() {
+        var metrics = c.getMetrics();
+        return metrics.custom_fields || [];
+    };
+
+    // Get business rules
+    c.getBusinessRules = function() {
+        var metrics = c.getMetrics();
+        return metrics.business_rules || [];
+    };
+
+    // Get all automation items
+    c.getAutomationItems = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.scheduled_jobs) {
+            metrics.scheduled_jobs.forEach(function(job) {
+                items.push({ type: 'Scheduled Job', name: job.name, active: job.active, sys_id: job.sys_id, table: 'sysauto_script' });
+            });
+        }
+        if (metrics.flows) {
+            metrics.flows.forEach(function(flow) {
+                items.push({ type: 'Flow', name: flow.name, active: flow.active, sys_id: flow.sys_id, table: 'sys_hub_flow' });
+            });
+        }
+        if (metrics.workflows) {
+            metrics.workflows.forEach(function(wf) {
+                items.push({ type: 'Workflow', name: wf.name, active: wf.active, sys_id: wf.sys_id, table: 'wf_workflow' });
+            });
+        }
+        if (metrics.notifications) {
+            metrics.notifications.forEach(function(n) {
+                items.push({ type: 'Notification', name: n.name, active: n.active, sys_id: n.sys_id, table: 'sysevent_email_action' });
+            });
+        }
+        if (metrics.ui_actions) {
+            metrics.ui_actions.forEach(function(a) {
+                items.push({ type: 'UI Action', name: a.name, active: true, sys_id: a.sys_id, table: 'sys_ui_action' });
+            });
+        }
+        
+        return items;
+    };
+
+    // Get integration items
+    c.getIntegrationItems = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.data_sources) {
+            metrics.data_sources.forEach(function(ds) {
+                items.push({ type: 'Data Source', name: ds.name, active: ds.active, sys_id: ds.sys_id, table: 'sys_data_source' });
+            });
+        }
+        if (metrics.transform_maps) {
+            metrics.transform_maps.forEach(function(tm) {
+                items.push({ type: 'Transform Map', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map' });
+            });
+        }
+        
+        return items;
+    };
+
+    // Filters for automation tab
+    c.automationFilter = {
+        type: 'all',
+        status: 'all',
+        search: ''
+    };
+
+    // Filters for integration tab
+    c.integrationFilter = {
+        type: 'all',
+        status: 'all',
+        search: ''
+    };
+
+    // Get unique automation types
+    c.getAutomationTypes = function() {
+        var items = c.getAutomationItems();
+        var types = {};
+        items.forEach(function(item) {
+            types[item.type] = true;
+        });
+        return Object.keys(types);
+    };
+
+    // Get unique integration types
+    c.getIntegrationTypes = function() {
+        var items = c.getIntegrationItems();
+        var types = {};
+        items.forEach(function(item) {
+            types[item.type] = true;
+        });
+        return Object.keys(types);
+    };
+
+    // Get filtered automation items
+    c.getFilteredAutomationItems = function() {
+        var items = c.getAutomationItems();
+        
+        // Filter by type
+        if (c.automationFilter.type !== 'all') {
+            items = items.filter(function(item) {
+                return item.type === c.automationFilter.type;
+            });
+        }
+        
+        // Filter by status
+        if (c.automationFilter.status !== 'all') {
+            var isActive = c.automationFilter.status === 'active';
+            items = items.filter(function(item) {
+                return item.active === isActive;
+            });
+        }
+        
+        // Filter by search
+        if (c.automationFilter.search) {
+            var search = c.automationFilter.search.toLowerCase();
+            items = items.filter(function(item) {
+                return item.name.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return items;
+    };
+
+    // Get filtered integration items
+    c.getFilteredIntegrationItems = function() {
+        var items = c.getIntegrationItems();
+        
+        // Filter by type
+        if (c.integrationFilter.type !== 'all') {
+            items = items.filter(function(item) {
+                return item.type === c.integrationFilter.type;
+            });
+        }
+        
+        // Filter by status
+        if (c.integrationFilter.status !== 'all') {
+            var isActive = c.integrationFilter.status === 'active';
+            items = items.filter(function(item) {
+                return item.active === isActive;
+            });
+        }
+        
+        // Filter by search
+        if (c.integrationFilter.search) {
+            var search = c.integrationFilter.search.toLowerCase();
+            items = items.filter(function(item) {
+                return item.name.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return items;
+    };
+
+    // Get type badge class (color coding)
+    c.getTypeBadgeClass = function(type) {
+        var classes = {
+            'Scheduled Job': 'type-scheduled-job',
+            'Flow': 'type-flow',
+            'Workflow': 'type-workflow',
+            'Notification': 'type-notification',
+            'UI Action': 'type-ui-action',
+            'Data Source': 'type-data-source',
+            'Transform Map': 'type-transform-map'
+        };
+        return classes[type] || 'type-default';
+    };
+
+    // Reset automation filter
+    c.resetAutomationFilter = function() {
+        c.automationFilter = { type: 'all', status: 'all', search: '' };
+    };
+
+    // Reset integration filter
+    c.resetIntegrationFilter = function() {
+        c.integrationFilter = { type: 'all', status: 'all', search: '' };
+    };
+
+    // Open record
+    c.openRecord = function(table, sysId) {
+        if (table && sysId) {
+            $window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
+        }
+    };
+
+    // Open list with filter
+    c.openList = function(table, filter) {
+        var url = '/' + table + '_list.do';
+        if (filter) {
+            url += '?sysparm_query=' + encodeURIComponent(filter);
+        }
+        $window.open(url, '_blank');
+    };
+
+    // Go back to dashboard
+    c.goBack = function() {
+        $location.path('/fha');
+    };
+
+    // Set active tab
+    c.setActiveTab = function(tab) {
+        c.activeTab = tab;
+    };
+
+    // Export to JSON
+    c.exportJSON = function() {
+        if (!c.result) return;
+        var dataStr = JSON.stringify(c.result, null, 2);
+        var dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+        var exportName = 'fha_analysis_' + c.analysisId + '.json';
+        var linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportName);
+        linkElement.click();
+    };
+
+    // Export to PDF
+    c.exportPDF = function() {
+        if (!c.result) return;
+        
+        // Create a printable HTML content
+        var printContent = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+        printContent += '<title>FHA Analysis Report - ' + (c.result.table_label || c.result.table_name) + '</title>';
+        printContent += '<style>';
+        printContent += 'body { font-family: Arial, sans-serif; padding: 40px; color: #333; }';
+        printContent += 'h1 { color: #0378BE; border-bottom: 3px solid #0378BE; padding-bottom: 10px; }';
+        printContent += 'h2 { color: #035B8E; margin-top: 30px; }';
+        printContent += 'h3 { color: #495057; margin-top: 20px; }';
+        printContent += '.header-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }';
+        printContent += '.score-circle { display: inline-block; width: 80px; height: 80px; border-radius: 50%; text-align: center; line-height: 80px; font-size: 28px; font-weight: bold; margin-right: 20px; }';
+        printContent += '.score-good { background: #d4edda; color: #28A745; border: 3px solid #28A745; }';
+        printContent += '.score-medium { background: #fff3cd; color: #856404; border: 3px solid #FFC107; }';
+        printContent += '.score-poor { background: #f8d7da; color: #DC3545; border: 3px solid #DC3545; }';
+        printContent += 'table { width: 100%; border-collapse: collapse; margin: 15px 0; }';
+        printContent += 'th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }';
+        printContent += 'th { background: #f8f9fa; font-weight: 600; }';
+        printContent += '.severity-high { background: #DC3545; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.severity-medium { background: #FFC107; color: #333; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.severity-low { background: #17A2B8; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }';
+        printContent += '.summary-item { text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px; }';
+        printContent += '.summary-value { font-size: 24px; font-weight: bold; }';
+        printContent += '.summary-label { font-size: 12px; color: #666; margin-top: 5px; }';
+        printContent += '.footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; text-align: center; }';
+        printContent += '@media print { body { padding: 20px; } }';
+        printContent += '</style></head><body>';
+        
+        // Header
+        printContent += '<h1>Foundation Health Analysis Report</h1>';
+        printContent += '<div class="header-info">';
+        printContent += '<p><strong>Table:</strong> ' + (c.result.table_label || c.result.table_name) + ' (' + c.result.table_name + ')</p>';
+        printContent += '<p><strong>Analysis Number:</strong> ' + c.result.number + '</p>';
+        printContent += '<p><strong>Date:</strong> ' + c.result.created_on + '</p>';
+        printContent += '<p><strong>Analyzed by:</strong> ' + c.result.created_by + '</p>';
+        printContent += '</div>';
+        
+        // Health Score
+        var scoreClass = c.result.health_score >= 70 ? 'score-good' : (c.result.health_score >= 40 ? 'score-medium' : 'score-poor');
+        printContent += '<h2>Health Score</h2>';
+        printContent += '<div class="score-circle ' + scoreClass + '">' + c.result.health_score + '</div>';
+        printContent += '<span style="font-size: 18px;">' + (c.result.health_score >= 70 ? 'Good' : (c.result.health_score >= 40 ? 'Needs Attention' : 'Critical')) + '</span>';
+        
+        // Summary
+        printContent += '<div class="summary-grid">';
+        printContent += '<div class="summary-item"><div class="summary-value">' + c.result.issues.length + '</div><div class="summary-label">Total Issues</div></div>';
+        printContent += '<div class="summary-item"><div class="summary-value" style="color:#DC3545;">' + c.countBySeverity('high') + '</div><div class="summary-label">High Severity</div></div>';
+        printContent += '<div class="summary-item"><div class="summary-value" style="color:#FFC107;">' + c.countBySeverity('medium') + '</div><div class="summary-label">Medium Severity</div></div>';
+        printContent += '<div class="summary-item"><div class="summary-value" style="color:#17A2B8;">' + c.countBySeverity('low') + '</div><div class="summary-label">Low Severity</div></div>';
+        printContent += '</div>';
+        
+        // Issues List
+        if (c.result.issues && c.result.issues.length > 0) {
+            printContent += '<h2>Issues Found</h2>';
+            printContent += '<table><thead><tr><th>Severity</th><th>Category</th><th>Code</th><th>Description</th></tr></thead><tbody>';
+            c.result.issues.forEach(function(issue) {
+                var severityClass = 'severity-' + issue.severity;
+                printContent += '<tr>';
+                printContent += '<td><span class="' + severityClass + '">' + issue.severity.toUpperCase() + '</span></td>';
+                printContent += '<td>' + (issue.category || 'general') + '</td>';
+                printContent += '<td>' + issue.code + '</td>';
+                printContent += '<td>' + issue.message + '</td>';
+                printContent += '</tr>';
+            });
+            printContent += '</tbody></table>';
+        } else {
+            printContent += '<h2>Issues Found</h2>';
+            printContent += '<p style="color: #28A745;"><strong>No issues found. This table is in excellent health!</strong></p>';
+        }
+        
+        // Footer
+        printContent += '<div class="footer">';
+        printContent += '<p>Generated by Foundation Health Analyzer</p>';
+        printContent += '<p>' + new Date().toLocaleString() + '</p>';
+        printContent += '</div>';
+        
+        printContent += '</body></html>';
+        
+        // Open print window
+        var printWindow = window.open('', '_blank');
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        // Auto print after a short delay
+        setTimeout(function() {
+            printWindow.print();
+        }, 500);
+    };
+}
+]]></client_script>
+        <controller_as>c</controller_as>
+        <css>/* FHA Analysis Results Page Styles */
+.fha-results-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.fha-results-header {
+  background: linear-gradient(135deg, #0378BE 0%, #035B8E 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(3, 120, 190, 0.3);
+}
+
+.fha-results-header h1 {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.fha-results-header .fha-table-code {
+  opacity: 0.85;
+}
+
+.fha-results-header p {
+  color: white;
+  margin: 0;
+}
+
+/* Stats Row */
+.fha-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.fha-stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.fha-stat-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.fha-stat-card.highlight {
+  border: 2px solid #0378BE;
+}
+
+.fha-stat-value {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.fha-stat-value.good { color: #28A745; }
+.fha-stat-value.medium { color: #FFC107; }
+.fha-stat-value.poor { color: #DC3545; }
+
+.fha-stat-label {
+  color: #666;
+  font-size: 14px;
+}
+
+/* Health Score Circle */
+.fha-health-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.fha-health-circle.good {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28A745;
+  border: 4px solid #28A745;
+}
+
+.fha-health-circle.medium {
+  background: rgba(255, 193, 7, 0.15);
+  color: #856404;
+  border: 4px solid #FFC107;
+}
+
+.fha-health-circle.poor {
+  background: rgba(220, 53, 69, 0.15);
+  color: #DC3545;
+  border: 4px solid #DC3545;
+}
+
+/* Tabs */
+.fha-tabs-nav {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 25px;
+  gap: 5px;
+}
+
+/* Tab content */
+.fha-tab-content {
+  display: block;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fha-tab-btn {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  color: #666;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  border-radius: 8px 8px 0 0;
+}
+
+.fha-tab-btn:hover {
+  color: #0378BE;
+  background: #f8f9fa;
+}
+
+.fha-tab-btn.active {
+  color: #0378BE;
+  border-bottom-color: #0378BE;
+  font-weight: 600;
+}
+
+.fha-tab-btn .badge {
+  margin-left: 8px;
+  background: #0378BE;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+/* Cards */
+.fha-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.fha-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.fha-card-header {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fha-card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.fha-card-body {
+  padding: 20px;
+}
+
+/* Section styles */
+.fha-section {
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.fha-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.fha-section-header:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+}
+
+.fha-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-section-title i {
+  color: #0378BE;
+  font-size: 18px;
+}
+
+.fha-section-title h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fha-section-count {
+  background: #6c757d;
+  color: white;
+  padding: 3px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+}
+
+.fha-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Issues */
+.fha-issue-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+
+.fha-issue-item:last-child {
+  border-bottom: none;
+}
+
+.fha-issue-item:hover {
+  background: #f8f9fa;
+}
+
+.fha-issue-severity {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 12px;
+  min-width: 65px;
+  text-align: center;
+}
+
+.fha-severity-high { background: #DC3545; color: white; }
+.fha-severity-medium { background: #FFC107; color: #333; }
+.fha-severity-low { background: #17A2B8; color: white; }
+
+.fha-issue-content { flex: 1; }
+.fha-issue-code { font-weight: 600; color: #333; }
+.fha-issue-message { color: #666; margin-top: 4px; font-size: 14px; }
+
+/* Tables */
+.fha-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fha-data-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.fha-data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fha-data-table tr:hover {
+  background: #f8f9fa;
+}
+
+.fha-data-table code {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Status badges */
+.fha-status-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fha-status-badge.active { background: rgba(40, 167, 69, 0.15); color: #28A745; }
+.fha-status-badge.inactive { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+
+.fha-type-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+/* Type-specific colors for Automation */
+.fha-type-badge.type-scheduled-job { background: #6f42c1; color: white; }
+.fha-type-badge.type-flow { background: #0d6efd; color: white; }
+.fha-type-badge.type-workflow { background: #0dcaf0; color: #000; }
+.fha-type-badge.type-notification { background: #fd7e14; color: white; }
+.fha-type-badge.type-ui-action { background: #20c997; color: white; }
+
+/* Type-specific colors for Integration */
+.fha-type-badge.type-data-source { background: #198754; color: white; }
+.fha-type-badge.type-transform-map { background: #6610f2; color: white; }
+
+/* Default type badge */
+.fha-type-badge.type-default { background: #6c757d; color: white; }
+
+/* Fill rate */
+.fha-fill-rate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-fill-bar {
+  height: 8px;
+  border-radius: 4px;
+  min-width: 5px;
+  max-width: 100px;
+}
+
+.fha-fill-bar.good { background: #28A745; }
+.fha-fill-bar.warning { background: #FFC107; }
+.fha-fill-bar.danger { background: #DC3545; }
+
+/* Buttons */
+.fha-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fha-btn-primary {
+  background: linear-gradient(135deg, #0378BE 0%, #035B8E 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(3, 120, 190, 0.3);
+}
+
+.fha-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(3, 120, 190, 0.4);
+}
+
+.fha-btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.fha-btn-secondary:hover {
+  background: #545b62;
+}
+
+.fha-btn-success {
+  background: linear-gradient(135deg, #28A745 0%, #1e7e34 100%);
+  color: white;
+}
+
+.fha-btn-success:hover {
+  transform: translateY(-2px);
+}
+
+/* Link */
+.fha-link {
+  color: #0378BE;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.fha-link:hover {
+  text-decoration: underline;
+}
+
+/* Metadata */
+.fha-metadata {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 15px;
+}
+
+.fha-metadata i {
+  margin-right: 5px;
+  opacity: 0.8;
+}
+
+/* Actions panel */
+.fha-actions-panel {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Filter bar */
+.fha-filter-bar {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 8px 8px 0 0;
+}
+
+.fha-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fha-filter-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+.fha-filter-group select,
+.fha-filter-group input {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 120px;
+}
+
+.fha-filter-group select:focus,
+.fha-filter-group input:focus {
+  outline: none;
+  border-color: #0378BE;
+  box-shadow: 0 0 0 3px rgba(3, 120, 190, 0.15);
+}
+
+.fha-filter-search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.fha-filter-search input {
+  width: 100%;
+}
+
+.fha-filter-reset {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #6c757d;
+  color: #6c757d;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-filter-reset:hover {
+  background: #6c757d;
+  color: white;
+}
+
+.fha-filter-count {
+  font-size: 12px;
+  color: #6c757d;
+  margin-left: auto;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .fha-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .fha-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</css>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id/>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]></link>
+        <name>Copy of FHA Analysis results</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function() {
+    // Get sys_id from URL parameter
+    var sysId = $sp.getParameter('sys_id') || '';
+    
+    data.analysisId = sysId;
+    data.result = null;
+    data.error = null;
+    
+    if (sysId) {
+        try {
+            // Query directly by sys_id (not analysis_id)
+            var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+            if (gr.get(sysId)) {
+                // Parse detail_json for full metrics first
+                var detailJson = {};
+                try {
+                    var detailStr = gr.getValue('detail_json');
+                    if (detailStr) {
+                        detailJson = JSON.parse(detailStr);
+                    }
+                } catch(e) {
+                    // Ignore parse errors
+                }
+                
+                // Get table name from reference field OR from detail_json
+                var tableName = '';
+                var tableLabel = '';
+                
+                // First try from reference field
+                if (gr.table_name && !gr.table_name.nil()) {
+                    var tableRef = gr.table_name.getRefRecord();
+                    if (tableRef) {
+                        tableName = tableRef.getValue('name') || '';
+                        tableLabel = tableRef.getValue('label') || tableName;
+                    }
+                }
+                
+                // Fallback to detail_json if reference didn't work
+                if (!tableName && detailJson.table_name) {
+                    tableName = detailJson.table_name;
+                    tableLabel = detailJson.table_label || detailJson.table_name;
+                }
+                
+                data.result = {
+                    sys_id: gr.getUniqueValue(),
+                    number: gr.getValue('number'),
+                    table_name: tableName,
+                    table_label: tableLabel,
+                    health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                    issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                    status: gr.getValue('status'),
+                    created_on: gr.getValue('sys_created_on'),
+                    created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : '',
+                    issues: detailJson.issues || [],
+                    metrics: detailJson.metrics || {},
+                    duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
+                };
+        } else {
+                data.error = 'Analysis record not found (sys_id: ' + sysId + ')';
+        }
+        } catch(e) {
+            data.error = 'Error loading analysis: ' + e.message;
+        }
+    } else {
+        data.error = 'No analysis ID provided. Please access this page from the dashboard.';
+    }
+})();
+]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 22:37:33</sys_created_on>
+        <sys_id>2da8cfd48312f21083e1b4a6feaad3aa</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Copy of FHA Analysis results</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_widget_2da8cfd48312f21083e1b4a6feaad3aa</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 22:37:33</sys_updated_on>
+        <template><![CDATA[<div class="fha-results-page">
+  
+  <!-- Page Header -->
+  <div class="fha-results-header">
+    <h1><i class="fa fa-chart-bar"></i> ${Analysis Results}</h1>
+    <p ng-if="c.result">
+      ${Detailed analysis of table:} <strong>{{c.result.table_label || c.result.table_name}}</strong>
+      <span class="fha-table-code">({{c.result.table_name}})</span>
+    </p>
+    <div class="fha-metadata" ng-if="c.result">
+      <span><i class="fa fa-hashtag"></i> {{c.result.number}}</span>
+      <span><i class="fa fa-calendar"></i> {{c.result.created_on}}</span>
+      <span><i class="fa fa-user"></i> {{c.result.created_by}}</span>
+      <span><i class="fa fa-clock-o"></i> {{c.result.duration_ms}}ms</span>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  <div class="alert alert-danger" ng-if="c.error" style="margin-bottom: 20px;">
+    <i class="fa fa-exclamation-triangle"></i> {{c.error}}
+    <button class="fha-btn fha-btn-secondary" ng-click="c.goBack()" style="margin-left: 20px;">
+      <i class="fa fa-arrow-left"></i> ${Back to Dashboard}
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div ng-if="c.loading && !c.error" style="text-align: center; padding: 80px;">
+        <i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"></i>
+    <h3 style="margin-top: 20px; color: #666;">${Loading analysis results...}</h3>
+  </div>
+
+  <!-- Main Content -->
+  <div ng-if="c.result && !c.loading">
+    
+    <!-- Stats Grid -->
+    <div class="fha-stats-grid">
+      <div class="fha-stat-card highlight">
+        <div class="fha-health-circle" ng-class="c.getHealthScoreClass(c.result.health_score)">
+          {{c.result.health_score}}
+        </div>
+        <div class="fha-stat-label">${Health Score}</div>
+          </div>
+      <div class="fha-stat-card">
+        <div class="fha-stat-value" ng-class="c.countBySeverity('high') > 0 ? 'poor' : 'good'">
+          {{c.countBySeverity('high')}}
+          </div>
+        <div class="fha-stat-label">${High Severity Issues}</div>
+      </div>
+      <div class="fha-stat-card">
+        <div class="fha-stat-value medium">{{c.countBySeverity('medium')}}</div>
+        <div class="fha-stat-label">${Medium Severity Issues}</div>
+          </div>
+      <div class="fha-stat-card">
+        <div class="fha-stat-value" style="color: #17A2B8;">{{c.countBySeverity('low')}}</div>
+        <div class="fha-stat-label">${Low Severity Issues}</div>
+        </div>
+      </div>
+      
+    <!-- Actions Bar -->
+      <div class="fha-card">
+        <div class="fha-card-body">
+        <div class="fha-actions-panel">
+          <button class="fha-btn fha-btn-primary" ng-click="c.exportPDF()">
+            <i class="fa fa-file-pdf-o"></i> ${Export PDF}
+          </button>
+          <button class="fha-btn fha-btn-secondary" ng-click="c.exportJSON()">
+            <i class="fa fa-download"></i> ${Export JSON}
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tabs Navigation -->
+    <div class="fha-tabs-nav">
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'overview'}" ng-click="c.setActiveTab('overview')">
+        <i class="fa fa-th-large"></i> ${Overview}
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'issues'}" ng-click="c.setActiveTab('issues')">
+        <i class="fa fa-exclamation-circle"></i> ${Issues}
+        <span class="badge">{{c.result.issues.length}}</span>
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'fields'}" ng-click="c.setActiveTab('fields')">
+        <i class="fa fa-columns"></i> ${Fields}
+        <span class="badge">{{c.getCustomFields().length}}</span>
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'automation'}" ng-click="c.setActiveTab('automation')">
+        <i class="fa fa-cogs"></i> ${Automation}
+        <span class="badge">{{c.getAutomationItems().length}}</span>
+      </button>
+      <button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'integration'}" ng-click="c.setActiveTab('integration')">
+        <i class="fa fa-exchange"></i> ${Integrations}
+        <span class="badge">{{c.getIntegrationItems().length}}</span>
+      </button>
+    </div>
+
+    <!-- ==================== OVERVIEW TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'overview'">
+      <div class="row">
+        <div class="col-md-6">
+      <div class="fha-card">
+        <div class="fha-card-header">
+              <h4><i class="fa fa-table"></i> ${Table Information}</h4>
+        </div>
+        <div class="fha-card-body">
+              <table class="fha-data-table">
+                <tr>
+                  <td><strong>${Table Name}</strong></td>
+                  <td><code>{{c.result.table_name}}</code></td>
+                </tr>
+                <tr>
+                  <td><strong>${Table Label}</strong></td>
+                  <td>{{c.result.table_label}}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Record Count}</strong></td>
+                  <td>{{c.getMetrics().record_count || 'N/A'}}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Custom Fields}</strong></td>
+                  <td>{{c.getMetrics().custom_field_count || 0}}</td>
+                </tr>
+                <tr>
+                  <td><strong>${Business Rules}</strong></td>
+                  <td>{{(c.getMetrics().active_br_count || 0) + (c.getMetrics().inactive_br_count || 0)}} ({{c.getMetrics().active_br_count || 0}} ${active})</td>
+                </tr>
+              </table>
+              </div>
+            </div>
+          </div>
+        <div class="col-md-6">
+          <div class="fha-card">
+            <div class="fha-card-header">
+              <h4><i class="fa fa-pie-chart"></i> ${Issues Summary}</h4>
+            </div>
+            <div class="fha-card-body">
+              <table class="fha-data-table">
+                <tr>
+                  <td><strong>${Total Issues}</strong></td>
+                  <td>{{c.result.issues.length}}</td>
+                </tr>
+                <tr>
+                  <td><span class="fha-issue-severity fha-severity-high">HIGH</span></td>
+                  <td>{{c.countBySeverity('high')}}</td>
+                </tr>
+                <tr>
+                  <td><span class="fha-issue-severity fha-severity-medium">MEDIUM</span></td>
+                  <td>{{c.countBySeverity('medium')}}</td>
+                </tr>
+                <tr>
+                  <td><span class="fha-issue-severity fha-severity-low">LOW</span></td>
+                  <td>{{c.countBySeverity('low')}}</td>
+                </tr>
+              </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- ==================== ISSUES TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'issues'">
+      <div class="fha-card" ng-if="c.result.issues.length > 0">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-exclamation-circle"></i> ${All Issues} ({{c.result.issues.length}})</h4>
+        </div>
+        <div class="fha-card-body" style="padding: 0;">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="100">${Severity}</th>
+                <th width="150">${Category}</th>
+                <th width="200">${Code}</th>
+                <th>${Message}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="issue in c.result.issues | orderBy:['-severity']">
+                <td>
+                  <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">
+                    {{issue.severity}}
+                  </span>
+                </td>
+                <td><span class="fha-type-badge">{{issue.category || 'general'}}</span></td>
+                <td><strong>{{issue.code}}</strong></td>
+                <td>{{issue.message}}</td>
+                <td>
+                  <a class="fha-link" ng-if="issue.record_sys_id" 
+                     ng-click="c.openRecord(issue.record_table, issue.record_sys_id)">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                  <a class="fha-link" ng-if="issue.record_filter && !issue.record_sys_id" 
+                     ng-click="c.openList(issue.record_table, issue.record_filter)">
+                    <i class="fa fa-list"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        </div>
+      <div class="fha-card" ng-if="c.result.issues.length === 0">
+        <div class="fha-card-body" style="text-align: center; padding: 50px;">
+          <i class="fa fa-check-circle fa-3x" style="color: #28A745;"></i>
+          <h3 style="margin-top: 15px; color: #28A745;">${No Issues Found!}</h3>
+          <p style="color: #666;">${This table is in excellent health.}</p>
+      </div>
+    </div>
+  </div>
+
+    <!-- ==================== FIELDS TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'fields'">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-columns"></i> ${Custom Fields} ({{c.getCustomFields().length}})</h4>
+          </div>
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getCustomFields().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th>${Field Name}</th>
+                <th>${Label}</th>
+                <th>${Type}</th>
+                <th>${Fill Rate}</th>
+                <th>${Mandatory}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="field in c.getCustomFields()" 
+                  ng-class="{'fha-row-warning': field.fill_rate < 10 && field.fill_rate > 0, 'fha-row-danger': field.fill_rate === 0}">
+                <td><code>{{field.name}}</code></td>
+                <td>{{field.label}}</td>
+                <td><span class="fha-type-badge">{{field.type}}</span></td>
+                <td>
+                  <div class="fha-fill-rate">
+                    <div class="fha-fill-bar" 
+                         ng-style="{'width': (field.fill_rate || 0) + 'px'}"
+                         ng-class="{'danger': field.fill_rate === 0, 'warning': field.fill_rate > 0 && field.fill_rate < 10, 'good': field.fill_rate >= 10}">
+                    </div>
+                    <span>{{field.fill_rate}}%</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="fha-status-badge" ng-class="field.mandatory ? 'active' : 'inactive'">
+                    {{field.mandatory ? '${Yes}' : '${No}'}}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card-body" ng-if="c.getCustomFields().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No custom fields found on this table.}</p>
+      </div>
+    </div>
+  </div>
+
+    <!-- ==================== AUTOMATION TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'automation'">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-cogs"></i> ${Automation Items} ({{c.getAutomationItems().length}})</h4>
+          </div>
+        
+        <!-- Filter Bar -->
+        <div class="fha-filter-bar" ng-if="c.getAutomationItems().length > 0">
+          <div class="fha-filter-group">
+            <label>${Type}:</label>
+            <select ng-model="c.automationFilter.type">
+              <option value="all">${All Types}</option>
+              <option ng-repeat="type in c.getAutomationTypes()" value="{{type}}">{{type}}</option>
+            </select>
+        </div>
+          <div class="fha-filter-group">
+            <label>${Status}:</label>
+            <select ng-model="c.automationFilter.status">
+              <option value="all">${All}</option>
+              <option value="active">${Active}</option>
+              <option value="inactive">${Inactive}</option>
+            </select>
+            </div>
+          <div class="fha-filter-group fha-filter-search">
+            <label>${Search}:</label>
+            <input type="text" ng-model="c.automationFilter.search" placeholder="${Filter by name...}">
+          </div>
+          <button class="fha-filter-reset" ng-click="c.resetAutomationFilter()">
+            <i class="fa fa-refresh"></i> ${Reset}
+                </button>
+          <span class="fha-filter-count">
+            {{c.getFilteredAutomationItems().length}} / {{c.getAutomationItems().length}} ${items}
+                  </span>
+              </div>
+        
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getAutomationItems().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="150">${Type}</th>
+                <th>${Name}</th>
+                <th width="100">${Status}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="item in c.getFilteredAutomationItems()" ng-class="{'fha-row-inactive': !item.active}">
+                <td><span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)">{{item.type}}</span></td>
+                <td>{{item.name}}</td>
+                <td>
+                  <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
+                    {{item.active ? '${Active}' : '${Inactive}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+            </div>
+        <div class="fha-card-body" ng-if="c.getAutomationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No automation items found for this table.}</p>
+              </div>
+            </div>
+          </div>
+
+    <!-- ==================== INTEGRATIONS TAB ==================== -->
+    <div class="fha-tab-content" ng-show="c.activeTab === 'integration'">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-exchange"></i> ${Integration Items} ({{c.getIntegrationItems().length}})</h4>
+        </div>
+        
+        <!-- Filter Bar -->
+        <div class="fha-filter-bar" ng-if="c.getIntegrationItems().length > 0">
+          <div class="fha-filter-group">
+            <label>${Type}:</label>
+            <select ng-model="c.integrationFilter.type">
+              <option value="all">${All Types}</option>
+              <option ng-repeat="type in c.getIntegrationTypes()" value="{{type}}">{{type}}</option>
+            </select>
+      </div>
+          <div class="fha-filter-group">
+            <label>${Status}:</label>
+            <select ng-model="c.integrationFilter.status">
+              <option value="all">${All}</option>
+              <option value="active">${Active}</option>
+              <option value="inactive">${Inactive}</option>
+            </select>
+    </div>
+          <div class="fha-filter-group fha-filter-search">
+            <label>${Search}:</label>
+            <input type="text" ng-model="c.integrationFilter.search" placeholder="${Filter by name...}">
+  </div>
+          <button class="fha-filter-reset" ng-click="c.resetIntegrationFilter()">
+            <i class="fa fa-refresh"></i> ${Reset}
+        </button>
+          <span class="fha-filter-count">
+            {{c.getFilteredIntegrationItems().length}} / {{c.getIntegrationItems().length}} ${items}
+          </span>
+      </div>
+        
+        <div class="fha-card-body" style="padding: 0;" ng-if="c.getIntegrationItems().length > 0">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th width="150">${Type}</th>
+                <th>${Name}</th>
+                <th width="100">${Status}</th>
+                <th width="80">${Action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="item in c.getFilteredIntegrationItems()" ng-class="{'fha-row-inactive': !item.active}">
+                <td><span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)">{{item.type}}</span></td>
+                <td>{{item.name}}</td>
+                <td>
+                  <span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'">
+                    {{item.active ? '${Active}' : '${Inactive}'}}
+                  </span>
+                </td>
+                <td>
+                  <a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id">
+                    <i class="fa fa-external-link"></i>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+  </div>
+        <div class="fha-card-body" ng-if="c.getIntegrationItems().length === 0" style="text-align: center; padding: 40px; color: #666;">
+          <i class="fa fa-info-circle fa-2x"></i>
+          <p style="margin-top: 10px;">${No integration items found for this table.}</p>
+      </div>
+    </div>
+  </div>
+
+  </div>
+</div>
+]]></template>
+    </sp_widget>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>615a31611b9ab59ce84d2f8dee4bcb52</instance_id>
+        <instance_name>dev203401</instance_name>
+        <name>sp_widget_2da8cfd48312f21083e1b4a6feaad3aa</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sp_widget"&gt;&lt;sp_widget action="INSERT_OR_UPDATE"&gt;&lt;category&gt;custom&lt;/category&gt;&lt;client_script&gt;&lt;![CDATA[function($scope, spUtil, $location, $window) {
+  var c = this;
+    
+    // Get analysis ID from URL parameter
+    c.analysisId = $location.search().sys_id || c.data.analysisId || '';
+    c.loading = !c.data.result;
+    c.error = c.data.error || null;
+    c.result = c.data.result || null;
+    c.activeTab = 'overview';
+    
+    // Expanded sections
+    c.expandedSections = {
+        fields: false,
+        business_rules: false,
+        automation: false,
+        integration: false
+    };
+
+    // Toggle section
+    c.toggleSection = function(section) {
+        c.expandedSections[section] = !c.expandedSections[section];
+    };
+
+    // Get health score class
+    c.getHealthScoreClass = function(score) {
+        if (score &gt;= 70) return 'good';
+        if (score &gt;= 40) return 'medium';
+        return 'poor';
+    };
+
+    // Get severity class
+    c.getSeverityClass = function(severity) {
+        switch(severity) {
+            case 'high': return 'danger';
+            case 'medium': return 'warning';
+            case 'low': return 'info';
+            default: return 'default';
+        }
+    };
+
+    // Count issues by severity
+    c.countBySeverity = function(severity) {
+        if (!c.result || !c.result.issues) return 0;
+        return c.result.issues.filter(function(i) { return i.severity === severity; }).length;
+    };
+
+    // Get issues by category
+    c.getIssuesByCategory = function(category) {
+        if (!c.result || !c.result.issues) return [];
+        return c.result.issues.filter(function(i) { return i.category === category; });
+    };
+
+    // Get metrics
+    c.getMetrics = function() {
+        return (c.result &amp;&amp; c.result.metrics) ? c.result.metrics : {};
+    };
+
+    // Get custom fields
+    c.getCustomFields = function() {
+        var metrics = c.getMetrics();
+        return metrics.custom_fields || [];
+    };
+
+    // Get business rules
+    c.getBusinessRules = function() {
+        var metrics = c.getMetrics();
+        return metrics.business_rules || [];
+    };
+
+    // Get all automation items
+    c.getAutomationItems = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.scheduled_jobs) {
+            metrics.scheduled_jobs.forEach(function(job) {
+                items.push({ type: 'Scheduled Job', name: job.name, active: job.active, sys_id: job.sys_id, table: 'sysauto_script' });
+            });
+        }
+        if (metrics.flows) {
+            metrics.flows.forEach(function(flow) {
+                items.push({ type: 'Flow', name: flow.name, active: flow.active, sys_id: flow.sys_id, table: 'sys_hub_flow' });
+            });
+        }
+        if (metrics.workflows) {
+            metrics.workflows.forEach(function(wf) {
+                items.push({ type: 'Workflow', name: wf.name, active: wf.active, sys_id: wf.sys_id, table: 'wf_workflow' });
+            });
+        }
+        if (metrics.notifications) {
+            metrics.notifications.forEach(function(n) {
+                items.push({ type: 'Notification', name: n.name, active: n.active, sys_id: n.sys_id, table: 'sysevent_email_action' });
+            });
+        }
+        if (metrics.ui_actions) {
+            metrics.ui_actions.forEach(function(a) {
+                items.push({ type: 'UI Action', name: a.name, active: true, sys_id: a.sys_id, table: 'sys_ui_action' });
+            });
+        }
+        
+        return items;
+    };
+
+    // Get integration items
+    c.getIntegrationItems = function() {
+        var metrics = c.getMetrics();
+        var items = [];
+        
+        if (metrics.data_sources) {
+            metrics.data_sources.forEach(function(ds) {
+                items.push({ type: 'Data Source', name: ds.name, active: ds.active, sys_id: ds.sys_id, table: 'sys_data_source' });
+            });
+        }
+        if (metrics.transform_maps) {
+            metrics.transform_maps.forEach(function(tm) {
+                items.push({ type: 'Transform Map', name: tm.name, active: tm.active, sys_id: tm.sys_id, table: 'sys_transform_map' });
+            });
+        }
+        
+        return items;
+    };
+
+    // Filters for automation tab
+    c.automationFilter = {
+        type: 'all',
+        status: 'all',
+        search: ''
+    };
+
+    // Filters for integration tab
+    c.integrationFilter = {
+        type: 'all',
+        status: 'all',
+        search: ''
+    };
+
+    // Get unique automation types
+    c.getAutomationTypes = function() {
+        var items = c.getAutomationItems();
+        var types = {};
+        items.forEach(function(item) {
+            types[item.type] = true;
+        });
+        return Object.keys(types);
+    };
+
+    // Get unique integration types
+    c.getIntegrationTypes = function() {
+        var items = c.getIntegrationItems();
+        var types = {};
+        items.forEach(function(item) {
+            types[item.type] = true;
+        });
+        return Object.keys(types);
+    };
+
+    // Get filtered automation items
+    c.getFilteredAutomationItems = function() {
+        var items = c.getAutomationItems();
+        
+        // Filter by type
+        if (c.automationFilter.type !== 'all') {
+            items = items.filter(function(item) {
+                return item.type === c.automationFilter.type;
+            });
+        }
+        
+        // Filter by status
+        if (c.automationFilter.status !== 'all') {
+            var isActive = c.automationFilter.status === 'active';
+            items = items.filter(function(item) {
+                return item.active === isActive;
+            });
+        }
+        
+        // Filter by search
+        if (c.automationFilter.search) {
+            var search = c.automationFilter.search.toLowerCase();
+            items = items.filter(function(item) {
+                return item.name.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return items;
+    };
+
+    // Get filtered integration items
+    c.getFilteredIntegrationItems = function() {
+        var items = c.getIntegrationItems();
+        
+        // Filter by type
+        if (c.integrationFilter.type !== 'all') {
+            items = items.filter(function(item) {
+                return item.type === c.integrationFilter.type;
+            });
+        }
+        
+        // Filter by status
+        if (c.integrationFilter.status !== 'all') {
+            var isActive = c.integrationFilter.status === 'active';
+            items = items.filter(function(item) {
+                return item.active === isActive;
+            });
+        }
+        
+        // Filter by search
+        if (c.integrationFilter.search) {
+            var search = c.integrationFilter.search.toLowerCase();
+            items = items.filter(function(item) {
+                return item.name.toLowerCase().indexOf(search) !== -1;
+            });
+        }
+        
+        return items;
+    };
+
+    // Get type badge class (color coding)
+    c.getTypeBadgeClass = function(type) {
+        var classes = {
+            'Scheduled Job': 'type-scheduled-job',
+            'Flow': 'type-flow',
+            'Workflow': 'type-workflow',
+            'Notification': 'type-notification',
+            'UI Action': 'type-ui-action',
+            'Data Source': 'type-data-source',
+            'Transform Map': 'type-transform-map'
+        };
+        return classes[type] || 'type-default';
+    };
+
+    // Reset automation filter
+    c.resetAutomationFilter = function() {
+        c.automationFilter = { type: 'all', status: 'all', search: '' };
+    };
+
+    // Reset integration filter
+    c.resetIntegrationFilter = function() {
+        c.integrationFilter = { type: 'all', status: 'all', search: '' };
+    };
+
+    // Open record
+    c.openRecord = function(table, sysId) {
+        if (table &amp;&amp; sysId) {
+            $window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
+        }
+    };
+
+    // Open list with filter
+    c.openList = function(table, filter) {
+        var url = '/' + table + '_list.do';
+        if (filter) {
+            url += '?sysparm_query=' + encodeURIComponent(filter);
+        }
+        $window.open(url, '_blank');
+    };
+
+    // Go back to dashboard
+    c.goBack = function() {
+        $location.path('/fha');
+    };
+
+    // Set active tab
+    c.setActiveTab = function(tab) {
+        c.activeTab = tab;
+    };
+
+    // Export to JSON
+    c.exportJSON = function() {
+        if (!c.result) return;
+        var dataStr = JSON.stringify(c.result, null, 2);
+        var dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+        var exportName = 'fha_analysis_' + c.analysisId + '.json';
+        var linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportName);
+        linkElement.click();
+    };
+
+    // Export to PDF
+    c.exportPDF = function() {
+        if (!c.result) return;
+        
+        // Create a printable HTML content
+        var printContent = '&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset="UTF-8"&gt;';
+        printContent += '&lt;title&gt;FHA Analysis Report - ' + (c.result.table_label || c.result.table_name) + '&lt;/title&gt;';
+        printContent += '&lt;style&gt;';
+        printContent += 'body { font-family: Arial, sans-serif; padding: 40px; color: #333; }';
+        printContent += 'h1 { color: #0378BE; border-bottom: 3px solid #0378BE; padding-bottom: 10px; }';
+        printContent += 'h2 { color: #035B8E; margin-top: 30px; }';
+        printContent += 'h3 { color: #495057; margin-top: 20px; }';
+        printContent += '.header-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }';
+        printContent += '.score-circle { display: inline-block; width: 80px; height: 80px; border-radius: 50%; text-align: center; line-height: 80px; font-size: 28px; font-weight: bold; margin-right: 20px; }';
+        printContent += '.score-good { background: #d4edda; color: #28A745; border: 3px solid #28A745; }';
+        printContent += '.score-medium { background: #fff3cd; color: #856404; border: 3px solid #FFC107; }';
+        printContent += '.score-poor { background: #f8d7da; color: #DC3545; border: 3px solid #DC3545; }';
+        printContent += 'table { width: 100%; border-collapse: collapse; margin: 15px 0; }';
+        printContent += 'th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }';
+        printContent += 'th { background: #f8f9fa; font-weight: 600; }';
+        printContent += '.severity-high { background: #DC3545; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.severity-medium { background: #FFC107; color: #333; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.severity-low { background: #17A2B8; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; }';
+        printContent += '.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }';
+        printContent += '.summary-item { text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px; }';
+        printContent += '.summary-value { font-size: 24px; font-weight: bold; }';
+        printContent += '.summary-label { font-size: 12px; color: #666; margin-top: 5px; }';
+        printContent += '.footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; text-align: center; }';
+        printContent += '@media print { body { padding: 20px; } }';
+        printContent += '&lt;/style&gt;&lt;/head&gt;&lt;body&gt;';
+        
+        // Header
+        printContent += '&lt;h1&gt;Foundation Health Analysis Report&lt;/h1&gt;';
+        printContent += '&lt;div class="header-info"&gt;';
+        printContent += '&lt;p&gt;&lt;strong&gt;Table:&lt;/strong&gt; ' + (c.result.table_label || c.result.table_name) + ' (' + c.result.table_name + ')&lt;/p&gt;';
+        printContent += '&lt;p&gt;&lt;strong&gt;Analysis Number:&lt;/strong&gt; ' + c.result.number + '&lt;/p&gt;';
+        printContent += '&lt;p&gt;&lt;strong&gt;Date:&lt;/strong&gt; ' + c.result.created_on + '&lt;/p&gt;';
+        printContent += '&lt;p&gt;&lt;strong&gt;Analyzed by:&lt;/strong&gt; ' + c.result.created_by + '&lt;/p&gt;';
+        printContent += '&lt;/div&gt;';
+        
+        // Health Score
+        var scoreClass = c.result.health_score &gt;= 70 ? 'score-good' : (c.result.health_score &gt;= 40 ? 'score-medium' : 'score-poor');
+        printContent += '&lt;h2&gt;Health Score&lt;/h2&gt;';
+        printContent += '&lt;div class="score-circle ' + scoreClass + '"&gt;' + c.result.health_score + '&lt;/div&gt;';
+        printContent += '&lt;span style="font-size: 18px;"&gt;' + (c.result.health_score &gt;= 70 ? 'Good' : (c.result.health_score &gt;= 40 ? 'Needs Attention' : 'Critical')) + '&lt;/span&gt;';
+        
+        // Summary
+        printContent += '&lt;div class="summary-grid"&gt;';
+        printContent += '&lt;div class="summary-item"&gt;&lt;div class="summary-value"&gt;' + c.result.issues.length + '&lt;/div&gt;&lt;div class="summary-label"&gt;Total Issues&lt;/div&gt;&lt;/div&gt;';
+        printContent += '&lt;div class="summary-item"&gt;&lt;div class="summary-value" style="color:#DC3545;"&gt;' + c.countBySeverity('high') + '&lt;/div&gt;&lt;div class="summary-label"&gt;High Severity&lt;/div&gt;&lt;/div&gt;';
+        printContent += '&lt;div class="summary-item"&gt;&lt;div class="summary-value" style="color:#FFC107;"&gt;' + c.countBySeverity('medium') + '&lt;/div&gt;&lt;div class="summary-label"&gt;Medium Severity&lt;/div&gt;&lt;/div&gt;';
+        printContent += '&lt;div class="summary-item"&gt;&lt;div class="summary-value" style="color:#17A2B8;"&gt;' + c.countBySeverity('low') + '&lt;/div&gt;&lt;div class="summary-label"&gt;Low Severity&lt;/div&gt;&lt;/div&gt;';
+        printContent += '&lt;/div&gt;';
+        
+        // Issues List
+        if (c.result.issues &amp;&amp; c.result.issues.length &gt; 0) {
+            printContent += '&lt;h2&gt;Issues Found&lt;/h2&gt;';
+            printContent += '&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Severity&lt;/th&gt;&lt;th&gt;Category&lt;/th&gt;&lt;th&gt;Code&lt;/th&gt;&lt;th&gt;Description&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;';
+            c.result.issues.forEach(function(issue) {
+                var severityClass = 'severity-' + issue.severity;
+                printContent += '&lt;tr&gt;';
+                printContent += '&lt;td&gt;&lt;span class="' + severityClass + '"&gt;' + issue.severity.toUpperCase() + '&lt;/span&gt;&lt;/td&gt;';
+                printContent += '&lt;td&gt;' + (issue.category || 'general') + '&lt;/td&gt;';
+                printContent += '&lt;td&gt;' + issue.code + '&lt;/td&gt;';
+                printContent += '&lt;td&gt;' + issue.message + '&lt;/td&gt;';
+                printContent += '&lt;/tr&gt;';
+            });
+            printContent += '&lt;/tbody&gt;&lt;/table&gt;';
+        } else {
+            printContent += '&lt;h2&gt;Issues Found&lt;/h2&gt;';
+            printContent += '&lt;p style="color: #28A745;"&gt;&lt;strong&gt;No issues found. This table is in excellent health!&lt;/strong&gt;&lt;/p&gt;';
+        }
+        
+        // Footer
+        printContent += '&lt;div class="footer"&gt;';
+        printContent += '&lt;p&gt;Generated by Foundation Health Analyzer&lt;/p&gt;';
+        printContent += '&lt;p&gt;' + new Date().toLocaleString() + '&lt;/p&gt;';
+        printContent += '&lt;/div&gt;';
+        
+        printContent += '&lt;/body&gt;&lt;/html&gt;';
+        
+        // Open print window
+        var printWindow = window.open('', '_blank');
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        // Auto print after a short delay
+        setTimeout(function() {
+            printWindow.print();
+        }, 500);
+    };
+}
+]]&gt;&lt;/client_script&gt;&lt;controller_as&gt;c&lt;/controller_as&gt;&lt;css&gt;/* FHA Analysis Results Page Styles */
+.fha-results-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.fha-results-header {
+  background: linear-gradient(135deg, #0378BE 0%, #035B8E 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(3, 120, 190, 0.3);
+}
+
+.fha-results-header h1 {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.fha-results-header .fha-table-code {
+  opacity: 0.85;
+}
+
+.fha-results-header p {
+  color: white;
+  margin: 0;
+}
+
+/* Stats Row */
+.fha-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.fha-stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.fha-stat-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.fha-stat-card.highlight {
+  border: 2px solid #0378BE;
+}
+
+.fha-stat-value {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.fha-stat-value.good { color: #28A745; }
+.fha-stat-value.medium { color: #FFC107; }
+.fha-stat-value.poor { color: #DC3545; }
+
+.fha-stat-label {
+  color: #666;
+  font-size: 14px;
+}
+
+/* Health Score Circle */
+.fha-health-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.fha-health-circle.good {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28A745;
+  border: 4px solid #28A745;
+}
+
+.fha-health-circle.medium {
+  background: rgba(255, 193, 7, 0.15);
+  color: #856404;
+  border: 4px solid #FFC107;
+}
+
+.fha-health-circle.poor {
+  background: rgba(220, 53, 69, 0.15);
+  color: #DC3545;
+  border: 4px solid #DC3545;
+}
+
+/* Tabs */
+.fha-tabs-nav {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 25px;
+  gap: 5px;
+}
+
+/* Tab content */
+.fha-tab-content {
+  display: block;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fha-tab-btn {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  color: #666;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  border-radius: 8px 8px 0 0;
+}
+
+.fha-tab-btn:hover {
+  color: #0378BE;
+  background: #f8f9fa;
+}
+
+.fha-tab-btn.active {
+  color: #0378BE;
+  border-bottom-color: #0378BE;
+  font-weight: 600;
+}
+
+.fha-tab-btn .badge {
+  margin-left: 8px;
+  background: #0378BE;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+/* Cards */
+.fha-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.fha-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.fha-card-header {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fha-card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.fha-card-body {
+  padding: 20px;
+}
+
+/* Section styles */
+.fha-section {
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.fha-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.fha-section-header:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+}
+
+.fha-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-section-title i {
+  color: #0378BE;
+  font-size: 18px;
+}
+
+.fha-section-title h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fha-section-count {
+  background: #6c757d;
+  color: white;
+  padding: 3px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+}
+
+.fha-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Issues */
+.fha-issue-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+
+.fha-issue-item:last-child {
+  border-bottom: none;
+}
+
+.fha-issue-item:hover {
+  background: #f8f9fa;
+}
+
+.fha-issue-severity {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 12px;
+  min-width: 65px;
+  text-align: center;
+}
+
+.fha-severity-high { background: #DC3545; color: white; }
+.fha-severity-medium { background: #FFC107; color: #333; }
+.fha-severity-low { background: #17A2B8; color: white; }
+
+.fha-issue-content { flex: 1; }
+.fha-issue-code { font-weight: 600; color: #333; }
+.fha-issue-message { color: #666; margin-top: 4px; font-size: 14px; }
+
+/* Tables */
+.fha-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fha-data-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.fha-data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fha-data-table tr:hover {
+  background: #f8f9fa;
+}
+
+.fha-data-table code {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Status badges */
+.fha-status-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fha-status-badge.active { background: rgba(40, 167, 69, 0.15); color: #28A745; }
+.fha-status-badge.inactive { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+
+.fha-type-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+/* Type-specific colors for Automation */
+.fha-type-badge.type-scheduled-job { background: #6f42c1; color: white; }
+.fha-type-badge.type-flow { background: #0d6efd; color: white; }
+.fha-type-badge.type-workflow { background: #0dcaf0; color: #000; }
+.fha-type-badge.type-notification { background: #fd7e14; color: white; }
+.fha-type-badge.type-ui-action { background: #20c997; color: white; }
+
+/* Type-specific colors for Integration */
+.fha-type-badge.type-data-source { background: #198754; color: white; }
+.fha-type-badge.type-transform-map { background: #6610f2; color: white; }
+
+/* Default type badge */
+.fha-type-badge.type-default { background: #6c757d; color: white; }
+
+/* Fill rate */
+.fha-fill-rate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fha-fill-bar {
+  height: 8px;
+  border-radius: 4px;
+  min-width: 5px;
+  max-width: 100px;
+}
+
+.fha-fill-bar.good { background: #28A745; }
+.fha-fill-bar.warning { background: #FFC107; }
+.fha-fill-bar.danger { background: #DC3545; }
+
+/* Buttons */
+.fha-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fha-btn-primary {
+  background: linear-gradient(135deg, #0378BE 0%, #035B8E 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(3, 120, 190, 0.3);
+}
+
+.fha-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(3, 120, 190, 0.4);
+}
+
+.fha-btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.fha-btn-secondary:hover {
+  background: #545b62;
+}
+
+.fha-btn-success {
+  background: linear-gradient(135deg, #28A745 0%, #1e7e34 100%);
+  color: white;
+}
+
+.fha-btn-success:hover {
+  transform: translateY(-2px);
+}
+
+/* Link */
+.fha-link {
+  color: #0378BE;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.fha-link:hover {
+  text-decoration: underline;
+}
+
+/* Metadata */
+.fha-metadata {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 15px;
+}
+
+.fha-metadata i {
+  margin-right: 5px;
+  opacity: 0.8;
+}
+
+/* Actions panel */
+.fha-actions-panel {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Filter bar */
+.fha-filter-bar {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 8px 8px 0 0;
+}
+
+.fha-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fha-filter-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+.fha-filter-group select,
+.fha-filter-group input {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 120px;
+}
+
+.fha-filter-group select:focus,
+.fha-filter-group input:focus {
+  outline: none;
+  border-color: #0378BE;
+  box-shadow: 0 0 0 3px rgba(3, 120, 190, 0.15);
+}
+
+.fha-filter-search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.fha-filter-search input {
+  width: 100%;
+}
+
+.fha-filter-reset {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #6c757d;
+  color: #6c757d;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-filter-reset:hover {
+  background: #6c757d;
+  color: white;
+}
+
+.fha-filter-count {
+  font-size: 12px;
+  color: #6c757d;
+  margin-left: auto;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .fha-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .fha-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+&lt;/css&gt;&lt;data_table&gt;sp_instance&lt;/data_table&gt;&lt;demo_data/&gt;&lt;description/&gt;&lt;docs/&gt;&lt;field_list/&gt;&lt;has_preview&gt;false&lt;/has_preview&gt;&lt;id/&gt;&lt;internal&gt;false&lt;/internal&gt;&lt;link&gt;&lt;![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]&gt;&lt;/link&gt;&lt;name&gt;Copy of FHA Analysis results&lt;/name&gt;&lt;option_schema/&gt;&lt;public&gt;false&lt;/public&gt;&lt;roles/&gt;&lt;script&gt;&lt;![CDATA[(function() {
+    // Get sys_id from URL parameter
+    var sysId = $sp.getParameter('sys_id') || '';
+    
+    data.analysisId = sysId;
+    data.result = null;
+    data.error = null;
+    
+    if (sysId) {
+        try {
+            // Query directly by sys_id (not analysis_id)
+            var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+            if (gr.get(sysId)) {
+                // Parse detail_json for full metrics first
+                var detailJson = {};
+                try {
+                    var detailStr = gr.getValue('detail_json');
+                    if (detailStr) {
+                        detailJson = JSON.parse(detailStr);
+                    }
+                } catch(e) {
+                    // Ignore parse errors
+                }
+                
+                // Get table name from reference field OR from detail_json
+                var tableName = '';
+                var tableLabel = '';
+                
+                // First try from reference field
+                if (gr.table_name &amp;&amp; !gr.table_name.nil()) {
+                    var tableRef = gr.table_name.getRefRecord();
+                    if (tableRef) {
+                        tableName = tableRef.getValue('name') || '';
+                        tableLabel = tableRef.getValue('label') || tableName;
+                    }
+                }
+                
+                // Fallback to detail_json if reference didn't work
+                if (!tableName &amp;&amp; detailJson.table_name) {
+                    tableName = detailJson.table_name;
+                    tableLabel = detailJson.table_label || detailJson.table_name;
+                }
+                
+                data.result = {
+                    sys_id: gr.getUniqueValue(),
+                    number: gr.getValue('number'),
+                    table_name: tableName,
+                    table_label: tableLabel,
+                    health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                    issue_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                    status: gr.getValue('status'),
+                    created_on: gr.getValue('sys_created_on'),
+                    created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : '',
+                    issues: detailJson.issues || [],
+                    metrics: detailJson.metrics || {},
+                    duration_ms: detailJson.metrics ? detailJson.metrics.duration_ms : 0
+                };
+        } else {
+                data.error = 'Analysis record not found (sys_id: ' + sysId + ')';
+        }
+        } catch(e) {
+            data.error = 'Error loading analysis: ' + e.message;
+        }
+    } else {
+        data.error = 'No analysis ID provided. Please access this page from the dashboard.';
+    }
+})();
+]]&gt;&lt;/script&gt;&lt;servicenow&gt;false&lt;/servicenow&gt;&lt;sys_class_name&gt;sp_widget&lt;/sys_class_name&gt;&lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;&lt;sys_created_on&gt;2026-01-03 22:37:33&lt;/sys_created_on&gt;&lt;sys_id&gt;2da8cfd48312f21083e1b4a6feaad3aa&lt;/sys_id&gt;&lt;sys_mod_count&gt;0&lt;/sys_mod_count&gt;&lt;sys_name&gt;Copy of FHA Analysis results&lt;/sys_name&gt;&lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;&lt;sys_policy/&gt;&lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;&lt;sys_update_name&gt;sp_widget_2da8cfd48312f21083e1b4a6feaad3aa&lt;/sys_update_name&gt;&lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;&lt;sys_updated_on&gt;2026-01-03 22:37:33&lt;/sys_updated_on&gt;&lt;template&gt;&lt;![CDATA[&lt;div class="fha-results-page"&gt;
+  
+  &lt;!-- Page Header --&gt;
+  &lt;div class="fha-results-header"&gt;
+    &lt;h1&gt;&lt;i class="fa fa-chart-bar"&gt;&lt;/i&gt; ${Analysis Results}&lt;/h1&gt;
+    &lt;p ng-if="c.result"&gt;
+      ${Detailed analysis of table:} &lt;strong&gt;{{c.result.table_label || c.result.table_name}}&lt;/strong&gt;
+      &lt;span class="fha-table-code"&gt;({{c.result.table_name}})&lt;/span&gt;
+    &lt;/p&gt;
+    &lt;div class="fha-metadata" ng-if="c.result"&gt;
+      &lt;span&gt;&lt;i class="fa fa-hashtag"&gt;&lt;/i&gt; {{c.result.number}}&lt;/span&gt;
+      &lt;span&gt;&lt;i class="fa fa-calendar"&gt;&lt;/i&gt; {{c.result.created_on}}&lt;/span&gt;
+      &lt;span&gt;&lt;i class="fa fa-user"&gt;&lt;/i&gt; {{c.result.created_by}}&lt;/span&gt;
+      &lt;span&gt;&lt;i class="fa fa-clock-o"&gt;&lt;/i&gt; {{c.result.duration_ms}}ms&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;!-- Error Message --&gt;
+  &lt;div class="alert alert-danger" ng-if="c.error" style="margin-bottom: 20px;"&gt;
+    &lt;i class="fa fa-exclamation-triangle"&gt;&lt;/i&gt; {{c.error}}
+    &lt;button class="fha-btn fha-btn-secondary" ng-click="c.goBack()" style="margin-left: 20px;"&gt;
+      &lt;i class="fa fa-arrow-left"&gt;&lt;/i&gt; ${Back to Dashboard}
+    &lt;/button&gt;
+  &lt;/div&gt;
+
+  &lt;!-- Loading State --&gt;
+  &lt;div ng-if="c.loading &amp;&amp; !c.error" style="text-align: center; padding: 80px;"&gt;
+        &lt;i class="fa fa-spinner fa-spin fa-3x" style="color: #0378BE;"&gt;&lt;/i&gt;
+    &lt;h3 style="margin-top: 20px; color: #666;"&gt;${Loading analysis results...}&lt;/h3&gt;
+  &lt;/div&gt;
+
+  &lt;!-- Main Content --&gt;
+  &lt;div ng-if="c.result &amp;&amp; !c.loading"&gt;
+    
+    &lt;!-- Stats Grid --&gt;
+    &lt;div class="fha-stats-grid"&gt;
+      &lt;div class="fha-stat-card highlight"&gt;
+        &lt;div class="fha-health-circle" ng-class="c.getHealthScoreClass(c.result.health_score)"&gt;
+          {{c.result.health_score}}
+        &lt;/div&gt;
+        &lt;div class="fha-stat-label"&gt;${Health Score}&lt;/div&gt;
+          &lt;/div&gt;
+      &lt;div class="fha-stat-card"&gt;
+        &lt;div class="fha-stat-value" ng-class="c.countBySeverity('high') &gt; 0 ? 'poor' : 'good'"&gt;
+          {{c.countBySeverity('high')}}
+          &lt;/div&gt;
+        &lt;div class="fha-stat-label"&gt;${High Severity Issues}&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="fha-stat-card"&gt;
+        &lt;div class="fha-stat-value medium"&gt;{{c.countBySeverity('medium')}}&lt;/div&gt;
+        &lt;div class="fha-stat-label"&gt;${Medium Severity Issues}&lt;/div&gt;
+          &lt;/div&gt;
+      &lt;div class="fha-stat-card"&gt;
+        &lt;div class="fha-stat-value" style="color: #17A2B8;"&gt;{{c.countBySeverity('low')}}&lt;/div&gt;
+        &lt;div class="fha-stat-label"&gt;${Low Severity Issues}&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      
+    &lt;!-- Actions Bar --&gt;
+      &lt;div class="fha-card"&gt;
+        &lt;div class="fha-card-body"&gt;
+        &lt;div class="fha-actions-panel"&gt;
+          &lt;button class="fha-btn fha-btn-primary" ng-click="c.exportPDF()"&gt;
+            &lt;i class="fa fa-file-pdf-o"&gt;&lt;/i&gt; ${Export PDF}
+          &lt;/button&gt;
+          &lt;button class="fha-btn fha-btn-secondary" ng-click="c.exportJSON()"&gt;
+            &lt;i class="fa fa-download"&gt;&lt;/i&gt; ${Export JSON}
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;!-- Tabs Navigation --&gt;
+    &lt;div class="fha-tabs-nav"&gt;
+      &lt;button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'overview'}" ng-click="c.setActiveTab('overview')"&gt;
+        &lt;i class="fa fa-th-large"&gt;&lt;/i&gt; ${Overview}
+      &lt;/button&gt;
+      &lt;button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'issues'}" ng-click="c.setActiveTab('issues')"&gt;
+        &lt;i class="fa fa-exclamation-circle"&gt;&lt;/i&gt; ${Issues}
+        &lt;span class="badge"&gt;{{c.result.issues.length}}&lt;/span&gt;
+      &lt;/button&gt;
+      &lt;button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'fields'}" ng-click="c.setActiveTab('fields')"&gt;
+        &lt;i class="fa fa-columns"&gt;&lt;/i&gt; ${Fields}
+        &lt;span class="badge"&gt;{{c.getCustomFields().length}}&lt;/span&gt;
+      &lt;/button&gt;
+      &lt;button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'automation'}" ng-click="c.setActiveTab('automation')"&gt;
+        &lt;i class="fa fa-cogs"&gt;&lt;/i&gt; ${Automation}
+        &lt;span class="badge"&gt;{{c.getAutomationItems().length}}&lt;/span&gt;
+      &lt;/button&gt;
+      &lt;button class="fha-tab-btn" ng-class="{'active': c.activeTab === 'integration'}" ng-click="c.setActiveTab('integration')"&gt;
+        &lt;i class="fa fa-exchange"&gt;&lt;/i&gt; ${Integrations}
+        &lt;span class="badge"&gt;{{c.getIntegrationItems().length}}&lt;/span&gt;
+      &lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;!-- ==================== OVERVIEW TAB ==================== --&gt;
+    &lt;div class="fha-tab-content" ng-show="c.activeTab === 'overview'"&gt;
+      &lt;div class="row"&gt;
+        &lt;div class="col-md-6"&gt;
+      &lt;div class="fha-card"&gt;
+        &lt;div class="fha-card-header"&gt;
+              &lt;h4&gt;&lt;i class="fa fa-table"&gt;&lt;/i&gt; ${Table Information}&lt;/h4&gt;
+        &lt;/div&gt;
+        &lt;div class="fha-card-body"&gt;
+              &lt;table class="fha-data-table"&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;strong&gt;${Table Name}&lt;/strong&gt;&lt;/td&gt;
+                  &lt;td&gt;&lt;code&gt;{{c.result.table_name}}&lt;/code&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;strong&gt;${Table Label}&lt;/strong&gt;&lt;/td&gt;
+                  &lt;td&gt;{{c.result.table_label}}&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;strong&gt;${Record Count}&lt;/strong&gt;&lt;/td&gt;
+                  &lt;td&gt;{{c.getMetrics().record_count || 'N/A'}}&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;strong&gt;${Custom Fields}&lt;/strong&gt;&lt;/td&gt;
+                  &lt;td&gt;{{c.getMetrics().custom_field_count || 0}}&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;strong&gt;${Business Rules}&lt;/strong&gt;&lt;/td&gt;
+                  &lt;td&gt;{{(c.getMetrics().active_br_count || 0) + (c.getMetrics().inactive_br_count || 0)}} ({{c.getMetrics().active_br_count || 0}} ${active})&lt;/td&gt;
+                &lt;/tr&gt;
+              &lt;/table&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;div class="col-md-6"&gt;
+          &lt;div class="fha-card"&gt;
+            &lt;div class="fha-card-header"&gt;
+              &lt;h4&gt;&lt;i class="fa fa-pie-chart"&gt;&lt;/i&gt; ${Issues Summary}&lt;/h4&gt;
+            &lt;/div&gt;
+            &lt;div class="fha-card-body"&gt;
+              &lt;table class="fha-data-table"&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;strong&gt;${Total Issues}&lt;/strong&gt;&lt;/td&gt;
+                  &lt;td&gt;{{c.result.issues.length}}&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;span class="fha-issue-severity fha-severity-high"&gt;HIGH&lt;/span&gt;&lt;/td&gt;
+                  &lt;td&gt;{{c.countBySeverity('high')}}&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;span class="fha-issue-severity fha-severity-medium"&gt;MEDIUM&lt;/span&gt;&lt;/td&gt;
+                  &lt;td&gt;{{c.countBySeverity('medium')}}&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;&lt;span class="fha-issue-severity fha-severity-low"&gt;LOW&lt;/span&gt;&lt;/td&gt;
+                  &lt;td&gt;{{c.countBySeverity('low')}}&lt;/td&gt;
+                &lt;/tr&gt;
+              &lt;/table&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+    &lt;!-- ==================== ISSUES TAB ==================== --&gt;
+    &lt;div class="fha-tab-content" ng-show="c.activeTab === 'issues'"&gt;
+      &lt;div class="fha-card" ng-if="c.result.issues.length &gt; 0"&gt;
+        &lt;div class="fha-card-header"&gt;
+          &lt;h4&gt;&lt;i class="fa fa-exclamation-circle"&gt;&lt;/i&gt; ${All Issues} ({{c.result.issues.length}})&lt;/h4&gt;
+        &lt;/div&gt;
+        &lt;div class="fha-card-body" style="padding: 0;"&gt;
+          &lt;table class="fha-data-table"&gt;
+            &lt;thead&gt;
+              &lt;tr&gt;
+                &lt;th width="100"&gt;${Severity}&lt;/th&gt;
+                &lt;th width="150"&gt;${Category}&lt;/th&gt;
+                &lt;th width="200"&gt;${Code}&lt;/th&gt;
+                &lt;th&gt;${Message}&lt;/th&gt;
+                &lt;th width="80"&gt;${Action}&lt;/th&gt;
+              &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+              &lt;tr ng-repeat="issue in c.result.issues | orderBy:['-severity']"&gt;
+                &lt;td&gt;
+                  &lt;span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity"&gt;
+                    {{issue.severity}}
+                  &lt;/span&gt;
+                &lt;/td&gt;
+                &lt;td&gt;&lt;span class="fha-type-badge"&gt;{{issue.category || 'general'}}&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;strong&gt;{{issue.code}}&lt;/strong&gt;&lt;/td&gt;
+                &lt;td&gt;{{issue.message}}&lt;/td&gt;
+                &lt;td&gt;
+                  &lt;a class="fha-link" ng-if="issue.record_sys_id" 
+                     ng-click="c.openRecord(issue.record_table, issue.record_sys_id)"&gt;
+                    &lt;i class="fa fa-external-link"&gt;&lt;/i&gt;
+                  &lt;/a&gt;
+                  &lt;a class="fha-link" ng-if="issue.record_filter &amp;&amp; !issue.record_sys_id" 
+                     ng-click="c.openList(issue.record_table, issue.record_filter)"&gt;
+                    &lt;i class="fa fa-list"&gt;&lt;/i&gt;
+                  &lt;/a&gt;
+                &lt;/td&gt;
+              &lt;/tr&gt;
+            &lt;/tbody&gt;
+          &lt;/table&gt;
+        &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;div class="fha-card" ng-if="c.result.issues.length === 0"&gt;
+        &lt;div class="fha-card-body" style="text-align: center; padding: 50px;"&gt;
+          &lt;i class="fa fa-check-circle fa-3x" style="color: #28A745;"&gt;&lt;/i&gt;
+          &lt;h3 style="margin-top: 15px; color: #28A745;"&gt;${No Issues Found!}&lt;/h3&gt;
+          &lt;p style="color: #666;"&gt;${This table is in excellent health.}&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+    &lt;!-- ==================== FIELDS TAB ==================== --&gt;
+    &lt;div class="fha-tab-content" ng-show="c.activeTab === 'fields'"&gt;
+      &lt;div class="fha-card"&gt;
+        &lt;div class="fha-card-header"&gt;
+          &lt;h4&gt;&lt;i class="fa fa-columns"&gt;&lt;/i&gt; ${Custom Fields} ({{c.getCustomFields().length}})&lt;/h4&gt;
+          &lt;/div&gt;
+        &lt;div class="fha-card-body" style="padding: 0;" ng-if="c.getCustomFields().length &gt; 0"&gt;
+          &lt;table class="fha-data-table"&gt;
+            &lt;thead&gt;
+              &lt;tr&gt;
+                &lt;th&gt;${Field Name}&lt;/th&gt;
+                &lt;th&gt;${Label}&lt;/th&gt;
+                &lt;th&gt;${Type}&lt;/th&gt;
+                &lt;th&gt;${Fill Rate}&lt;/th&gt;
+                &lt;th&gt;${Mandatory}&lt;/th&gt;
+              &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+              &lt;tr ng-repeat="field in c.getCustomFields()" 
+                  ng-class="{'fha-row-warning': field.fill_rate &lt; 10 &amp;&amp; field.fill_rate &gt; 0, 'fha-row-danger': field.fill_rate === 0}"&gt;
+                &lt;td&gt;&lt;code&gt;{{field.name}}&lt;/code&gt;&lt;/td&gt;
+                &lt;td&gt;{{field.label}}&lt;/td&gt;
+                &lt;td&gt;&lt;span class="fha-type-badge"&gt;{{field.type}}&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;
+                  &lt;div class="fha-fill-rate"&gt;
+                    &lt;div class="fha-fill-bar" 
+                         ng-style="{'width': (field.fill_rate || 0) + 'px'}"
+                         ng-class="{'danger': field.fill_rate === 0, 'warning': field.fill_rate &gt; 0 &amp;&amp; field.fill_rate &lt; 10, 'good': field.fill_rate &gt;= 10}"&gt;
+                    &lt;/div&gt;
+                    &lt;span&gt;{{field.fill_rate}}%&lt;/span&gt;
+                  &lt;/div&gt;
+                &lt;/td&gt;
+                &lt;td&gt;
+                  &lt;span class="fha-status-badge" ng-class="field.mandatory ? 'active' : 'inactive'"&gt;
+                    {{field.mandatory ? '${Yes}' : '${No}'}}
+                  &lt;/span&gt;
+                &lt;/td&gt;
+              &lt;/tr&gt;
+            &lt;/tbody&gt;
+          &lt;/table&gt;
+        &lt;/div&gt;
+        &lt;div class="fha-card-body" ng-if="c.getCustomFields().length === 0" style="text-align: center; padding: 40px; color: #666;"&gt;
+          &lt;i class="fa fa-info-circle fa-2x"&gt;&lt;/i&gt;
+          &lt;p style="margin-top: 10px;"&gt;${No custom fields found on this table.}&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+    &lt;!-- ==================== AUTOMATION TAB ==================== --&gt;
+    &lt;div class="fha-tab-content" ng-show="c.activeTab === 'automation'"&gt;
+      &lt;div class="fha-card"&gt;
+        &lt;div class="fha-card-header"&gt;
+          &lt;h4&gt;&lt;i class="fa fa-cogs"&gt;&lt;/i&gt; ${Automation Items} ({{c.getAutomationItems().length}})&lt;/h4&gt;
+          &lt;/div&gt;
+        
+        &lt;!-- Filter Bar --&gt;
+        &lt;div class="fha-filter-bar" ng-if="c.getAutomationItems().length &gt; 0"&gt;
+          &lt;div class="fha-filter-group"&gt;
+            &lt;label&gt;${Type}:&lt;/label&gt;
+            &lt;select ng-model="c.automationFilter.type"&gt;
+              &lt;option value="all"&gt;${All Types}&lt;/option&gt;
+              &lt;option ng-repeat="type in c.getAutomationTypes()" value="{{type}}"&gt;{{type}}&lt;/option&gt;
+            &lt;/select&gt;
+        &lt;/div&gt;
+          &lt;div class="fha-filter-group"&gt;
+            &lt;label&gt;${Status}:&lt;/label&gt;
+            &lt;select ng-model="c.automationFilter.status"&gt;
+              &lt;option value="all"&gt;${All}&lt;/option&gt;
+              &lt;option value="active"&gt;${Active}&lt;/option&gt;
+              &lt;option value="inactive"&gt;${Inactive}&lt;/option&gt;
+            &lt;/select&gt;
+            &lt;/div&gt;
+          &lt;div class="fha-filter-group fha-filter-search"&gt;
+            &lt;label&gt;${Search}:&lt;/label&gt;
+            &lt;input type="text" ng-model="c.automationFilter.search" placeholder="${Filter by name...}"&gt;
+          &lt;/div&gt;
+          &lt;button class="fha-filter-reset" ng-click="c.resetAutomationFilter()"&gt;
+            &lt;i class="fa fa-refresh"&gt;&lt;/i&gt; ${Reset}
+                &lt;/button&gt;
+          &lt;span class="fha-filter-count"&gt;
+            {{c.getFilteredAutomationItems().length}} / {{c.getAutomationItems().length}} ${items}
+                  &lt;/span&gt;
+              &lt;/div&gt;
+        
+        &lt;div class="fha-card-body" style="padding: 0;" ng-if="c.getAutomationItems().length &gt; 0"&gt;
+          &lt;table class="fha-data-table"&gt;
+            &lt;thead&gt;
+              &lt;tr&gt;
+                &lt;th width="150"&gt;${Type}&lt;/th&gt;
+                &lt;th&gt;${Name}&lt;/th&gt;
+                &lt;th width="100"&gt;${Status}&lt;/th&gt;
+                &lt;th width="80"&gt;${Action}&lt;/th&gt;
+              &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+              &lt;tr ng-repeat="item in c.getFilteredAutomationItems()" ng-class="{'fha-row-inactive': !item.active}"&gt;
+                &lt;td&gt;&lt;span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)"&gt;{{item.type}}&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;{{item.name}}&lt;/td&gt;
+                &lt;td&gt;
+                  &lt;span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'"&gt;
+                    {{item.active ? '${Active}' : '${Inactive}'}}
+                  &lt;/span&gt;
+                &lt;/td&gt;
+                &lt;td&gt;
+                  &lt;a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id"&gt;
+                    &lt;i class="fa fa-external-link"&gt;&lt;/i&gt;
+                  &lt;/a&gt;
+                &lt;/td&gt;
+              &lt;/tr&gt;
+            &lt;/tbody&gt;
+          &lt;/table&gt;
+            &lt;/div&gt;
+        &lt;div class="fha-card-body" ng-if="c.getAutomationItems().length === 0" style="text-align: center; padding: 40px; color: #666;"&gt;
+          &lt;i class="fa fa-info-circle fa-2x"&gt;&lt;/i&gt;
+          &lt;p style="margin-top: 10px;"&gt;${No automation items found for this table.}&lt;/p&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+    &lt;!-- ==================== INTEGRATIONS TAB ==================== --&gt;
+    &lt;div class="fha-tab-content" ng-show="c.activeTab === 'integration'"&gt;
+      &lt;div class="fha-card"&gt;
+        &lt;div class="fha-card-header"&gt;
+          &lt;h4&gt;&lt;i class="fa fa-exchange"&gt;&lt;/i&gt; ${Integration Items} ({{c.getIntegrationItems().length}})&lt;/h4&gt;
+        &lt;/div&gt;
+        
+        &lt;!-- Filter Bar --&gt;
+        &lt;div class="fha-filter-bar" ng-if="c.getIntegrationItems().length &gt; 0"&gt;
+          &lt;div class="fha-filter-group"&gt;
+            &lt;label&gt;${Type}:&lt;/label&gt;
+            &lt;select ng-model="c.integrationFilter.type"&gt;
+              &lt;option value="all"&gt;${All Types}&lt;/option&gt;
+              &lt;option ng-repeat="type in c.getIntegrationTypes()" value="{{type}}"&gt;{{type}}&lt;/option&gt;
+            &lt;/select&gt;
+      &lt;/div&gt;
+          &lt;div class="fha-filter-group"&gt;
+            &lt;label&gt;${Status}:&lt;/label&gt;
+            &lt;select ng-model="c.integrationFilter.status"&gt;
+              &lt;option value="all"&gt;${All}&lt;/option&gt;
+              &lt;option value="active"&gt;${Active}&lt;/option&gt;
+              &lt;option value="inactive"&gt;${Inactive}&lt;/option&gt;
+            &lt;/select&gt;
+    &lt;/div&gt;
+          &lt;div class="fha-filter-group fha-filter-search"&gt;
+            &lt;label&gt;${Search}:&lt;/label&gt;
+            &lt;input type="text" ng-model="c.integrationFilter.search" placeholder="${Filter by name...}"&gt;
+  &lt;/div&gt;
+          &lt;button class="fha-filter-reset" ng-click="c.resetIntegrationFilter()"&gt;
+            &lt;i class="fa fa-refresh"&gt;&lt;/i&gt; ${Reset}
+        &lt;/button&gt;
+          &lt;span class="fha-filter-count"&gt;
+            {{c.getFilteredIntegrationItems().length}} / {{c.getIntegrationItems().length}} ${items}
+          &lt;/span&gt;
+      &lt;/div&gt;
+        
+        &lt;div class="fha-card-body" style="padding: 0;" ng-if="c.getIntegrationItems().length &gt; 0"&gt;
+          &lt;table class="fha-data-table"&gt;
+            &lt;thead&gt;
+              &lt;tr&gt;
+                &lt;th width="150"&gt;${Type}&lt;/th&gt;
+                &lt;th&gt;${Name}&lt;/th&gt;
+                &lt;th width="100"&gt;${Status}&lt;/th&gt;
+                &lt;th width="80"&gt;${Action}&lt;/th&gt;
+              &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+              &lt;tr ng-repeat="item in c.getFilteredIntegrationItems()" ng-class="{'fha-row-inactive': !item.active}"&gt;
+                &lt;td&gt;&lt;span class="fha-type-badge" ng-class="c.getTypeBadgeClass(item.type)"&gt;{{item.type}}&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;{{item.name}}&lt;/td&gt;
+                &lt;td&gt;
+                  &lt;span class="fha-status-badge" ng-class="item.active ? 'active' : 'inactive'"&gt;
+                    {{item.active ? '${Active}' : '${Inactive}'}}
+                  &lt;/span&gt;
+                &lt;/td&gt;
+                &lt;td&gt;
+                  &lt;a class="fha-link" ng-click="c.openRecord(item.table, item.sys_id)" ng-if="item.sys_id"&gt;
+                    &lt;i class="fa fa-external-link"&gt;&lt;/i&gt;
+                  &lt;/a&gt;
+                &lt;/td&gt;
+              &lt;/tr&gt;
+            &lt;/tbody&gt;
+          &lt;/table&gt;
+  &lt;/div&gt;
+        &lt;div class="fha-card-body" ng-if="c.getIntegrationItems().length === 0" style="text-align: center; padding: 40px; color: #666;"&gt;
+          &lt;i class="fa fa-info-circle fa-2x"&gt;&lt;/i&gt;
+          &lt;p style="margin-top: 10px;"&gt;${No integration items found for this table.}&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;/div&gt;
+&lt;/div&gt;
+]]&gt;&lt;/template&gt;&lt;/sp_widget&gt;&lt;/record_update&gt;</payload>
+        <payload_hash>-586504138</payload_hash>
+        <record_name>Copy of FHA Analysis results</record_name>
+        <reverted_from/>
+        <source>20bc88d0835a721083e1b4a6feaad3fc</source>
+        <source_table>sys_update_set</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 22:37:33</sys_created_on>
+        <sys_id>a1a8cfd48312f21083e1b4a6feaad3af</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19b8602407d0000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 22:37:33</sys_updated_on>
+        <type>Widget</type>
+        <update_guid>61a8cfd4f412f21061363bbf11c46aae</update_guid>
+        <update_guid_history>61a8cfd4f412f21061363bbf11c46aae:-586504138</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete display_value="Copy of FHA Analysis results">b5c803188312f21083e1b4a6feaad3fc</sys_audit_delete>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 22:38:07</sys_created_on>
+        <sys_db_object display_value="" name="sp_widget">sp_widget</sys_db_object>
+        <sys_id>04e3159537b1401082d1631bc04a5100</sys_id>
+        <sys_metadata>2da8cfd48312f21083e1b4a6feaad3aa</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Copy of FHA Analysis results</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sp_widget_2da8cfd48312f21083e1b4a6feaad3aa</sys_update_name>
+        <sys_update_version display_value="sp_widget_2da8cfd48312f21083e1b4a6feaad3aa">a1a8cfd48312f21083e1b4a6feaad3af</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 22:38:07</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

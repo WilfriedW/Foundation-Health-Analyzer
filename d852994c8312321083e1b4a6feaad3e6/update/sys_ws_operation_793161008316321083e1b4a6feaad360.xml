@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_operation">
+    <sys_ws_operation action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <consumes>application/json,application/xml,text/xml</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_operation_uri/>
+        <enforce_acl/>
+        <http_method>POST</http_method>
+        <name>Tables analyze</name>
+        <operation_script><![CDATA[(function process(request, response) {
+    try {
+        var tableName = request.pathParams.table_name;
+        var parameters = request.body ? request.body.data : {};
+        
+        if (!tableName) {
+            response.setStatus(400);
+            response.setBody({
+                success: false,
+                error: 'Table name is required'
+            });
+            return;
+        }
+        
+        // Find or create configuration for this table
+        var configGr = new GlideRecord('x_1310794_founda_0_fha_configuration');
+        configGr.addQuery('table_reference.name', tableName);
+        configGr.addQuery('active', true);
+        configGr.setLimit(1);
+        configGr.query();
+        
+        var configSysId = null;
+        if (configGr.next()) {
+            configSysId = configGr.getUniqueValue();
+        } else {
+            // Return error if no configuration exists
+            response.setStatus(404);
+            response.setBody({
+                success: false,
+                error: 'No active configuration found for table: ' + tableName
+            });
+            return;
+        }
+        
+        var analyzer = new x_1310794_founda_0.FHAnalyzer();
+        var result = analyzer.runAnalysis(configSysId, parameters || {});
+        
+        if (result.success) {
+            response.setStatus(200);
+            response.setBody({
+                success: true,
+                analysis_id: result.analysis_id,
+                health_score: result.details.health_score,
+                issues_count: result.details.issues ? result.details.issues.length : 0,
+                message: 'Analysis completed',
+                details_url: '/api/x_1310794_founda_0/fha/analysis/' + result.analysis_id
+            });
+        } else {
+            response.setStatus(500);
+            response.setBody({
+                success: false,
+                error: result.error
+            });
+        }
+    } catch (error) {
+        response.setStatus(500);
+        response.setBody({
+            success: false,
+            error: error.message
+        });
+    }
+})(request, response);
+]]></operation_script>
+        <operation_uri>/api/x_1310794_founda_0/fha/analyze/{table_name}</operation_uri>
+        <produces>application/json,application/xml,text/xml</produces>
+        <produces_customized>false</produces_customized>
+        <relative_path>/analyze/{table_name}</relative_path>
+        <request_example><![CDATA[// Path Parameter: table_name (required)
+// Example: /api/x_1310794_founda_0/fha/analyze/incident
+
+// Optional Request Body:
+{
+  "deep_scan": true,
+  "include_children": false
+}
+
+// Success Response (200):
+{
+  "success": true,
+  "analysis_id": "abc123def456...",
+  "health_score": 75,
+  "issues_count": 12,
+  "message": "Analysis completed",
+  "details_url": "/api/x_1310794_founda_0/fha/analysis/abc123def456..."
+}
+
+// Error Response (404):
+{
+  "success": false,
+  "error": "No active configuration found for table: my_table"
+}]]></request_example>
+        <requires_acl_authorization>true</requires_acl_authorization>
+        <requires_authentication>true</requires_authentication>
+        <requires_snc_internal_role>true</requires_snc_internal_role>
+        <short_description>Run health analysis on a table by its name. Requires an active configuration for the table.</short_description>
+        <sys_class_name>sys_ws_operation</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 20:27:09</sys_created_on>
+        <sys_id>793161008316321083e1b4a6feaad360</sys_id>
+        <sys_mod_count>1</sys_mod_count>
+        <sys_name>Tables analyze</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_ws_operation_793161008316321083e1b4a6feaad360</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-02 20:28:06</sys_updated_on>
+        <web_service_definition display_value="Foundation Health Analyzer API">8add5d0883d2321083e1b4a6feaad355</web_service_definition>
+        <web_service_version/>
+    </sys_ws_operation>
+</record_update>

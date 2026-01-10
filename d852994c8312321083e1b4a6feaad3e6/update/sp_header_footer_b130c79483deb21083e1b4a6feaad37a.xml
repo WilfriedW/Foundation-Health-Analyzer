@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_header_footer">
+    <sp_header_footer action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[api.controller = function($scope, $location, $window) {
+    var c = this;
+    
+    // Get menu items from server data
+    c.menuItems = c.data.menuItems || [];
+    c.portalSuffix = c.data.portalSuffix || 'fha';
+    
+    // Set active menu item based on current page
+    c.$onInit = function() {
+        var currentPage = $location.search().id || 'fha_homepage';
+        c.menuItems.forEach(function(item) {
+            item.active = (item.page === currentPage);
+        });
+    };
+    
+    // Navigate to page or URL
+    c.navigateTo = function(item) {
+        if (item.type === 'url' && item.url) {
+            $window.location.href = item.url;
+        } else if (item.page) {
+            $window.location.href = '/' + c.portalSuffix + '?id=' + item.page;
+        }
+    };
+    
+    // Check if menu item is active
+    c.isActive = function(item) {
+        var currentPage = $location.search().id || 'fha_homepage';
+        return item.page === currentPage;
+    };
+    
+    // Toggle mobile menu
+    c.mobileMenuOpen = false;
+    c.toggleMobileMenu = function() {
+        c.mobileMenuOpen = !c.mobileMenuOpen;
+    };
+};]]></client_script>
+        <controller_as>c</controller_as>
+        <css>/* FHA Header - Styles managed in FHA Theme (sp_theme) */
+/* All header styles are centralized in the theme CSS variables */</css>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>fha-header</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]></link>
+        <name>FHA Header</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function() {
+    // Get current user info
+    data.userName = gs.getUserDisplayName();
+    data.userInitials = '';
+    
+    if (data.userName) {
+        var nameParts = data.userName.split(' ');
+        if (nameParts.length >= 2) {
+            data.userInitials = nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0);
+        } else if (nameParts.length === 1) {
+            data.userInitials = nameParts[0].charAt(0);
+        }
+        data.userInitials = data.userInitials.toUpperCase();
+    }
+    
+    // Get portal info
+    data.portalTitle = 'Foundation Health Analyzer';
+    data.portalSubtitle = 'ServiceNow Analysis Tool';
+    data.portalSuffix = $sp.getPortalRecord() ? $sp.getPortalRecord().getValue('url_suffix') : 'fha';
+    
+    // Get menu items from FHA Menu (sp_instance_menu)
+    data.menuItems = [];
+    
+    // Method 1: Try to get menu from portal's rectangle menu configuration
+    var rectangleMenu = $sp.getValue('sp_rectangle_menu');
+    if (rectangleMenu) {
+        data.menuWidget = $sp.getWidgetFromInstance(rectangleMenu);
+        if (data.menuWidget && data.menuWidget.data && data.menuWidget.data.menu && data.menuWidget.data.menu.items) {
+            var items = data.menuWidget.data.menu.items;
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                data.menuItems.push({
+                    label: item.label || '',
+                    type: item.type || 'page',
+                    url: item.url || '',
+                    page: item.sp_page || '',
+                    icon: item.glyph || 'fa-circle',
+                    sys_id: item.sys_id || ''
+                });
+            }
+        }
+    }
+    
+    // Method 2: If no rectangle menu, try sp_instance_menu by title
+    if (data.menuItems.length === 0) {
+        var menuGr = new GlideRecord('sp_instance_menu');
+        menuGr.addQuery('title', 'FHA Menu');
+        menuGr.query();
+        
+        if (menuGr.next()) {
+            // Get menu items for this menu
+            var itemGr = new GlideRecord('sp_instance_menu_item');
+            itemGr.addQuery('sp_instance_menu', menuGr.getUniqueValue());
+            itemGr.addQuery('active', true);
+            itemGr.orderBy('order');
+            itemGr.query();
+            
+            while (itemGr.next()) {
+                var menuItem = {
+                    label: itemGr.getValue('label') || '',
+                    type: itemGr.getValue('type') || 'page',
+                    url: itemGr.getValue('url') || '',
+                    page: '',
+                    icon: itemGr.getValue('glyph') || 'fa-circle'
+                };
+                
+                // Get page ID if type is 'page'
+                if (menuItem.type === 'page' && !itemGr.sp_page.nil()) {
+                    var pageGr = itemGr.sp_page.getRefRecord();
+                    if (pageGr) {
+                        menuItem.page = pageGr.getValue('id') || '';
+                    }
+                }
+                
+                data.menuItems.push(menuItem);
+            }
+        }
+    }
+    
+    // Method 3: Fallback to default menu if no items found
+    if (data.menuItems.length === 0) {
+        data.menuItems = [
+            { label: 'Dashboard', page: 'fha_homepage', icon: 'fa-tachometer-alt', type: 'page' },
+            { label: 'Results', page: 'fha_analysis_results', icon: 'fa-chart-bar', type: 'page' }
+        ];
+    }
+})();]]></script>
+        <servicenow>false</servicenow>
+        <static>false</static>
+        <sys_class_name>sp_header_footer</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 22:01:03</sys_created_on>
+        <sys_id>b130c79483deb21083e1b4a6feaad37a</sys_id>
+        <sys_mod_count>4</sys_mod_count>
+        <sys_name>FHA Header</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_header_footer_b130c79483deb21083e1b4a6feaad37a</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 22:02:23</sys_updated_on>
+        <template><![CDATA[<header class="fha-header">
+    <div class="fha-header-container">
+        <!-- Logo -->
+        <div class="fha-logo" ng-click="c.navigateTo({page: 'fha_homepage', type: 'page'})">
+            <div class="fha-logo-icon">
+                <i class="fa fa-heartbeat"></i>
+            </div>
+            <div class="fha-logo-text">
+                <span class="fha-logo-title">FHA</span>
+                <span class="fha-logo-subtitle">Health Analyzer</span>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu Toggle -->
+        <button class="fha-mobile-toggle" ng-click="c.toggleMobileMenu()">
+            <i class="fa" ng-class="c.mobileMenuOpen ? 'fa-times' : 'fa-bars'"></i>
+        </button>
+        
+        <!-- Navigation (loaded from FHA Menu) -->
+        <nav class="fha-nav" ng-class="{'mobile-open': c.mobileMenuOpen}">
+            <button class="fha-nav-item" 
+                    ng-repeat="item in c.menuItems" 
+                    ng-click="c.navigateTo(item)"
+                    ng-class="{'active': c.isActive(item)}">
+                <i class="fa" ng-class="item.icon || 'fa-circle'"></i>
+                <span>{{item.label}}</span>
+            </button>
+        </nav>
+        
+        <!-- User Section -->
+        <div class="fha-user-section">
+            <div class="fha-user-info">
+                <div class="fha-user-avatar">
+                    {{c.data.userInitials}}
+                </div>
+                <span class="fha-user-name">{{c.data.userName}}</span>
+            </div>
+        </div>
+    </div>
+</header>]]></template>
+    </sp_header_footer>
+</record_update>

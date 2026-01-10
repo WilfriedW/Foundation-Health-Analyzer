@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="DELETE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHFieldExplorer</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHFieldExplorer</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHFieldExplorer - Utility for exploring custom fields in ServiceNow tables
+ */
+var FHFieldExplorer = Class.create();
+FHFieldExplorer.prototype = {
+    /**
+     * Get custom fields for a specific table
+     * @param {String} tableName - Name of the table
+     * @returns {Object} Result containing fields array
+     */
+    getCustomFields: function(tableName) {
+        var result = {
+            table: tableName,
+            fields: []
+        };
+
+        var gr = new GlideRecord('sys_dictionary');
+        gr.addQuery('name', tableName);
+        gr.query();
+
+        if (!gr.next()) {
+            throw new Error("Table not found: " + tableName);
+        }
+
+        var elementGr = new GlideRecord('sys_dictionary_overrides');
+        elementGr.addQuery('sys_dictionary', gr.sys_id);
+        elementGr.addQuery('element', 'NOT LIKE', 'sys_');
+        elementGr.orderBy('element');
+        elementGr.query();
+
+        while (elementGr.next()) {
+            result.fields.push({
+                name: elementGr.getValue('element'),
+                label: elementGr.getValue('label'),
+                type: elementGr.getValue('internal_type'),
+                mandatory: elementGr.getValue('mandatory') === 'true',
+                max_length: elementGr.getValue('max_length'),
+                reference: elementGr.getValue('reference') || null
+            });
+        }
+
+        return result;
+    },
+
+    type: 'FHFieldExplorer'
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 06:11:24</sys_created_on>
+        <sys_id>f3d6ef848316721083e1b4a6feaad324</sys_id>
+        <sys_mod_count>6</sys_mod_count>
+        <sys_name>FHFieldExplorer</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_f3d6ef848316721083e1b4a6feaad324</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 07:50:39</sys_updated_on>
+    </sys_script_include>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>615a31611b9ab59ce84d2f8dee4bcb52</instance_id>
+        <instance_name>dev203401</instance_name>
+        <name>sys_script_include_f3d6ef848316721083e1b4a6feaad324</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;&lt;sys_script_include action="INSERT_OR_UPDATE"&gt;&lt;access&gt;package_private&lt;/access&gt;&lt;active&gt;true&lt;/active&gt;&lt;api_name&gt;x_1310794_founda_0.FHFieldExplorer&lt;/api_name&gt;&lt;caller_access/&gt;&lt;client_callable&gt;false&lt;/client_callable&gt;&lt;description/&gt;&lt;mobile_callable&gt;false&lt;/mobile_callable&gt;&lt;name&gt;FHFieldExplorer&lt;/name&gt;&lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;&lt;script&gt;&lt;![CDATA[/**
+ * FHFieldExplorer - Utility for exploring custom fields in ServiceNow tables
+ */
+var FHFieldExplorer = Class.create();
+FHFieldExplorer.prototype = {
+    /**
+     * Get custom fields for a specific table
+     * @param {String} tableName - Name of the table
+     * @returns {Object} Result containing fields array
+     */
+    getCustomFields: function(tableName) {
+        var result = {
+            table: tableName,
+            fields: []
+        };
+
+        var gr = new GlideRecord('sys_dictionary');
+        gr.addQuery('name', tableName);
+        gr.query();
+
+        if (!gr.next()) {
+            throw new Error("Table not found: " + tableName);
+        }
+
+        var elementGr = new GlideRecord('sys_dictionary_overrides');
+        elementGr.addQuery('sys_dictionary', gr.sys_id);
+        elementGr.addQuery('element', 'NOT LIKE', 'sys_');
+        elementGr.orderBy('element');
+        elementGr.query();
+
+        while (elementGr.next()) {
+            result.fields.push({
+                name: elementGr.getValue('element'),
+                label: elementGr.getValue('label'),
+                type: elementGr.getValue('internal_type'),
+                mandatory: elementGr.getValue('mandatory') === 'true',
+                max_length: elementGr.getValue('max_length'),
+                reference: elementGr.getValue('reference') || null
+            });
+        }
+
+        return result;
+    },
+
+    type: 'FHFieldExplorer'
+};
+]]&gt;&lt;/script&gt;&lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;&lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;&lt;sys_created_on&gt;2026-01-03 06:11:24&lt;/sys_created_on&gt;&lt;sys_id&gt;f3d6ef848316721083e1b4a6feaad324&lt;/sys_id&gt;&lt;sys_mod_count&gt;6&lt;/sys_mod_count&gt;&lt;sys_name&gt;FHFieldExplorer&lt;/sys_name&gt;&lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;&lt;sys_policy&gt;read&lt;/sys_policy&gt;&lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;&lt;sys_update_name&gt;sys_script_include_f3d6ef848316721083e1b4a6feaad324&lt;/sys_update_name&gt;&lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;&lt;sys_updated_on&gt;2026-01-03 07:50:39&lt;/sys_updated_on&gt;&lt;/sys_script_include&gt;&lt;/record_update&gt;</payload>
+        <payload_hash>403993088</payload_hash>
+        <record_name>FHFieldExplorer</record_name>
+        <reverted_from/>
+        <source>d852d94c8312321083e1b4a6feaad3bf</source>
+        <source_table>sys_update_set</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 07:50:39</sys_created_on>
+        <sys_id>8aadffc083d6721083e1b4a6feaad31f</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19b82d646380000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 07:50:39</sys_updated_on>
+        <type>Script Include</type>
+        <update_guid>b9adffc00ed6721094d9f6ffe263141e</update_guid>
+        <update_guid_history>b9adffc00ed6721094d9f6ffe263141e:403993088,045a334c3796721096ec86b403af009c:-1697683089,282abf0c9f967210041d7a308eb54d56:-1333342656,aea83f0c42d272104926e57c2b432638:-386331096,69582f486b16721001569e142f1724d6:1096302596,25976708ca16721075adbb7821c04b4e:-424751699,c8f663c470167210b46a3c7c205c2479:-2119064604</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 23:05:45</sys_created_on>
+        <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
+        <sys_id>1d3eb03de14a49629ebc5b5e68527664</sys_id>
+        <sys_metadata>f3d6ef848316721083e1b4a6feaad324</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHFieldExplorer</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_script_include_f3d6ef848316721083e1b4a6feaad324</sys_update_name>
+        <sys_update_version display_value="sys_script_include_f3d6ef848316721083e1b4a6feaad324">8aadffc083d6721083e1b4a6feaad31f</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 23:05:45</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>
