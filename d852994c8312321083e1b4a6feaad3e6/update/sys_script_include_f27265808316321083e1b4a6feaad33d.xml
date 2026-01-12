@@ -18,7 +18,6 @@ FHAnalyzer.prototype = {
     initialize: function() {
         this.resultsTable = 'x_1310794_founda_0_results';
         this.configTable = 'x_1310794_founda_0_configurations';
-        this.logPrefix = '[FHA] ';
     },
 
     /**
@@ -28,9 +27,7 @@ FHAnalyzer.prototype = {
      */
     runAnalysis: function(configSysId) {
         var config = this.getConfiguration(configSysId);
-        var engineResult = new FHAnalysisEngineV2().runVerification(config);
-				gs.info('engineResult: ' +JSON.stringify(engineResult))
-
+        var engineResult = new FHAnalysisEngine().runVerification(config);
         resultSysId = this._saveResult(config, engineResult);
         return {
             success: true,
@@ -272,13 +269,13 @@ FHAnalyzer.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>99</sys_mod_count>
+        <sys_mod_count>100</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-10 02:10:36</sys_updated_on>
+        <sys_updated_on>2026-01-10 02:48:42</sys_updated_on>
     </sys_script_include>
 </record_update>

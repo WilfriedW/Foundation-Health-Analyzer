@@ -2,15 +2,15 @@
     <sys_script_include action="INSERT_OR_UPDATE">
         <access>package_private</access>
         <active>true</active>
-        <api_name>x_1310794_founda_0.FHAnalysisEngineV2</api_name>
+        <api_name>x_1310794_founda_0.FHAnalysisEngine</api_name>
         <caller_access/>
         <client_callable>false</client_callable>
         <description/>
         <mobile_callable>false</mobile_callable>
-        <name>FHAnalysisEngineV2</name>
+        <name>FHAnalysisEngine</name>
         <sandbox_callable>false</sandbox_callable>
-        <script><![CDATA[var FHAnalysisEngineV2 = Class.create();
-FHAnalysisEngineV2.prototype = {
+        <script><![CDATA[var FHAnalysisEngine = Class.create();
+FHAnalysisEngine.prototype = {
     initialize: function() {
         // this.utils = new FHScanUtils();
     },
@@ -35,7 +35,7 @@ FHAnalysisEngineV2.prototype = {
                 var queryValue = item.query_value || '';
                 var queryScript = item.query_script || '';
                 var fields = item.fields.split(',') || [];
-				var category= item.category;
+                var category = item.category;
                 var issuesConfig = this._safeParse(this._safeGet(configRecord, 'issues'), {}); // Issue thresholds (e.g., { inactivityIssueCode: 'INACTIVE' })
 
                 // --- 2. Build the query based on type ---
@@ -45,10 +45,10 @@ FHAnalysisEngineV2.prototype = {
                         var scriptResults = [];
                         var flowIds = scriptResults;
                         try {
-                            eval(queryScript); // Executes user-defined script (e.g., 'for (...) { scriptResults.push(...); }')
+                            eval(queryScript);
                         } catch (eScript) {
                             result.errors.push("Query script error: " + eScript.message);
-                            gs.error("[FHAnalysisEngineV2] Query script error: " + eScript.message);
+                            gs.error("[FHAnalysisEngine] Query script error: " + eScript.message);
                         }
                         var ids = this._flattenIds(scriptResults);
                         if (ids.length > 0) {
@@ -59,13 +59,16 @@ FHAnalysisEngineV2.prototype = {
                         }
                     }
                 } else {
-                    gr.addEncodedQuery(queryValue.replace("{0}", tableName));
+			gs.info("[FHAnalysisEngine] queryValue : " +queryValue+'     '+ configRecord.table_name);
+                    gr.addEncodedQuery(queryValue.replaceAll("{0}", configRecord.table_name));
                 }
 
                 // --- 3. Execute query and process records ---
                 gr.query();
+                gs.info("[FHAnalysisEngine] Query : " +tableName+'     '+ gr.getEncodedQuery());
+
                 while (gr.next()) {
-                    result.data.push(this._processRecord(gr, fields,item));
+                    result.data.push(this._processRecord(gr, fields, item));
                 }
 
                 // --- 5. Analyze results for issues (e.g., inactive Flows) ---
@@ -74,7 +77,8 @@ FHAnalysisEngineV2.prototype = {
 
             } catch (e) {
                 result.errors.push("Verification error: " + e.message);
-                gs.error("[FHCheckAutomation] Error: " + e.message + "\nStack: " + e.stack);
+                gs.error("[FHAnalysisEngine] Verification error: " + eScript.message + "\nStack: " + e.stack);
+
             }
         });
         return result;
@@ -87,13 +91,13 @@ FHAnalysisEngineV2.prototype = {
      * @param {Array} fields - Fields to extract
      * @returns {Object} - Processed record with values and empty issues array
      */
-    _processRecord: function(gr, fields,item) {
+    _processRecord: function(gr, fields, item) {
         var record = {
             sys_id: gr.sys_id.toString(),
             table: gr.getTableName(),
             values: {}, // Stores field values (e.g., { name: 'My Flow', active: 'false' })
             issues: [], // Populated later by _analyzeResults
-			category: item.category
+            category: item.category
 
         };
 
@@ -149,7 +153,8 @@ FHAnalysisEngineV2.prototype = {
             });
 
         } catch (error) {
-            gs.info("Error _analyzeResults : " + error)
+            gs.error("[FHAnalysisEngine] _analyzeResults: " + eScript.message);
+
         }
         return result;
 
@@ -198,19 +203,19 @@ FHAnalysisEngineV2.prototype = {
         return ids;
     },
 
-    type: 'FHAnalysisEngineV2'
+    type: 'FHAnalysisEngine'
 };]]></script>
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>77</sys_mod_count>
-        <sys_name>FHAnalysisEngineV2</sys_name>
+        <sys_mod_count>84</sys_mod_count>
+        <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-10 02:24:55</sys_updated_on>
+        <sys_updated_on>2026-01-10 10:14:10</sys_updated_on>
     </sys_script_include>
 </record_update>
