@@ -184,15 +184,20 @@ FHARuleEvaluator.prototype = {
             return [];
         },
         hardcoded_sys_id: function(item, rule, params) {
-            var fields = (params.fields || 'query_value,query_script,metadata,issues').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
+            // Check primarily scripts / queries, not just display values
             var regex = /[0-9a-f]{32}/i;
-            for (var i = 0; i < fields.length; i++) {
-                var f = fields[i];
-                var val = (item.values && item.values[f]) || '';
-                if (typeof val !== 'string') continue;
-                var m = val.match(regex);
+            var sources = [
+                { field: 'query_script', value: item.query_script },
+                { field: 'query_value', value: item.query_value },
+                { field: 'metadata', value: item.metadata },
+                { field: 'issues', value: item.issues } // legacy string of issues config, not the array
+            ];
+            for (var i = 0; i < sources.length; i++) {
+                var src = sources[i];
+                if (!src.value || typeof src.value !== 'string') continue;
+                var m = src.value.match(regex);
                 if (m) {
-                    return [this._issue(rule, 'Hardcoded sys_id detected in ' + f, { field: f, match: m[0] })];
+                    return [this._issue(rule, 'Hardcoded sys_id detected in ' + src.field, { field: src.field, match: m[0] })];
                 }
             }
             return [];
