@@ -9,11 +9,12 @@
   c.error = c.data.error || null;
   c.loading = !!c.analysisId && !c.result;
   c.activeTab = 'overview';
-  c.filters = { severity: 'all', search: '' };
+  c.filters = { severity: 'all', search: '', type: 'all' };
   c.sort = { field: 'name', dir: 'asc' };
   c.categoryTabs = [];
   c.metaByTable = {};
   c.metaByCategory = {};
+  c.typeOptions = [];
 
   c.setTab = function(tab) { c.activeTab = tab; };
   c.isTab = function(tab) { return c.activeTab === tab; };
@@ -24,12 +25,16 @@
 
   c.buildCategories = function() {
     var seen = {};
+    var typesSeen = {};
     c.getData().forEach(function(item) {
       var cat = item.category || 'general';
       seen[cat] = true;
+      var t = c.getTypeLabel(item);
+      if (t) typesSeen[t] = true;
     });
     c.categoryTabs = Object.keys(seen).sort();
     if (!c.categoryTabs.length) c.categoryTabs = ['general'];
+    c.typeOptions = ['all'].concat(Object.keys(typesSeen).sort());
     if (c.activeTab !== 'overview' && c.activeTab !== 'json' && c.categoryTabs.indexOf(c.activeTab) === -1) {
       c.activeTab = c.categoryTabs[0];
     }
@@ -76,6 +81,11 @@
     return c.metaByTable[item.table] || c.metaByCategory[item.category] || {};
   };
 
+  c.getTypeLabel = function(item) {
+    var meta = c.getMeta(item);
+    return meta.displayName || meta.record_type || item.tableName || item.table || 'general';
+  };
+
   c.getResultMeta = function() {
     var r = c.result || {};
     return {
@@ -101,6 +111,10 @@
 
   c.booleanText = function(val) {
     if (val === undefined || val === null) return 'N/A';
+    if (typeof val === 'object') {
+      var s = val.toString();
+      if (s === '{}' || s === '[object Object]') return 'N/A';
+    }
     return val ? 'Yes' : 'No';
   };
 
@@ -157,9 +171,13 @@
   c.filteredData = function(cat) {
     var sev = c.filters.severity;
     var search = (c.filters.search || '').toLowerCase();
+    var typeFilter = c.filters.type;
     var filtered = c.getData().filter(function(item) {
       var matchesCat = (item.category) === cat;
       if (!matchesCat) return false;
+      if (typeFilter !== 'all') {
+        if (c.getTypeLabel(item) !== typeFilter) return false;
+      }
       if (sev !== 'all') {
         var hasSev = (item.issues || []).some(function(issue) {
           return (issue.severity || '').toLowerCase() === sev;
@@ -736,6 +754,10 @@
             </select>
             <label>Search:</label>
             <input type="text" ng-model="c.filters.search" placeholder="Name, user, issue...">
+            <label>Type:</label>
+            <select ng-model="c.filters.type">
+              <option ng-repeat="t in c.typeOptions" value="{{t}}">{{t | uppercase}}</option>
+            </select>
             <label>Sort:</label>
             <select ng-model="c.sort.field">
               <option value="name">Name</option>
@@ -748,7 +770,7 @@
             <button class="fha-tab-btn" style="border:none;" ng-click="c.sort.dir = (c.sort.dir === 'asc' ? 'desc' : 'asc')">
               <i class="fa" ng-class="{'fa-sort-amount-asc': c.sort.dir==='asc','fa-sort-amount-desc': c.sort.dir==='desc'}"></i>
             </button>
-            <button class="fha-tab-btn" style="border:none;" ng-click="c.filters = { severity: 'all', search: '' }; c.sort = { field: 'name', dir: 'asc' }">
+            <button class="fha-tab-btn" style="border:none;" ng-click="c.filters = { severity: 'all', search: '', type: 'all' }; c.sort = { field: 'name', dir: 'asc' }">
               <i class="fa fa-refresh"></i> Reset
             </button>
           </div>
@@ -771,7 +793,7 @@
                 <td>
                   <span class="pill cat" ng-style="{'background': (c.getMeta(item).color || '#4b5563')}">
                     <i class="fa" ng-class="c.getMeta(item).icon || 'fa-tag'"></i>
-                    {{item.tableName || 'general'}}
+                    {{c.getTypeLabel(item)}}
                   </span>
                 </td>
                 <td>

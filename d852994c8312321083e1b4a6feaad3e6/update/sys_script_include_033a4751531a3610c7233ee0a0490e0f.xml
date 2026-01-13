@@ -34,7 +34,12 @@ FHAnalysisEngine.prototype = {
                 var queryType = item.query_type.toLowerCase();
                 var queryValue = item.query_value || '';
                 var queryScript = item.query_script || '';
-                var fields = item.fields.split(',') || [];
+                var fields = (item.fields && item.fields.split(',')) || [];
+                var defaults = ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'];
+                fields = fields.map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
+                defaults.forEach(function(df){
+                    if (fields.indexOf(df) === -1) fields.push(df);
+                });
                 var category = item.category;
                 var issuesConfig = this._safeParse(this._safeGet(configRecord, 'issues'), {}); // Issue thresholds (e.g., { inactivityIssueCode: 'INACTIVE' })
 
