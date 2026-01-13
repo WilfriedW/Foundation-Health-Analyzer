@@ -15,7 +15,7 @@ FHARuleEvaluator.prototype = {
         var self = this;
         (rules || []).forEach(function(rule) {
             var params = self._safeParse(rule.params, {});
-            if (!self._isAllowed(params, item)) return;
+            if (!self._isApplicable(item, params)) return;
             var handler = self._handlers[rule.type];
             if (handler) {
                 var res = handler.call(self, item, rule, params, context);
@@ -142,28 +142,24 @@ FHARuleEvaluator.prototype = {
             return [];
         },
         job_error: function(item, rule) {
-            if (item.table !== 'sysauto_script') return [];
             if (item.values && item.values.job_error === 'true') {
                 return [this._issue(rule, 'Scheduled job errors')];
             }
             return [];
         },
         job_inactive: function(item, rule) {
-            if (item.table !== 'sysauto_script') return [];
             if (item.values && item.values.job_inactive === 'true') {
                 return [this._issue(rule, 'Scheduled job inactive')];
             }
             return [];
         },
         flow_error: function(item, rule) {
-            if (item.table !== 'sys_hub_flow') return [];
             if (item.values && item.values.flow_error === 'true') {
                 return [this._issue(rule, 'Flow in error')];
             }
             return [];
         },
         flow_config: function(item, rule) {
-            if (item.table !== 'sys_hub_flow') return [];
             if (item.values && item.values.flow_no_timeout === 'true') {
                 return [this._issue(rule, 'Flow missing timeout/retry')];
             }
@@ -246,24 +242,30 @@ FHARuleEvaluator.prototype = {
         };
     },
 
-    _isAllowed: function(params, item) {
-        if (!item) return false;
-        var tables = params.allowed_tables || params.tables;
-        if (tables) {
-            var list = ('' + tables).split(',').map(function(t){ return t.trim(); }).filter(function(t){ return t; });
-            if (list.length && list.indexOf(item.table) === -1) return false;
-        }
-        var cats = params.allowed_categories || params.categories;
-        if (cats) {
-            var clist = ('' + cats).split(',').map(function(c){ return c.trim(); }).filter(function(c){ return c; });
-            if (clist.length && clist.indexOf(item.category) === -1) return false;
-        }
-        return true;
-    },
-
     _safeParse: function(str, fb) {
         if (fb === undefined) fb = {};
         try { if (!str) return fb; return JSON.parse(str); } catch(e){ return fb; }
+    },
+
+    _isApplicable: function(item, params) {
+        // optional filters in params:
+        // allowed_tables: comma list
+        // allowed_categories: comma list
+        var tblOk = true, catOk = true;
+        if (params.allowed_tables) {
+            tblOk = this._matchList(item.table, params.allowed_tables);
+        }
+        if (params.allowed_categories) {
+            catOk = this._matchList(item.category, params.allowed_categories);
+        }
+        return tblOk && catOk;
+    },
+
+    _matchList: function(value, listStr) {
+        if (!listStr) return true;
+        var parts = listStr.split(',').map(function(p){ return (p || '').trim(); }).filter(function(p){ return !!p; });
+        if (!parts.length) return true;
+        return parts.indexOf(value) !== -1;
     },
 
     type: 'FHARuleEvaluator'
