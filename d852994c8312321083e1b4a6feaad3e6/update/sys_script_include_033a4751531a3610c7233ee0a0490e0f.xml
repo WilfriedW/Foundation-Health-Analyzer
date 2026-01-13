@@ -138,10 +138,28 @@ FHAnalysisEngine.prototype = {
             });
 
             var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
+            var aggregatedIssues = [];
+
             result.data.forEach(function(item) {
                 var rules = item._rules || [];
                 item.issues = ruleEval.evaluate(item, rules, context) || [];
+
+                // Aggregate issues at result level for portal/widget
+                (item.issues || []).forEach(function(is) {
+                    aggregatedIssues.push({
+                        code: is.code || '',
+                        message: is.message || '',
+                        severity: is.severity || 'medium',
+                        record_table: item.table || '',
+                        record_sys_id: item.sys_id || '',
+                        record_name: item.values && item.values.name || '',
+                        category: item.category || '',
+                        details: is.details || {}
+                    });
+                });
             });
+
+            result.issues = aggregatedIssues;
 
         } catch (error) {
             gs.error("[FHAnalysisEngine] _analyzeResults: " + error.message);
