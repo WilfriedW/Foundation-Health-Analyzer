@@ -27,6 +27,9 @@ FHAnalysisEngine.prototype = {
             errors: [], // Array to store execution errors
             metadata: {}, // Additional info (e.g., execution time)
         };
+
+        var rulesMap = this._loadIssueRules(configRecord.verification_items || []);
+
         configRecord.verification_items.forEach(item => {
             try {
                 // --- 1. Extract configuration parameters ---
@@ -73,7 +76,9 @@ FHAnalysisEngine.prototype = {
                 gs.info("[FHAnalysisEngine] Query : " +tableName+'     '+ gr.getEncodedQuery());
 
                 while (gr.next()) {
-                    result.data.push(this._processRecord(gr, fields, item));
+                    var record = this._processRecord(gr, fields, item);
+                    record._rules = rulesMap[item.sys_id] || [];
+                    result.data.push(record);
                 }
 
                 // --- 5. Analyze results for issues (e.g., inactive Flows) ---
@@ -122,38 +127,49 @@ FHAnalysisEngine.prototype = {
     _analyzeResults: function(result, issuesConfig) {
         try {
             result.data.forEach(function(item) {
+                var rules = item._rules || [];
+                var sevFallback = function(type) {
+                    var r = rules.find(function(rr){ return rr.type === type; });
+                    return r ? (r.default_severity || 'medium') : 'medium';
+                };
+
                 item.issues = []; // Reset issues for this record
-                // --- Rule 1: Check for inactive record ---
+                // --- Rule: inactive ---
+                var inactiveRule = rules.find(function(r){ return r.type === 'inactive'; });
                 var activeVal = (item.values.active || '').toString().toLowerCase();
-                if (activeVal === 'false') {
+                if (inactiveRule && activeVal === 'false') {
                     item.issues.push({
-                        code: issuesConfig.inactivityIssueCode || 'INACTIVE',
+                        code: inactiveRule.code || 'INACTIVE',
                         message: 'Inactive record.',
-                        severity: 'high',
-                        details: {
-                            field: 'active',
-                            expected: 'true',
-                            actual: 'false'
-                        }
+                        severity: inactiveRule.default_severity || 'high',
+                        details: { field: 'active', expected: 'true', actual: 'false' }
                     });
                 }
 
-                // --- Rule 2: Check for system-created records ---
-                if (item.values.sys_created_by === 'system') {
+                // --- Rule: system_created ---
+                var sysRule = rules.find(function(r){ return r.type === 'system_created'; });
+                if (sysRule && item.values.sys_created_by === 'system') {
                     item.issues.push({
-                        code: 'SYSTEM_USER',
+                        code: sysRule.code || 'SYSTEM_CREATED',
                         message: 'Created by system user (requires review).',
-                        severity: 'medium'
+                        severity: sysRule.default_severity || 'medium'
                     });
                 }
 
-                // --- Rule 3: Check for too many associated records (performance risk) ---
-                if (issuesConfig.manyThreshold && result.data.length > issuesConfig.manyThreshold) {
-                    item.issues.push({
-                        code: issuesConfig.manyIssueCode || 'MANY',
-                        message: `Too many records (${result.data.length} > ${issuesConfig.manyThreshold}).`,
-                        severity: 'low'
-                    });
+                // --- Rule: count_threshold (applied once per item set) ---
+                var countRule = rules.find(function(r){ return r.type === 'count_threshold'; });
+                if (countRule && countRule._applied !== true) {
+                    var params = {};
+                    try { params = JSON.parse(countRule.params || '{}'); } catch(e) { params = {}; }
+                    var threshold = params.threshold || 0;
+                    if (threshold && result.data.length > threshold) {
+                        item.issues.push({
+                            code: countRule.code || 'MANY',
+                            message: 'Too many records (' + result.data.length + ' > ' + threshold + ').',
+                            severity: countRule.default_severity || 'medium'
+                        });
+                        countRule._applied = true; // avoid repeating on each item row
+                    }
                 }
             });
 
@@ -206,6 +222,41 @@ FHAnalysisEngine.prototype = {
         };
         pushId(list);
         return ids;
+    },
+
+    _loadIssueRules: function(items) {
+        var map = {};
+        var ids = [];
+        (items || []).forEach(function(it) {
+            if (it.issue_rules) {
+                ids = ids.concat(String(it.issue_rules).split(','));
+            }
+        });
+        ids = ids.filter(function(x){ return x; });
+        if (!ids.length) return map;
+
+        var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
+        gr.addQuery('sys_id', 'IN', ids.join(','));
+        gr.addQuery('active', true);
+        gr.query();
+        while (gr.next()) {
+            var rule = {
+                sys_id: gr.getUniqueValue(),
+                name: gr.getValue('name') || '',
+                code: gr.getValue('code') || '',
+                type: gr.getValue('type') || '',
+                default_severity: gr.getValue('default_severity') || 'medium',
+                params: gr.getValue('params') || '{}'
+            };
+            // attach by each item that referenced it
+            (items || []).forEach(function(it) {
+                if (String(it.issue_rules || '').indexOf(rule.sys_id) > -1) {
+                    if (!map[it.sys_id]) map[it.sys_id] = [];
+                    map[it.sys_id].push(rule);
+                }
+            });
+        }
+        return map;
     },
 
     type: 'FHAnalysisEngine'

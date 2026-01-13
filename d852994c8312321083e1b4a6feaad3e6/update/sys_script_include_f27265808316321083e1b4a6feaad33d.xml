@@ -60,7 +60,8 @@ FHAnalyzer.prototype = {
                 fields: verificationItems.fields + '' || '',
                 metadata: verificationItems.metadata + '' || '',
                 query_value: verificationItems.query_value + '' || '',
-                query_script: verificationItems.query_script + '' || ''
+                query_script: verificationItems.query_script + '' || '',
+                issue_rules: verificationItems.issue_rules + '' || ''
             };
             itemObj = this._ensureMetadataDefaults(itemObj);
             out.push(itemObj);
