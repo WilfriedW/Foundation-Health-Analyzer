@@ -183,6 +183,20 @@ FHARuleEvaluator.prototype = {
             }
             return [];
         },
+        hardcoded_sys_id: function(item, rule, params) {
+            var fields = (params.fields || 'query_value,query_script,metadata,issues').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
+            var regex = /[0-9a-f]{32}/i;
+            for (var i = 0; i < fields.length; i++) {
+                var f = fields[i];
+                var val = (item.values && item.values[f]) || '';
+                if (typeof val !== 'string') continue;
+                var m = val.match(regex);
+                if (m) {
+                    return [this._issue(rule, 'Hardcoded sys_id detected in ' + f, { field: f, match: m[0] })];
+                }
+            }
+            return [];
+        },
         widget_perf: function(item, rule) {
             if (item.values && item.values.widget_no_cache === 'true') {
                 return [this._issue(rule, 'Widget/portal without cache/pagination')];
