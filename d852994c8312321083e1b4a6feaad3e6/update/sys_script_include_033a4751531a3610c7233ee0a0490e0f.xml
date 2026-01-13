@@ -116,7 +116,7 @@ FHAnalysisEngine.prototype = {
 
         // Extract requested fields
         fields.forEach(function(field) {
-            record.values[field] = gr.getDisplayValue(field);
+            record.values[field] = gr.getValue(field); // use raw value (needed for scripts/sys_id detection)
         });
         return record;
     },
