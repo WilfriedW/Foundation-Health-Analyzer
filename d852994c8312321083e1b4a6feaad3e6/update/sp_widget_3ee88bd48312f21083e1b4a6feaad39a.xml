@@ -9,12 +9,13 @@
   c.error = c.data.error || null;
   c.loading = !!c.analysisId && !c.result;
   c.activeTab = 'overview';
-  c.filters = { severity: 'all', search: '', type: 'all' };
+  c.filters = { severity: 'all', search: '', type: 'all', issueCategory: 'all' };
   c.sort = { field: 'name', dir: 'asc' };
   c.categoryTabs = [];
   c.metaByTable = {};
   c.metaByCategory = {};
   c.typeOptions = [];
+  c.issueCategories = ['all'];
 
   c.setTab = function(tab) { c.activeTab = tab; };
   c.isTab = function(tab) { return c.activeTab === tab; };
@@ -38,6 +39,18 @@
     if (c.activeTab !== 'overview' && c.activeTab !== 'json' && c.categoryTabs.indexOf(c.activeTab) === -1) {
       c.activeTab = c.categoryTabs[0];
     }
+
+    // build issue categories
+    var catsIssue = ['all'];
+    var seenIssue = {};
+    (c.getIssues() || []).forEach(function(is) {
+      var cat = is.category || 'general';
+      if (!seenIssue[cat]) {
+        seenIssue[cat] = true;
+        catsIssue.push(cat);
+      }
+    });
+    c.issueCategories = catsIssue;
   };
 
   c.countItems = function() {
@@ -46,13 +59,7 @@
 
   c.countIssuesBySeverity = function(sev) {
     var s = (sev || '').toLowerCase();
-    var total = 0;
-    c.getData().forEach(function(item) {
-      (item.issues || []).forEach(function(issue) {
-        if ((issue.severity || '').toLowerCase() === s) total++;
-      });
-    });
-    return total;
+    return c.getIssues().filter(function(is){ return (is.severity || '').toLowerCase() === s; }).length;
   };
 
   c.safeParseMeta = function(str) {
@@ -84,6 +91,27 @@
   c.getTypeLabel = function(item) {
     var meta = c.getMeta(item);
     return meta.displayName || meta.record_type || item.tableName || item.table || 'general';
+  };
+
+  c.getIssues = function() {
+    return (c.result && c.result.issues) || [];
+  };
+
+  c.filteredIssues = function() {
+    var sev = c.filters.severity;
+    var search = (c.filters.search || '').toLowerCase();
+    var cat = c.filters.issueCategory || 'all';
+    return c.getIssues().filter(function(is) {
+      if (sev !== 'all' && (is.severity || '').toLowerCase() !== sev) return false;
+      if (cat !== 'all' && (is.category || 'general') !== cat) return false;
+      if (search) {
+        var hay = [
+          is.code, is.message, is.category, is.record_table, is.record_name
+        ].join(' ').toLowerCase();
+        if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+    });
   };
 
   c.getResultMeta = function() {
@@ -702,6 +730,9 @@
 
     <div class="fha-tabs">
       <button class="fha-tab-btn" ng-class="{'active': c.isTab('overview')}" ng-click="c.setTab('overview')">Overview</button>
+      <button class="fha-tab-btn" ng-class="{'active': c.isTab('issues')}" ng-click="c.setTab('issues')">
+        Issues <span class="fha-badge">{{c.getIssues().length}}</span>
+      </button>
       <button class="fha-tab-btn" ng-repeat="cat in c.categoryTabs" ng-class="{'active': c.isTab(cat)}" ng-click="c.setTab(cat)">
         {{cat | uppercase}} <span class="fha-badge">{{c.filteredData(cat).length}}</span>
       </button>
@@ -823,6 +854,60 @@
           </table>
         </div>
         <div class="fha-card__body" ng-if="!c.filteredData(c.activeTab).length"><span class="pill gray">No data</span></div>
+      </div>
+    </div>
+
+    <div ng-show="c.isTab('issues')">
+      <div class="fha-card">
+        <div class="fha-card__head">
+          <h3>Issues</h3>
+          <div class="filter-bar">
+            <label>Severity:</label>
+            <select ng-model="c.filters.severity">
+              <option value="all">All</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <label>Category:</label>
+            <select ng-model="c.filters.issueCategory">
+              <option ng-repeat="cat in c.issueCategories" value="{{cat}}">{{cat | uppercase}}</option>
+            </select>
+            <label>Search:</label>
+            <input type="text" ng-model="c.filters.search" placeholder="Code, message, table, record...">
+            <button class="fha-tab-btn" style="border:none;" ng-click="c.filters = { severity: 'all', search: '', type: c.filters.type, issueCategory: 'all' }">
+              <i class="fa fa-refresh"></i> Reset
+            </button>
+          </div>
+        </div>
+        <div class="fha-card__body" ng-if="c.filteredIssues().length">
+          <table class="fha-data-table">
+            <thead>
+              <tr>
+                <th style="width:110px;">Severity</th>
+                <th style="width:140px;">Category</th>
+                <th style="width:140px;">Code</th>
+                <th>Message</th>
+                <th style="width:140px;">Table</th>
+                <th style="width:180px;">Record</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="issue in c.filteredIssues()">
+                <td><span class="issue-badge" ng-class="{'sev-high': issue.severity=='high','sev-medium': issue.severity=='medium','sev-low': issue.severity=='low'}">{{issue.severity | uppercase}}</span></td>
+                <td>{{issue.category || 'general'}}</td>
+                <td>{{issue.code}}</td>
+                <td>{{issue.message}}</td>
+                <td>{{issue.record_table}}</td>
+                <td>
+                  <a class="fha-link" ng-if="issue.record_sys_id && issue.record_table" ng-click="c.openRecord(issue.record_table, issue.record_sys_id)">{{issue.record_name || issue.record_sys_id}}</a>
+                  <span ng-if="!issue.record_sys_id">{{issue.record_name || '-'}}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fha-card__body" ng-if="!c.filteredIssues().length"><span class="pill gray">No issues</span></div>
       </div>
     </div>
 
