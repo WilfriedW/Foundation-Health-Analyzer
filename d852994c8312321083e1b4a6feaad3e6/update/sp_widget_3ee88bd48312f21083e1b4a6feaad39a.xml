@@ -25,7 +25,7 @@
   c.buildCategories = function() {
     var seen = {};
     c.getData().forEach(function(item) {
-      var cat = item.category;
+      var cat = item.category || 'general';
       seen[cat] = true;
     });
     c.categoryTabs = Object.keys(seen).sort();
@@ -76,22 +76,26 @@
     return c.metaByTable[item.table] || c.metaByCategory[item.category] || {};
   };
 
-  c.getTableInfo = function() {
+  c.getResultMeta = function() {
     var r = c.result || {};
-    var cfg = r.config || {};
-
     return {
       number: r.number || '',
       state: r.state || '',
-      table_name: cfg.table_name || r.table_name || '',
-     /* table_label: cfg.table_label || r.table_label || '',
-      description: cfg.description || r.description || '',
+      created_on: r.created_on || '',
+      created_by: r.created_by || ''
+    };
+  };
+
+  c.getConfigInfo = function() {
+    var cfg = (c.result && c.result.config) || {};
+    return {
+      table_name: cfg.table_name || '',
+      table_label: cfg.table_label || '',
+      description: cfg.description || '',
       include_children_tables: cfg.include_children_tables,
       deep_scan: cfg.deep_scan,
       ignore_servicenow_records: cfg.ignore_servicenow_records,
-      include_ldap: cfg.include_ldap,
-      created_on: r.created_on || '',
-      created_by: r.created_by || ''*/
+      include_ldap: cfg.include_ldap
     };
   };
 
@@ -632,8 +636,8 @@
     <div style="display:flex;flex-direction:column;gap:6px;">
       <h1>${Analysis Results}</h1>
       <div style="font-size:13px;opacity:0.9;" ng-if="c.result">
-        {{c.result.name || '${Configuration}'}} — <strong>{{c.getTableInfo().table_label || c.getTableInfo().table_name || 'N/A'}}</strong>
-        <span style="opacity:0.8;">({{c.getTableInfo().table_name || 'N/A'}})</span>
+        {{c.result.name || '${Configuration}'}} — <strong>{{c.getConfigInfo().table_label || c.getConfigInfo().table_name || 'N/A'}}</strong>
+        <span style="opacity:0.8;">({{c.getConfigInfo().table_name || 'N/A'}})</span>
       </div>
       <div class="fha-meta" ng-if="c.result">
         <span class="fha-badge">{{c.result.number || c.analysisId}}</span>
@@ -688,21 +692,31 @@
 
     <div ng-show="c.isTab('overview')">
       <div class="fha-card">
-        <div class="fha-card__head"><h3>Overview</h3></div>
+        <div class="fha-card__head"><h3>Result</h3></div>
         <div class="fha-card__body">
           <table class="fha-data-table">
             <tbody>
-              <tr><td><strong>Number</strong></td><td>{{c.getTableInfo().number || 'N/A'}}</td></tr>
-              <tr><td><strong>State</strong></td><td>{{c.getTableInfo().state || 'N/A'}}</td></tr>
-              <tr><td><strong>Table label</strong></td><td>{{c.getTableInfo(). || 'N/A'}}</td></tr>
-              <tr><td><strong>Table name</strong></td><td>{{c.getTableInfo().table_name || 'N/A'}}</td></tr>
-              <tr><td><strong>Description</strong></td><td>{{c.getTableInfo().description || 'N/A'}}</td></tr>
-              <tr><td><strong>Include children</strong></td><td>{{c.booleanText(c.getTableInfo().include_children_tables)}}</td></tr>
-              <tr><td><strong>Deep scan</strong></td><td>{{c.booleanText(c.getTableInfo().deep_scan)}}</td></tr>
-              <tr><td><strong>Ignore ServiceNow records</strong></td><td>{{c.booleanText(c.getTableInfo().ignore_servicenow_records)}}</td></tr>
-              <tr><td><strong>Include LDAP</strong></td><td>{{c.booleanText(c.getTableInfo().include_ldap)}}</td></tr>
-              <tr><td><strong>Created on</strong></td><td>{{c.getTableInfo().created_on || 'N/A'}}</td></tr>
-              <tr><td><strong>Created by</strong></td><td>{{c.getTableInfo().created_by || 'N/A'}}</td></tr>
+              <tr><td><strong>Number</strong></td><td>{{c.getResultMeta().number || 'N/A'}}</td></tr>
+              <tr><td><strong>State</strong></td><td>{{c.getResultMeta().state || 'N/A'}}</td></tr>
+              <tr><td><strong>Created on</strong></td><td>{{c.getResultMeta().created_on || 'N/A'}}</td></tr>
+              <tr><td><strong>Created by</strong></td><td>{{c.getResultMeta().created_by || 'N/A'}}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="fha-card">
+        <div class="fha-card__head"><h3>Configuration</h3></div>
+        <div class="fha-card__body">
+          <table class="fha-data-table">
+            <tbody>
+              <tr><td><strong>Table label</strong></td><td>{{c.getConfigInfo().table_label || 'N/A'}}</td></tr>
+              <tr><td><strong>Table name</strong></td><td>{{c.getConfigInfo().table_name || 'N/A'}}</td></tr>
+              <tr><td><strong>Description</strong></td><td>{{c.getConfigInfo().description || 'N/A'}}</td></tr>
+              <tr><td><strong>Include children</strong></td><td>{{c.booleanText(c.getConfigInfo().include_children_tables)}}</td></tr>
+              <tr><td><strong>Deep scan</strong></td><td>{{c.booleanText(c.getConfigInfo().deep_scan)}}</td></tr>
+              <tr><td><strong>Ignore ServiceNow records</strong></td><td>{{c.booleanText(c.getConfigInfo().ignore_servicenow_records)}}</td></tr>
+              <tr><td><strong>Include LDAP</strong></td><td>{{c.booleanText(c.getConfigInfo().include_ldap)}}</td></tr>
             </tbody>
           </table>
         </div>
