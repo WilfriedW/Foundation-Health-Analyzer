@@ -184,21 +184,44 @@ FHARuleEvaluator.prototype = {
             return [];
         },
         hardcoded_sys_id: function(item, rule, params) {
-            // Check primarily scripts / queries, not just display values
+            // Scan configuration scripts and record fields (if provided in params.fields) for 32-hex sys_ids
             var regex = /[0-9a-f]{32}/i;
-            var sources = [
-                { field: 'query_script', value: item.query_script },
-                { field: 'query_value', value: item.query_value },
-                { field: 'metadata', value: item.metadata },
-                { field: 'issues', value: item.issues } // legacy string of issues config, not the array
-            ];
-            for (var i = 0; i < sources.length; i++) {
-                var src = sources[i];
-                if (!src.value || typeof src.value !== 'string') continue;
-                var m = src.value.match(regex);
-                if (m) {
-                    return [this._issue(rule, 'Hardcoded sys_id detected in ' + src.field, { field: src.field, match: m[0] })];
+            var hit = null;
+
+            // 1) Scan record fields (item.values) if fields provided
+            var fields = (params.fields || '').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
+            for (var i = 0; i < fields.length; i++) {
+                var f = fields[i];
+                var val = (item.values && item.values[f]) || '';
+                if (typeof val !== 'string') continue;
+                var mVal = val.match(regex);
+                if (mVal) {
+                    hit = { field: f, match: mVal[0] };
+                    break;
                 }
+            }
+
+            // 2) Scan item config scripts/queries
+            if (!hit) {
+                var sources = [
+                    { field: 'query_script', value: item.query_script },
+                    { field: 'query_value', value: item.query_value },
+                    { field: 'metadata', value: item.metadata },
+                    { field: 'issues', value: item.issues } // legacy config string, not the array
+                ];
+                for (var j = 0; j < sources.length; j++) {
+                    var src = sources[j];
+                    if (!src.value || typeof src.value !== 'string') continue;
+                    var m = src.value.match(regex);
+                    if (m) {
+                        hit = { field: src.field, match: m[0] };
+                        break;
+                    }
+                }
+            }
+
+            if (hit) {
+                return [this._issue(rule, 'Hardcoded sys_id detected in ' + hit.field, hit)];
             }
             return [];
         },
