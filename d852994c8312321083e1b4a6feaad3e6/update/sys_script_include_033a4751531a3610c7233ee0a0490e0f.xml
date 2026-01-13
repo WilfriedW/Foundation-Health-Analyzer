@@ -40,14 +40,19 @@ FHAnalysisEngine.prototype = {
                 var queryScript = item.query_script || '';
                 var fields = (item.fields && item.fields.split(',')) || [];
                 var defaults = ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'];
-                fields = fields.map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
-                defaults.forEach(function(df){
+                fields = fields.map(function(f) {
+                    return (f || '').trim();
+                }).filter(function(f) {
+                    return !!f;
+                });
+                defaults.forEach(function(df) {
                     if (fields.indexOf(df) === -1) fields.push(df);
                 });
                 var category = item.category;
 
                 // --- 2. Build the query based on type ---
                 var gr = new GlideRecord(tableName);
+
                 if (queryType === 'script') {
                     if (queryScript) {
                         var scriptResults = [];
@@ -67,13 +72,11 @@ FHAnalysisEngine.prototype = {
                         }
                     }
                 } else {
-			gs.info("[FHAnalysisEngine] queryValue : " +queryValue+'     '+ configRecord.table_name);
                     gr.addEncodedQuery(queryValue.replaceAll("{0}", configRecord.table_name));
                 }
 
                 // --- 3. Execute query and process records ---
                 gr.query();
-                gs.info("[FHAnalysisEngine] Query : " +tableName+'     '+ gr.getEncodedQuery());
 
                 while (gr.next()) {
                     var record = this._processRecord(gr, fields, item);
@@ -131,7 +134,7 @@ FHAnalysisEngine.prototype = {
                 totalCount: result.data.length,
                 _dupsSeen: {}
             };
-            result.data.forEach(function(it){
+            result.data.forEach(function(it) {
                 var key = (it.values.name || '') + '|' + (it.values.code || '');
                 if (!context._dupsSeen[key]) context._dupsSeen[key] = it.sys_id;
             });
@@ -197,7 +200,9 @@ FHAnalysisEngine.prototype = {
                 ids = ids.concat(String(it.issue_rules).split(','));
             }
         });
-        ids = ids.filter(function(x){ return x; });
+        ids = ids.filter(function(x) {
+            return x;
+        });
         if (!ids.length) return map;
 
         var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
@@ -230,13 +235,13 @@ FHAnalysisEngine.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>84</sys_mod_count>
+        <sys_mod_count>87</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-10 10:14:10</sys_updated_on>
+        <sys_updated_on>2026-01-13 18:52:15</sys_updated_on>
     </sys_script_include>
 </record_update>
