@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHARuleEvaluator</api_name>
+        <client_callable>false</client_callable>
+        <description>Apply issue rules to analyzed records</description>
+        <name>FHARuleEvaluator</name>
+        <script><![CDATA[var FHARuleEvaluator = Class.create();
+FHARuleEvaluator.prototype = {
+    initialize: function() {},
+
+    evaluate: function(item, rules, context) {
+        var issues = [];
+        var self = this;
+        (rules || []).forEach(function(rule) {
+            var params = self._safeParse(rule.params, {});
+            var handler = self._handlers[rule.type];
+            if (handler) {
+                var res = handler.call(self, item, rule, params, context);
+                if (res && res.length) issues = issues.concat(res);
+            }
+        });
+        return issues;
+    },
+
+    _handlers: {
+        inactive: function(item, rule) {
+            var activeVal = (item.values.active || '').toString().toLowerCase();
+            if (activeVal === 'false') {
+                return [this._issue(rule, 'Inactive record', { field: 'active', expected: 'true', actual: 'false' })];
+            }
+            return [];
+        },
+        system_created: function(item, rule) {
+            if ((item.values.sys_created_by || '').toString() === 'system') {
+                return [this._issue(rule, 'Created by system user')];
+            }
+            return [];
+        },
+        count_threshold: function(item, rule, params, context) {
+            var threshold = params.threshold || 0;
+            var total = (context && context.totalCount) || 0;
+            if (threshold && total > threshold) {
+                return [this._issue(rule, 'Too many records (' + total + ' > ' + threshold + ')')];
+            }
+            return [];
+        },
+        missing_field: function(item, rule, params) {
+            var fields = (params.field || params.fields || '').split(',');
+            var issues = [];
+            fields.forEach(function(fRaw) {
+                var f = (fRaw || '').trim();
+                if (!f) return;
+                var v = item.values[f];
+                if (v === undefined || v === null || v === '') {
+                    issues.push(this._issue(rule, 'Missing field: ' + f, { field: f }));
+                }
+            }, this);
+            return issues;
+        },
+        missing_acl: function(item, rule) {
+            if (item.values && item.values.missing_acl === 'true') {
+                return [this._issue(rule, 'Missing ACL on table/resource')];
+            }
+            return [];
+        },
+        acl_issue: function(item, rule) {
+            if (item.values && item.values.acl_too_wide === 'true') {
+                return [this._issue(rule, 'ACL too permissive')];
+            }
+            return [];
+        },
+        index_needed: function(item, rule, params) {
+            var field = params.field || 'unknown';
+            if (item.values && item.values.index_needed === 'true') {
+                return [this._issue(rule, 'Index needed on ' + field, { field: field })];
+            }
+            return [];
+        },
+        size_threshold: function(item, rule, params) {
+            var field = params.field || 'text';
+            var maxLen = params.max_len || 0;
+            var val = (item.values[field] || '').toString();
+            if (maxLen && val.length > maxLen) {
+                return [this._issue(rule, 'Field too long: ' + field + ' (' + val.length + ' > ' + maxLen + ')', { field: field, length: val.length })];
+            }
+            return [];
+        },
+        risky_field: function(item, rule) {
+            if (item.values && item.values.risky_field === 'true') {
+                return [this._issue(rule, 'Risky field content')];
+            }
+            return [];
+        },
+        duplicate: function(item, rule, params, context) {
+            var key = (item.values.name || '') + '|' + (item.values.code || '');
+            var seen = context && context._dupsSeen;
+            if (!seen) return [];
+            if (seen[key] && seen[key] !== item.sys_id) {
+                return [this._issue(rule, 'Duplicate name/code detected', { duplicate_of: seen[key] })];
+            }
+            return [];
+        },
+        public_endpoint: function(item, rule) {
+            if (item.values && item.values.public_endpoint === 'true') {
+                return [this._issue(rule, 'Public endpoint without auth/rate limit')];
+            }
+            return [];
+        },
+        public_access: function(item, rule) {
+            if (item.values && item.values.public_access === 'true') {
+                return [this._issue(rule, 'Guest/public access detected')];
+            }
+            return [];
+        },
+        br_density: function(item, rule, params, context) {
+            var count = context && context.totalCount;
+            var threshold = params.threshold || 0;
+            if (threshold && count > threshold) {
+                return [this._issue(rule, 'Too many Business Rules (' + count + ' > ' + threshold + ')')];
+            }
+            return [];
+        },
+        br_heavy: function(item, rule) {
+            if (item.values && item.values.heavy_br === 'true') {
+                return [this._issue(rule, 'Heavy Business Rule')];
+            }
+            return [];
+        },
+        cs_heavy: function(item, rule) {
+            if (item.values && item.values.heavy_cs === 'true') {
+                return [this._issue(rule, 'Heavy Client Script')];
+            }
+            return [];
+        },
+        ui_action: function(item, rule) {
+            if (item.values && item.values.ui_action_server === 'true') {
+                return [this._issue(rule, 'Server UI Action without need')];
+            }
+            return [];
+        },
+        job_error: function(item, rule) {
+            if (item.values && item.values.job_error === 'true') {
+                return [this._issue(rule, 'Scheduled job errors')];
+            }
+            return [];
+        },
+        job_inactive: function(item, rule) {
+            if (item.values && item.values.job_inactive === 'true') {
+                return [this._issue(rule, 'Scheduled job inactive')];
+            }
+            return [];
+        },
+        flow_error: function(item, rule) {
+            if (item.values && item.values.flow_error === 'true') {
+                return [this._issue(rule, 'Flow in error')];
+            }
+            return [];
+        },
+        flow_config: function(item, rule) {
+            if (item.values && item.values.flow_no_timeout === 'true') {
+                return [this._issue(rule, 'Flow missing timeout/retry')];
+            }
+            return [];
+        },
+        notification: function(item, rule) {
+            if (item.values && item.values.notification_spam === 'true') {
+                return [this._issue(rule, 'Notification spam risk')];
+            }
+            return [];
+        },
+        integration_error: function(item, rule) {
+            if (item.values && item.values.integration_error === 'true') {
+                return [this._issue(rule, 'Integration errors detected')];
+            }
+            return [];
+        },
+        integration_config: function(item, rule) {
+            if (item.values && item.values.integration_no_retry === 'true') {
+                return [this._issue(rule, 'Integration missing retry/backoff')];
+            }
+            return [];
+        },
+        widget_perf: function(item, rule) {
+            if (item.values && item.values.widget_no_cache === 'true') {
+                return [this._issue(rule, 'Widget/portal without cache/pagination')];
+            }
+            return [];
+        },
+        query_scan: function(item, rule) {
+            if (item.values && item.values.full_table_scan === 'true') {
+                return [this._issue(rule, 'Full table scan detected')];
+            }
+            return [];
+        },
+        script_weight: function(item, rule) {
+            if (item.values && item.values.heavy_script === 'true') {
+                return [this._issue(rule, 'Heavy server script')];
+            }
+            return [];
+        },
+        audit: function(item, rule) {
+            if (item.values && item.values.audit_disabled === 'true') {
+                return [this._issue(rule, 'Audit disabled on sensitive table')];
+            }
+            return [];
+        },
+        security: function(item, rule) {
+            if (item.values && item.values.security_risk === 'true') {
+                return [this._issue(rule, 'Security risk detected')];
+            }
+            return [];
+        },
+        catalog: function(item, rule) {
+            if (item.values && item.values.catalog_risk === 'true') {
+                return [this._issue(rule, 'Catalog item risk')];
+            }
+            return [];
+        },
+        mail_config: function(item, rule) {
+            if (item.values && item.values.mail_no_restriction === 'true') {
+                return [this._issue(rule, 'Mail not restricted')];
+            }
+            return [];
+        },
+        observability: function(item, rule) {
+            if (item.values && item.values.no_metrics === 'true') {
+                return [this._issue(rule, 'No metrics/logs on critical component')];
+            }
+            return [];
+        }
+    },
+
+    _issue: function(rule, message, details) {
+        return {
+            code: rule.code || rule.type || 'ISSUE',
+            message: message,
+            severity: rule.severity || rule.default_severity || 'medium',
+            details: details || {}
+        };
+    },
+
+    _safeParse: function(str, fb) {
+        if (fb === undefined) fb = {};
+        try { if (!str) return fb; return JSON.parse(str); } catch(e){ return fb; }
+    },
+
+    type: 'FHARuleEvaluator'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 21:15:00</sys_created_on>
+        <sys_id>cccafeed53163610c7233ee0a0490abc</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHARuleEvaluator</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_cccafeed53163610c7233ee0a0490abc</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 21:15:00</sys_updated_on>
+    </sys_script_include>
+</record_update>

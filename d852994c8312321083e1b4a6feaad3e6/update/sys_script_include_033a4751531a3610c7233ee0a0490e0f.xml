@@ -29,6 +29,7 @@ FHAnalysisEngine.prototype = {
         };
 
         var rulesMap = this._loadIssueRules(configRecord.verification_items || []);
+        var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
 
         configRecord.verification_items.forEach(item => {
             try {
@@ -126,59 +127,26 @@ FHAnalysisEngine.prototype = {
      */
     _analyzeResults: function(result, issuesConfig) {
         try {
+            // context for aggregate-aware rules
+            var context = {
+                totalCount: result.data.length,
+                _dupsSeen: {}
+            };
+            result.data.forEach(function(it){
+                var key = (it.values.name || '') + '|' + (it.values.code || '');
+                if (!context._dupsSeen[key]) context._dupsSeen[key] = it.sys_id;
+            });
+
+            var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
             result.data.forEach(function(item) {
                 var rules = item._rules || [];
-                var sevFallback = function(type) {
-                    var r = rules.find(function(rr){ return rr.type === type; });
-                    return r ? (r.default_severity || 'medium') : 'medium';
-                };
-
-                item.issues = []; // Reset issues for this record
-                // --- Rule: inactive ---
-                var inactiveRule = rules.find(function(r){ return r.type === 'inactive'; });
-                var activeVal = (item.values.active || '').toString().toLowerCase();
-                if (inactiveRule && activeVal === 'false') {
-                    item.issues.push({
-                        code: inactiveRule.code || 'INACTIVE',
-                        message: 'Inactive record.',
-                        severity: inactiveRule.default_severity || 'high',
-                        details: { field: 'active', expected: 'true', actual: 'false' }
-                    });
-                }
-
-                // --- Rule: system_created ---
-                var sysRule = rules.find(function(r){ return r.type === 'system_created'; });
-                if (sysRule && item.values.sys_created_by === 'system') {
-                    item.issues.push({
-                        code: sysRule.code || 'SYSTEM_CREATED',
-                        message: 'Created by system user (requires review).',
-                        severity: sysRule.default_severity || 'medium'
-                    });
-                }
-
-                // --- Rule: count_threshold (applied once per item set) ---
-                var countRule = rules.find(function(r){ return r.type === 'count_threshold'; });
-                if (countRule && countRule._applied !== true) {
-                    var params = {};
-                    try { params = JSON.parse(countRule.params || '{}'); } catch(e) { params = {}; }
-                    var threshold = params.threshold || 0;
-                    if (threshold && result.data.length > threshold) {
-                        item.issues.push({
-                            code: countRule.code || 'MANY',
-                            message: 'Too many records (' + result.data.length + ' > ' + threshold + ').',
-                            severity: countRule.default_severity || 'medium'
-                        });
-                        countRule._applied = true; // avoid repeating on each item row
-                    }
-                }
+                item.issues = ruleEval.evaluate(item, rules, context) || [];
             });
 
         } catch (error) {
-            gs.error("[FHAnalysisEngine] _analyzeResults: " + eScript.message);
-
+            gs.error("[FHAnalysisEngine] _analyzeResults: " + error.message);
         }
         return result;
-
     },
 
     _safeParse: function(str, fallback) {
