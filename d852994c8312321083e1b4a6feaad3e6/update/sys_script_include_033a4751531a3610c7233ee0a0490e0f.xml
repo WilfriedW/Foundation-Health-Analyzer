@@ -45,7 +45,6 @@ FHAnalysisEngine.prototype = {
                     if (fields.indexOf(df) === -1) fields.push(df);
                 });
                 var category = item.category;
-                var issuesConfig = this._safeParse(this._safeGet(configRecord, 'issues'), {}); // Issue thresholds (e.g., { inactivityIssueCode: 'INACTIVE' })
 
                 // --- 2. Build the query based on type ---
                 var gr = new GlideRecord(tableName);
@@ -82,8 +81,8 @@ FHAnalysisEngine.prototype = {
                     result.data.push(record);
                 }
 
-                // --- 5. Analyze results for issues (e.g., inactive Flows) ---
-                result = this._analyzeResults(result, issuesConfig);
+                // --- 5. Analyze results for issues (via FHARuleEvaluator) ---
+                result = this._analyzeResults(result);
                 result.success = true;
 
             } catch (e) {
@@ -125,7 +124,7 @@ FHAnalysisEngine.prototype = {
      * @param {Object} issuesConfig - Issue rules (e.g., { inactivityIssueCode: 'INACTIVE', manyThreshold: 10 })
      * @returns {Object} - Updated result with issues
      */
-    _analyzeResults: function(result, issuesConfig) {
+    _analyzeResults: function(result) {
         try {
             // context for aggregate-aware rules
             var context = {
@@ -165,26 +164,6 @@ FHAnalysisEngine.prototype = {
             gs.error("[FHAnalysisEngine] _analyzeResults: " + error.message);
         }
         return result;
-    },
-
-    _safeParse: function(str, fallback) {
-        if (fallback === undefined) fallback = {};
-        try {
-            if (!str) return fallback;
-            return JSON.parse(str);
-        } catch (e) {
-            return fallback;
-        }
-    },
-
-    _safeGet: function(rec, field) {
-        try {
-            if (!rec) return '';
-            if (typeof rec.getValue === 'function') return rec.getValue(field);
-            return rec[field] || '';
-        } catch (e) {
-            return '';
-        }
     },
 
     _flattenIds: function(list) {
