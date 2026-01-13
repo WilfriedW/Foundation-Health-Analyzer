@@ -25,7 +25,7 @@
   c.buildCategories = function() {
     var seen = {};
     c.getData().forEach(function(item) {
-      var cat = item.category || 'general';
+      var cat = item.category;
       seen[cat] = true;
     });
     c.categoryTabs = Object.keys(seen).sort();
@@ -79,18 +79,19 @@
   c.getTableInfo = function() {
     var r = c.result || {};
     var cfg = r.config || {};
+
     return {
       number: r.number || '',
       state: r.state || '',
       table_name: cfg.table_name || r.table_name || '',
-      table_label: cfg.table_label || r.table_label || '',
+     /* table_label: cfg.table_label || r.table_label || '',
       description: cfg.description || r.description || '',
       include_children_tables: cfg.include_children_tables,
       deep_scan: cfg.deep_scan,
       ignore_servicenow_records: cfg.ignore_servicenow_records,
       include_ldap: cfg.include_ldap,
       created_on: r.created_on || '',
-      created_by: r.created_by || ''
+      created_by: r.created_by || ''*/
     };
   };
 
@@ -153,7 +154,7 @@
     var sev = c.filters.severity;
     var search = (c.filters.search || '').toLowerCase();
     var filtered = c.getData().filter(function(item) {
-      var matchesCat = (item.category || 'general') === cat;
+      var matchesCat = (item.category) === cat;
       if (!matchesCat) return false;
       if (sev !== 'all') {
         var hasSev = (item.issues || []).some(function(issue) {
@@ -618,14 +619,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>52</sys_mod_count>
+        <sys_mod_count>63</sys_mod_count>
         <sys_name>FHA Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-10 10:05:17</sys_updated_on>
+        <sys_updated_on>2026-01-13 06:33:22</sys_updated_on>
         <template><![CDATA[<div class="fha-detail">
   <div class="fha-header">
     <div style="display:flex;flex-direction:column;gap:6px;">
@@ -693,7 +694,7 @@
             <tbody>
               <tr><td><strong>Number</strong></td><td>{{c.getTableInfo().number || 'N/A'}}</td></tr>
               <tr><td><strong>State</strong></td><td>{{c.getTableInfo().state || 'N/A'}}</td></tr>
-              <tr><td><strong>Table label</strong></td><td>{{c.getTableInfo().table_label || 'N/A'}}</td></tr>
+              <tr><td><strong>Table label</strong></td><td>{{c.getTableInfo(). || 'N/A'}}</td></tr>
               <tr><td><strong>Table name</strong></td><td>{{c.getTableInfo().table_name || 'N/A'}}</td></tr>
               <tr><td><strong>Description</strong></td><td>{{c.getTableInfo().description || 'N/A'}}</td></tr>
               <tr><td><strong>Include children</strong></td><td>{{c.booleanText(c.getTableInfo().include_children_tables)}}</td></tr>
@@ -711,7 +712,6 @@
     <div ng-show="c.categoryTabs.indexOf(c.activeTab) !== -1">
       <div class="fha-card">
         <div class="fha-card__head">
-          <h3>Category: {{c.activeTab | uppercase}}</h3>
           <div class="filter-bar">
             <label>Severity:</label>
             <select ng-model="c.filters.severity">
@@ -743,7 +743,7 @@
           <table class="fha-data-table">
             <thead>
               <tr>
-                <th style="width:120px;">Category</th>
+                <th style="width:120px;">Type</th>
                 <th>Name</th>
                 <th style="width:140px;">Table</th>
                 <th style="width:90px;">Active</th>
@@ -757,7 +757,7 @@
                 <td>
                   <span class="pill cat" ng-style="{'background': (c.getMeta(item).color || '#4b5563')}">
                     <i class="fa" ng-class="c.getMeta(item).icon || 'fa-tag'"></i>
-                    {{item.category || 'general'}}
+                    {{item.tableName || 'general'}}
                   </span>
                 </td>
                 <td>
