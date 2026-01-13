@@ -15,6 +15,7 @@ FHARuleEvaluator.prototype = {
         var self = this;
         (rules || []).forEach(function(rule) {
             var params = self._safeParse(rule.params, {});
+            if (!self._isAllowed(params, item)) return;
             var handler = self._handlers[rule.type];
             if (handler) {
                 var res = handler.call(self, item, rule, params, context);
@@ -141,24 +142,28 @@ FHARuleEvaluator.prototype = {
             return [];
         },
         job_error: function(item, rule) {
+            if (item.table !== 'sysauto_script') return [];
             if (item.values && item.values.job_error === 'true') {
                 return [this._issue(rule, 'Scheduled job errors')];
             }
             return [];
         },
         job_inactive: function(item, rule) {
+            if (item.table !== 'sysauto_script') return [];
             if (item.values && item.values.job_inactive === 'true') {
                 return [this._issue(rule, 'Scheduled job inactive')];
             }
             return [];
         },
         flow_error: function(item, rule) {
+            if (item.table !== 'sys_hub_flow') return [];
             if (item.values && item.values.flow_error === 'true') {
                 return [this._issue(rule, 'Flow in error')];
             }
             return [];
         },
         flow_config: function(item, rule) {
+            if (item.table !== 'sys_hub_flow') return [];
             if (item.values && item.values.flow_no_timeout === 'true') {
                 return [this._issue(rule, 'Flow missing timeout/retry')];
             }
@@ -239,6 +244,21 @@ FHARuleEvaluator.prototype = {
             severity: rule.severity || rule.default_severity || 'medium',
             details: details || {}
         };
+    },
+
+    _isAllowed: function(params, item) {
+        if (!item) return false;
+        var tables = params.allowed_tables || params.tables;
+        if (tables) {
+            var list = ('' + tables).split(',').map(function(t){ return t.trim(); }).filter(function(t){ return t; });
+            if (list.length && list.indexOf(item.table) === -1) return false;
+        }
+        var cats = params.allowed_categories || params.categories;
+        if (cats) {
+            var clist = ('' + cats).split(',').map(function(c){ return c.trim(); }).filter(function(c){ return c; });
+            if (clist.length && clist.indexOf(item.category) === -1) return false;
+        }
+        return true;
     },
 
     _safeParse: function(str, fb) {
