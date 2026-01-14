@@ -6,5 +6,7 @@
         <element label="Params" max_length="400" name="params" type="string"/>
         <element label="Type" max_length="40" name="type" type="string"/>
         <element label="Severity" max_length="40" name="severity" type="string"/>
+        <element label="Script" max_length="4000" name="script" type="script"/>
+        <element attributes="edge_encryption_enabled=true" label="Description" max_length="1000" name="description" type="string"/>
     </element>
 </database>
