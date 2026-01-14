@@ -17,6 +17,10 @@ FHARuleEvaluator.prototype = {
             var params = self._safeParse(rule.params, {});
             if (!self._isApplicable(item, params)) return;
             var handler = self._handlers[rule.type];
+            // 1) Custom script (if provided on the rule)
+            var scriptIssues = self._runScript(rule.script, item, rule, params, context);
+            if (scriptIssues && scriptIssues.length) issues = issues.concat(scriptIssues);
+            // 2) Built-in handler
             if (handler) {
                 var res = handler.call(self, item, rule, params, context);
                 if (res && res.length) issues = issues.concat(res);
@@ -287,6 +291,20 @@ FHARuleEvaluator.prototype = {
     _safeParse: function(str, fb) {
         if (fb === undefined) fb = {};
         try { if (!str) return fb; return JSON.parse(str); } catch(e){ return fb; }
+    },
+
+    _runScript: function(script, item, rule, params, context) {
+        if (!script || typeof script !== 'string' || !script.trim()) return [];
+        try {
+            var fn = new Function('item','rule','params','context','issue','issues', script + '\n; return issues;');
+            var res = fn(item, rule, params, context, this._issue.bind(this), []);
+            if (!res) return [];
+            if (Array.isArray(res)) return res;
+            return [res];
+        } catch (e) {
+            gs.error("[FHARuleEvaluator] script error for rule " + (rule && rule.code) + ": " + e.message);
+            return [];
+        }
     },
 
     _isApplicable: function(item, params) {

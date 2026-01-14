@@ -216,7 +216,8 @@ FHAnalysisEngine.prototype = {
                 code: gr.getValue('code') || '',
                 type: gr.getValue('type') || '',
                 default_severity: gr.getValue('default_severity') || 'medium',
-                params: gr.getValue('params') || '{}'
+                params: gr.getValue('params') || '{}',
+                script: gr.getValue('script') || ''
             };
             // attach by each item that referenced it
             (items || []).forEach(function(it) {
