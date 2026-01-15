@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[api.controller=function($scope, $location) {
+        <client_script><![CDATA[api.controller=function($scope, $location, $timeout) {
   var c = this;
     
     // Active section for navigation
-    c.activeSection = 'overview';
+    c.activeSection = 'description';
+    var sectionIds = ['description','installation','configuration','options','scores','checks','architecture','api','best-practices','resources'];
+    var observer = null;
     
     // Set active section
     c.setSection = function(section) {
@@ -20,6 +22,39 @@
             element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     };
+
+    function setActiveFromViewport(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting && entry.target && entry.target.id) {
+                c.activeSection = entry.target.id;
+                $scope.$applyAsync();
+            }
+        });
+    }
+
+    function initScrollSpy() {
+        if (!('IntersectionObserver' in window)) {
+            return;
+        }
+        if (observer) {
+            observer.disconnect();
+        }
+        observer = new IntersectionObserver(setActiveFromViewport, { threshold: 0.35 });
+        sectionIds.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                observer.observe(el);
+            }
+        });
+    }
+
+    $timeout(initScrollSpy, 0);
+
+    $scope.$on('$destroy', function() {
+        if (observer) {
+            observer.disconnect();
+        }
+    });
     
     // Go back to dashboard
     c.goToDashboard = function() {
@@ -404,6 +439,59 @@
 .fha-feature-card li {
     margin-bottom: 5px;
 }
+
+.fha-doc-subtitle {
+    font-size: 15px;
+    opacity: 0.95;
+}
+
+.fha-doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 15px;
+    font-size: 12px;
+}
+
+.fha-doc-meta-item {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.fha-doc-actions {
+    margin-top: 18px;
+}
+
+.fha-doc-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1a5a96;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+.fha-doc-action-btn:hover {
+    background: #e8f4fc;
+}
+
+.fha-doc-list {
+    margin: 10px 0 0 0;
+    padding-left: 18px;
+}
+
+.fha-doc-divider {
+    height: 1px;
+    background: #e8f4fc;
+    margin: 20px 0;
+}
 </css>
         <data_table>sp_instance</data_table>
         <demo_data/>
@@ -421,8 +509,10 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function() {
-    data.appVersion = '1.1.0';
-    data.lastUpdated = '2026-01-04';
+    data.appVersion = (typeof gs !== 'undefined' && gs.getProperty) ? gs.getProperty('x_1310794_founda_0.version', '1.1.0') : '1.1.0';
+    data.lastUpdated = (typeof gs !== 'undefined' && gs.getProperty) ? gs.getProperty('x_1310794_founda_0.doc.last_updated', '2026-01-14') : '2026-01-14';
+    data.pageId = '277a975c8392f21083e1b4a6feaad318';
+    data.widgetId = '5ada939c8392f21083e1b4a6feaad360';
 })();]]></script>
         <servicenow>false</servicenow>
         <sys_class_name>sp_widget</sys_class_name>
@@ -440,404 +530,371 @@
         <template><![CDATA[<div class="fha-doc-container">
     <!-- Header -->
     <div class="fha-doc-header">
-        <h1><i class="fa fa-book"></i> Foundation Health Analyzer - Documentation</h1>
-        <p>${Complete guide to understanding and using FHA} | ${Version} {{c.data.appVersion}}</p>
+        <h1><i class="fa fa-book"></i> ${FHA Documentation}</h1>
+        <p class="fha-doc-subtitle">${Technical guide for the FHA documentation widget} | ${Version} {{c.data.appVersion}}</p>
+        <div class="fha-doc-meta">
+            <span class="fha-doc-meta-item">${Page ID}: {{c.data.pageId}}</span>
+            <span class="fha-doc-meta-item">${Widget ID}: {{c.data.widgetId}}</span>
+            <span class="fha-doc-meta-item">${Scope}: <span class="fha-code-inline">x_1310794_founda_0</span></span>
+            <span class="fha-doc-meta-item">${Last updated}: {{c.data.lastUpdated}}</span>
+        </div>
+        <div class="fha-doc-actions">
+            <button class="fha-doc-action-btn" ng-click="c.goToDashboard()">
+                <i class="fa fa-arrow-left"></i> ${Back to dashboard}
+            </button>
+        </div>
     </div>
 
     <!-- Navigation -->
     <div class="fha-doc-nav">
-        <div class="fha-doc-nav-title">${Quick Navigation}</div>
+        <div class="fha-doc-nav-title">${Table of Contents}</div>
         <div class="fha-doc-nav-items">
-            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'overview'}" ng-click="c.scrollToSection('overview')">
-                <i class="fa fa-info-circle"></i> ${Overview}
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'description'}" ng-click="c.scrollToSection('description')">
+                <i class="fa fa-info-circle"></i> ${Description}
             </button>
-            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'scores'}" ng-click="c.scrollToSection('scores')">
-                <i class="fa fa-chart-pie"></i> ${Health Scores}
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'installation'}" ng-click="c.scrollToSection('installation')">
+                <i class="fa fa-download"></i> ${Installation}
             </button>
-            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'issues'}" ng-click="c.scrollToSection('issues')">
-                <i class="fa fa-exclamation-triangle"></i> ${Issues}
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'configuration'}" ng-click="c.scrollToSection('configuration')">
+                <i class="fa fa-sliders-h"></i> ${Configuration}
             </button>
             <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'options'}" ng-click="c.scrollToSection('options')">
                 <i class="fa fa-cog"></i> ${Options}
             </button>
-            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'checks'}" ng-click="c.scrollToSection('checks')">
-                <i class="fa fa-check-circle"></i> ${Analysis Checks}
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'scores'}" ng-click="c.scrollToSection('scores')">
+                <i class="fa fa-chart-pie"></i> ${Scores}
             </button>
-            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'technical'}" ng-click="c.scrollToSection('technical')">
-                <i class="fa fa-code"></i> ${Technical}
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'checks'}" ng-click="c.scrollToSection('checks')">
+                <i class="fa fa-check-circle"></i> ${Checks}
+            </button>
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'architecture'}" ng-click="c.scrollToSection('architecture')">
+                <i class="fa fa-code"></i> ${Architecture}
             </button>
             <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'api'}" ng-click="c.scrollToSection('api')">
                 <i class="fa fa-plug"></i> ${REST API}
             </button>
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'best-practices'}" ng-click="c.scrollToSection('best-practices')">
+                <i class="fa fa-shield-alt"></i> ${Best Practices}
+            </button>
+            <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'resources'}" ng-click="c.scrollToSection('resources')">
+                <i class="fa fa-bookmark"></i> ${Resources}
+            </button>
         </div>
     </div>
 
-    <!-- Overview Section -->
-    <div id="overview" class="fha-doc-section">
-        <h2><i class="fa fa-info-circle"></i> ${Overview}</h2>
-        <p>${Foundation Health Analyzer (FHA) is a ServiceNow application designed to analyze the health and configuration of your ServiceNow tables. It provides detailed insights into customizations, business rules, automation, integrations, and potential issues.}</p>
-        
-        <h3>${What does FHA analyze?}</h3>
+    <!-- Description Section -->
+    <div id="description" class="fha-doc-section">
+        <h2><i class="fa fa-info-circle"></i> ${Description}</h2>
+        <p>${This Service Portal widget provides interactive, in-portal documentation for the Foundation Health Analyzer application. It ships as the FHA Documentation page and is consumed directly within the portal.}</p>
+
+        <h3>${Quick summary}</h3>
+        <ul class="fha-doc-list">
+            <li><strong>${Role}:</strong> ${Explain FHA behavior, options, and APIs.}</li>
+            <li><strong>${Type}:</strong> ${Service Portal widget (AngularJS) with internal navigation and anchored sections.}</li>
+            <li><strong>${Audience}:</strong> ${ServiceNow admins, developers, governance teams.}</li>
+        </ul>
+
+        <div class="fha-doc-divider"></div>
+
+        <h3>${Use cases}</h3>
         <div class="fha-feature-grid">
             <div class="fha-feature-card">
-                <h4><i class="fa fa-table"></i> ${Table Structure}</h4>
+                <h4><i class="fa fa-play-circle"></i> ${Run an analysis}</h4>
                 <ul>
-                    <li>${Custom fields and fill rates}</li>
-                    <li>${Reference field validation}</li>
-                    <li>${Record counts}</li>
-                    <li>${Table hierarchy}</li>
+                    <li>${Understand configuration options}</li>
+                    <li>${Identify executed checks per module}</li>
                 </ul>
             </div>
             <div class="fha-feature-card">
-                <h4><i class="fa fa-code"></i> ${Business Logic}</h4>
+                <h4><i class="fa fa-chart-line"></i> ${Interpret a score}</h4>
                 <ul>
-                    <li>${Business Rules}</li>
-                    <li>${Client Scripts}</li>
-                    <li>${Script quality (Deep Scan)}</li>
+                    <li>${Overall score and severities}</li>
+                    <li>${Prioritize remediations}</li>
                 </ul>
             </div>
             <div class="fha-feature-card">
-                <h4><i class="fa fa-cogs"></i> ${Automation}</h4>
+                <h4><i class="fa fa-plug"></i> ${Integrate FHA}</h4>
                 <ul>
-                    <li>${Scheduled Jobs}</li>
-                    <li>${Flows (Flow Designer)}</li>
-                    <li>${Workflows (Legacy)}</li>
-                    <li>${Notifications}</li>
-                    <li>${UI Actions & Policies}</li>
-                </ul>
-            </div>
-            <div class="fha-feature-card">
-                <h4><i class="fa fa-exchange"></i> ${Integrations}</h4>
-                <ul>
-                    <li>${Data Sources}</li>
-                    <li>${Transform Maps}</li>
-                    <li>${REST APIs}</li>
-                    <li>${ACLs (Security)}</li>
+                    <li>${Use the REST API}</li>
+                    <li>${Automate analyses}</li>
                 </ul>
             </div>
         </div>
     </div>
 
-    <!-- Health Scores Section -->
-    <div id="scores" class="fha-doc-section">
-        <h2><i class="fa fa-chart-pie"></i> ${Health Score}</h2>
-        <p>${The health score is a number from 0 to 100 that represents the overall health of your table configuration. It is calculated based on the issues found during analysis.}</p>
-        
-        <h3>${Score Calculation}</h3>
-        <div class="fha-code-block">score = 100
-for each issue:
-    if severity == 'high':   score -= 15
-    if severity == 'medium': score -= 5
-    if severity == 'low':    score -= 2
+    <!-- Installation Section -->
+    <div id="installation" class="fha-doc-section">
+        <h2><i class="fa fa-download"></i> ${Installation and access}</h2>
+        <p>${This widget ships with the FHA app and requires no npm/pip installation.}</p>
 
-return max(0, score)</div>
+        <h3>${Quick access}</h3>
+        <pre class="fha-code-block">/fha?id=fha_documentation</pre>
 
-        <h3>${Score Interpretation}</h3>
+        <h3>${Prerequisites and roles}</h3>
+        <ul class="fha-doc-list">
+            <li><span class="fha-code-inline">x_1310794_founda_0.admin</span> ${or} <span class="fha-code-inline">x_1310794_founda_0.user</span></li>
+            <li>${Service Portal enabled on the instance}</li>
+        </ul>
+
+        <h3>${Dependencies and versions}</h3>
         <table class="fha-doc-table">
             <thead>
                 <tr>
-                    <th>${Score Range}</th>
-                    <th>${Status}</th>
-                    <th>${Description}</th>
-                    <th>${Recommended Action}</th>
+                    <th>${Component}</th>
+                    <th>${Version}</th>
+                    <th>${Notes}</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><span class="fha-score-indicator fha-score-good"><i class="fa fa-check-circle"></i> 70 - 100</span></td>
-                    <td><strong>${Good Health}</strong></td>
-                    <td>${Your table is well configured with minimal issues}</td>
-                    <td>${Monitor regularly, address low severity issues when convenient}</td>
+                    <td>ServiceNow Service Portal</td>
+                    <td><span class="fha-code-inline">glide.buildname</span></td>
+                    <td>${Provided by the instance (check system property).}</td>
                 </tr>
                 <tr>
-                    <td><span class="fha-score-indicator fha-score-warning"><i class="fa fa-exclamation-circle"></i> 40 - 69</span></td>
-                    <td><strong>${Needs Attention}</strong></td>
-                    <td>${Several issues detected that should be reviewed}</td>
-                    <td>${Plan remediation for medium/high severity issues}</td>
+                    <td>AngularJS (embarque)</td>
+                    <td><span class="fha-code-inline">glide.buildname</span></td>
+                    <td>${Provided by ServiceNow with the portal.}</td>
                 </tr>
                 <tr>
-                    <td><span class="fha-score-indicator fha-score-critical"><i class="fa fa-times-circle"></i> 0 - 39</span></td>
-                    <td><strong>${Critical}</strong></td>
-                    <td>${Significant issues that may impact performance or functionality}</td>
-                    <td>${Immediate attention required for high severity issues}</td>
+                    <td>Font Awesome (embarque)</td>
+                    <td><span class="fha-code-inline">glide.buildname</span></td>
+                    <td>${Uses icons through} <span class="fha-code-inline">fa</span> ${classes.}</td>
                 </tr>
             </tbody>
         </table>
+        <div class="fha-info-box warning">
+            <strong>${Note}:</strong> ${Exact version depends on the instance. Check glide.buildname and glide.builddate to document target compatibility.}
+        </div>
     </div>
 
-    <!-- Issues Section -->
-    <div id="issues" class="fha-doc-section">
-        <h2><i class="fa fa-exclamation-triangle"></i> ${Issue Severity Levels}</h2>
-        <p>${Issues are categorized by severity to help you prioritize remediation efforts.}</p>
-        
-        <table class="fha-doc-table">
-            <thead>
-                <tr>
-                    <th>${Severity}</th>
-                    <th>${Impact}</th>
-                    <th>${Score Impact}</th>
-                    <th>${Examples}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-high">HIGH</span></td>
-                    <td>${Critical issues that may cause errors, security risks, or significant performance problems}</td>
-                    <td><strong>-15 points</strong></td>
-                    <td>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            <li>${Unused custom fields (0% fill rate)}</li>
-                            <li>${current.update() in Business Rules}</li>
-                            <li>${eval() usage (security risk)}</li>
-                            <li>${Invalid reference fields}</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td>
-                    <td>${Issues that should be addressed but don't cause immediate problems}</td>
-                    <td><strong>-5 points</strong></td>
-                    <td>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            <li>${Low usage fields (&lt;10% fill rate)}</li>
-                            <li>${Too many Business Rules (&gt;20)}</li>
-                            <li>${Hardcoded sys_id values}</li>
-                            <li>${Missing ACLs}</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-low">LOW</span></td>
-                    <td>${Minor issues or recommendations for best practices}</td>
-                    <td><strong>-2 points</strong></td>
-                    <td>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            <li>${Inactive scheduled jobs}</li>
-                            <li>${Legacy workflows (recommend Flow Designer)}</li>
-                            <li>${console.log instead of gs.log}</li>
-                        </ul>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+    <!-- Configuration Section -->
+    <div id="configuration" class="fha-doc-section">
+        <h2><i class="fa fa-sliders-h"></i> ${Configuration}</h2>
+        <p>${The widget does not consume instance parameters. The documentation is rendered statically from the template and server data.}</p>
 
-        <h3>${Issue Categories}</h3>
+        <h3>${Widget parameters}</h3>
         <table class="fha-doc-table">
             <thead>
                 <tr>
-                    <th>${Category}</th>
+                    <th>${Name}</th>
+                    <th>${Type}</th>
+                    <th>${Required}</th>
+                    <th>${Default}</th>
                     <th>${Description}</th>
                 </tr>
             </thead>
             <tbody>
-                <tr><td><span class="fha-code-inline">field</span></td><td>${Issues related to custom fields}</td></tr>
-                <tr><td><span class="fha-code-inline">business_rule</span></td><td>${Issues with Business Rules}</td></tr>
-                <tr><td><span class="fha-code-inline">client_script</span></td><td>${Issues with Client Scripts}</td></tr>
-                <tr><td><span class="fha-code-inline">automation</span></td><td>${Issues with Flows, Workflows, Jobs}</td></tr>
-                <tr><td><span class="fha-code-inline">integration</span></td><td>${Issues with Data Sources, Transform Maps}</td></tr>
-                <tr><td><span class="fha-code-inline">security</span></td><td>${Issues with ACLs and permissions}</td></tr>
-                <tr><td><span class="fha-code-inline">ui</span></td><td>${Issues with UI Actions and Policies}</td></tr>
-                <tr><td><span class="fha-code-inline">script</span></td><td>${Issues found in script content (Deep Scan)}</td></tr>
+                <tr>
+                    <td><span class="fha-code-inline">widget_parameters</span></td>
+                    <td>Object</td>
+                    <td>${No}</td>
+                    <td>{}</td>
+                    <td>${No parameters expected.}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>${Data exposed to the template}</h3>
+        <table class="fha-doc-table">
+            <thead>
+                <tr>
+                    <th>${Name}</th>
+                    <th>${Type}</th>
+                    <th>${Example}</th>
+                    <th>${Description}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="fha-code-inline">data.appVersion</span></td><td>String</td><td>1.1.0</td><td>${Application version}</td></tr>
+                <tr><td><span class="fha-code-inline">data.lastUpdated</span></td><td>String</td><td>2026-01-14</td><td>${Documentation last updated date}</td></tr>
+                <tr><td><span class="fha-code-inline">data.pageId</span></td><td>String</td><td>{{c.data.pageId}}</td><td>${Service Portal page ID}</td></tr>
+                <tr><td><span class="fha-code-inline">data.widgetId</span></td><td>String</td><td>{{c.data.widgetId}}</td><td>${Service Portal widget ID}</td></tr>
+            </tbody>
+        </table>
+
+        <h3>${Public methods (client)}</h3>
+        <table class="fha-doc-table">
+            <thead>
+                <tr>
+                    <th>${Method}</th>
+                    <th>${Signature}</th>
+                    <th>${Description}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="fha-code-inline">setSection</span></td><td>setSection(sectionId)</td><td>${Update active section.}</td></tr>
+                <tr><td><span class="fha-code-inline">scrollToSection</span></td><td>scrollToSection(sectionId)</td><td>${Smooth scroll to anchor.}</td></tr>
+                <tr><td><span class="fha-code-inline">goToDashboard</span></td><td>goToDashboard()</td><td>${Back to} <span class="fha-code-inline">/fha?id=fha_homepage</span>.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>${Minimal example}</h3>
+        <pre class="fha-code-block">https://&lt;instance&gt;.service-now.com/fha?id=fha_documentation</pre>
+
+        <h3>${Useful system properties}</h3>
+        <table class="fha-doc-table">
+            <thead>
+                <tr>
+                    <th>${Property}</th>
+                    <th>${Default}</th>
+                    <th>${Description}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="fha-code-inline">x_1310794_founda_0.debug</span></td><td>false</td><td>${Enables FHA server-side debug logging.}</td></tr>
             </tbody>
         </table>
     </div>
 
     <!-- Options Section -->
     <div id="options" class="fha-doc-section">
-        <h2><i class="fa fa-cog"></i> ${Configuration Options}</h2>
-        <p>${These options can be enabled on each configuration to perform additional analysis.}</p>
+        <h2><i class="fa fa-cog"></i> ${Analysis options}</h2>
+        <p>${These options are configuration fields on} <span class="fha-code-inline">x_1310794_founda_0_fha_configuration</span>.</p>
+
+        <table class="fha-doc-table">
+            <thead>
+                <tr>
+                    <th>${Option}</th>
+                    <th>${Type}</th>
+                    <th>${Default}</th>
+                    <th>${Effect}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="fha-code-inline">deep_scan</span></td><td>Boolean</td><td>false</td><td>${Script content analysis}</td></tr>
+                <tr><td><span class="fha-code-inline">include_children_tables</span></td><td>Boolean</td><td>false</td><td>${Include child tables}</td></tr>
+                <tr><td><span class="fha-code-inline">analyze_references</span></td><td>Boolean</td><td>false</td><td>${Deep reference analysis}</td></tr>
+                <tr><td><span class="fha-code-inline">include_ldap</span></td><td>Boolean</td><td>false</td><td>${Full LDAP analysis}</td></tr>
+            </tbody>
+        </table>
         
         <div class="fha-option-card">
             <h4><i class="fa fa-search-plus"></i> Deep Scan</h4>
-            <p>${When enabled, FHA analyzes the actual content of scripts to detect quality issues.}</p>
+            <p>${Detects script quality issues.}</p>
             <div class="fha-info-box">
                 <strong>${Detects:}</strong>
-                <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-                    <li><span class="fha-code-inline">current.update()</span> - ${Can cause infinite loops in Business Rules}</li>
-                    <li>${Hardcoded sys_id values - Makes code non-portable}</li>
-                    <li><span class="fha-code-inline">eval()</span> - ${Security risk}</li>
-                    <li><span class="fha-code-inline">console.log</span> - ${Should use gs.log in ServiceNow}</li>
-                    <li>${GlideRecord without setLimit() - Performance issue}</li>
-                    <li>${Synchronous GlideAjax (getXMLWait) - Blocks UI}</li>
+                <ul class="fha-doc-list">
+                    <li><span class="fha-code-inline">current.update()</span> ${inside Business Rules}</li>
+                    <li><span class="fha-code-inline">eval()</span> ${and hardcoded sys_id}</li>
+                    <li>${GlideRecord without} <span class="fha-code-inline">setLimit()</span></li>
                 </ul>
             </div>
         </div>
 
         <div class="fha-option-card">
-            <h4><i class="fa fa-sitemap"></i> Include Children Tables</h4>
-            <p>${When enabled, FHA also analyzes tables that extend the target table.}</p>
+            <h4><i class="fa fa-sitemap"></i> ${Child tables}</h4>
+            <p>${Includes tables extending the analyzed table.}</p>
             <div class="fha-info-box">
-                <strong>${Example:}</strong> ${If analyzing} <span class="fha-code-inline">task</span>, ${it will also include} <span class="fha-code-inline">incident</span>, <span class="fha-code-inline">problem</span>, <span class="fha-code-inline">change_request</span>, ${etc.}
+                <strong>${Example}:</strong> <span class="fha-code-inline">task</span> -> <span class="fha-code-inline">incident</span>, <span class="fha-code-inline">problem</span>, <span class="fha-code-inline">change_request</span>
             </div>
         </div>
 
         <div class="fha-option-card">
-            <h4><i class="fa fa-link"></i> Analyze References</h4>
-            <p>${When enabled, FHA performs deeper analysis of reference fields.}</p>
-            <div class="fha-info-box">
-                <strong>${Detects:}</strong>
-                <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-                    <li>${Orphan references - References pointing to deleted records}</li>
-                    <li>${Null reference percentages}</li>
-                    <li>${Integration dependencies mapping}</li>
-                </ul>
-            </div>
+            <h4><i class="fa fa-link"></i> ${Reference analysis}</h4>
+            <p>${Checks orphan references and integration dependencies.}</p>
         </div>
 
         <div class="fha-option-card">
-            <h4><i class="fa fa-address-book"></i> Include LDAP</h4>
-            <p>${When enabled, FHA performs complete LDAP configuration analysis.}</p>
-            <div class="fha-info-box">
-                <strong>${Analyzes:}</strong>
-                <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-                    <li>${LDAP Data Sources targeting the table}</li>
-                    <li>${Transform Maps with field mappings}</li>
-                    <li>${LDAP attribute to ServiceNow field mappings}</li>
-                    <li>${Coalesce field configuration (duplicate prevention)}</li>
-                    <li>${Active LDAP servers}</li>
-                </ul>
+            <h4><i class="fa fa-address-book"></i> ${LDAP analysis}</h4>
+            <p>${Recommended for} <span class="fha-code-inline">sys_user</span>, <span class="fha-code-inline">sys_user_group</span>, <span class="fha-code-inline">core_company</span>.</p>
             </div>
-            <div class="fha-info-box warning" style="margin-top: 10px;">
-                <strong>${Recommended for:}</strong> sys_user, sys_user_group, core_company, cmn_location
-            </div>
+
+        <div class="fha-info-box success">
+            <strong>${Good to know}:</strong> ${Options affect processing time and the number of reported issues.}
         </div>
     </div>
 
-    <!-- Deep Scan: Field Updaters -->
-    <div class="fha-doc-section" style="background: #f0f9ff; border: 1px solid #bae6fd;">
-        <h2><i class="fa fa-edit"></i> ${Field Update Detection (Deep Scan)}</h2>
-        <p>${When Deep Scan is enabled, FHA tracks which scripts update your custom fields.}</p>
-        
-        <h3>${What is detected}</h3>
+    <!-- Scores Section -->
+    <div id="scores" class="fha-doc-section">
+        <h2><i class="fa fa-chart-pie"></i> ${Health Score}</h2>
+        <p>${Health score is calculated out of 100 based on detected issues.}</p>
+
+        <h3>${Calculation}</h3>
+        <pre class="fha-code-block">score = 100
+for each issue:
+  if severity == 'high':   score -= 15
+  if severity == 'medium': score -= 5
+  if severity == 'low':    score -= 2
+
+return max(0, score)</pre>
+
+        <h3>${Interpretation}</h3>
         <table class="fha-doc-table">
             <thead>
                 <tr>
-                    <th>${Update Source}</th>
-                    <th>${Detection Method}</th>
+                    <th>${Range}</th>
+                    <th>${Status}</th>
+                    <th>${Guidance}</th>
                 </tr>
             </thead>
             <tbody>
-                <tr><td><i class="fa fa-cogs"></i> ${Business Rules}</td><td><span class="fha-code-inline">current.field_name = value</span> ${or} <span class="fha-code-inline">setValue('field_name', value)</span></td></tr>
-                <tr><td><i class="fa fa-clock"></i> ${Scheduled Jobs}</td><td>${Scripts that reference the table AND update fields}</td></tr>
-                <tr><td><i class="fa fa-project-diagram"></i> ${Flows}</td><td>${Flow actions that set field values}</td></tr>
-                <tr><td><i class="fa fa-exchange"></i> ${Transform Maps}</td><td>${Field maps targeting custom fields}</td></tr>
+                <tr>
+                    <td><span class="fha-score-indicator fha-score-good"><i class="fa fa-check-circle"></i> 70 - 100</span></td>
+                    <td>${Good}</td>
+                    <td>${Monitor and address minor items.}</td>
+                </tr>
+                <tr>
+                    <td><span class="fha-score-indicator fha-score-warning"><i class="fa fa-exclamation-circle"></i> 40 - 69</span></td>
+                    <td>${Needs attention}</td>
+                    <td>${Plan medium/high remediations.}</td>
+                </tr>
+                <tr>
+                    <td><span class="fha-score-indicator fha-score-critical"><i class="fa fa-times-circle"></i> 0 - 39</span></td>
+                    <td>${Critical}</td>
+                    <td>${Immediate action on high issues.}</td>
+                </tr>
             </tbody>
         </table>
-        
-        <div class="fha-info-box success">
-            <strong>${Use case:}</strong> ${Identify which automations populate a custom field to understand data flow and troubleshoot issues.}
-        </div>
     </div>
 
-    <!-- Analysis Checks Section -->
+    <!-- Checks Section -->
     <div id="checks" class="fha-doc-section">
         <h2><i class="fa fa-check-circle"></i> ${Analysis Checks}</h2>
-        <p>${FHA runs multiple check modules to analyze different aspects of your table.}</p>
-        
-        <h3>${FHCheckTable - Table Analysis}</h3>
-        <table class="fha-doc-table">
-            <thead>
-                <tr>
-                    <th>${Issue Code}</th>
-                    <th>${Severity}</th>
-                    <th>${Description}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td><span class="fha-code-inline">INVALID_CONFIG</span></td><td><span class="fha-severity-badge fha-severity-high">HIGH</span></td><td>${Configuration is invalid (no table defined)}</td></tr>
-                <tr><td><span class="fha-code-inline">TABLE_NOT_FOUND</span></td><td><span class="fha-severity-badge fha-severity-high">HIGH</span></td><td>${Table does not exist in the system}</td></tr>
-                <tr><td><span class="fha-code-inline">UNUSED_FIELD</span></td><td><span class="fha-severity-badge fha-severity-high">HIGH</span></td><td>${Custom field has 0% fill rate}</td></tr>
-                <tr><td><span class="fha-code-inline">INVALID_REFERENCE</span></td><td><span class="fha-severity-badge fha-severity-high">HIGH</span></td><td>${Reference field points to non-existent table}</td></tr>
-                <tr><td><span class="fha-code-inline">EMPTY_TABLE</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Table contains no records}</td></tr>
-                <tr><td><span class="fha-code-inline">LARGE_TABLE</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Table has more than 1 million records}</td></tr>
-                <tr><td><span class="fha-code-inline">LOW_USAGE_FIELD</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Custom field has less than 10% fill rate}</td></tr>
-                <tr><td><span class="fha-code-inline">POTENTIAL_DUPLICATE</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Custom field may duplicate an OOTB field}</td></tr>
-                <tr><td><span class="fha-code-inline">TOO_MANY_CUSTOM_FIELDS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${More than 50 custom fields}</td></tr>
-                <tr><td><span class="fha-code-inline">MANY_BUSINESS_RULES</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${More than 20 active Business Rules}</td></tr>
-                <tr><td><span class="fha-code-inline">MANY_CLIENT_SCRIPTS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${More than 15 active Client Scripts}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_BUSINESS_RULES</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${More than 10 inactive Business Rules}</td></tr>
-            </tbody>
-        </table>
+        <p>${Checks are grouped by module. Each check returns a code, severity, and metadata.}</p>
 
-        <h3>${FHCheckAutomation - Automation Analysis}</h3>
-        <table class="fha-doc-table">
-            <thead>
-                <tr>
-                    <th>${Issue Code}</th>
-                    <th>${Severity}</th>
-                    <th>${Description}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td><span class="fha-code-inline">MANY_FLOWS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${More than 10 flows on the table}</td></tr>
-                <tr><td><span class="fha-code-inline">UNPUBLISHED_WORKFLOW</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Active but unpublished workflow}</td></tr>
-                <tr><td><span class="fha-code-inline">MANY_NOTIFICATIONS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${More than 20 notifications}</td></tr>
-                <tr><td><span class="fha-code-inline">MANY_UI_ACTIONS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${More than 25 UI Actions}</td></tr>
-                <tr><td><span class="fha-code-inline">MANY_UI_POLICIES</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${More than 15 UI Policies}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_SCHEDULED_JOB</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Inactive scheduled job found}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_FLOW</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Inactive flow found}</td></tr>
-                <tr><td><span class="fha-code-inline">LEGACY_WORKFLOWS</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Table uses legacy workflows}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_INBOUND_EMAIL</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Inactive inbound email action}</td></tr>
-                <tr><td><span class="fha-code-inline">MANY_INBOUND_EMAILS</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${More than 10 inbound email actions}</td></tr>
-            </tbody>
-        </table>
+        <h3>FHCheckTable</h3>
+        <ul class="fha-doc-list">
+            <li>${Table structure, custom fields, references}</li>
+            <li>${Business Rules and Client Scripts}</li>
+        </ul>
 
-        <h3>${FHCheckIntegration - Integration Analysis}</h3>
+        <h3>FHCheckAutomation</h3>
+        <ul class="fha-doc-list">
+            <li>${Scheduled Jobs, Flows, Workflows, Notifications}</li>
+            <li>${UI Actions and UI Policies}</li>
+        </ul>
+
+        <h3>FHCheckIntegration</h3>
+        <ul class="fha-doc-list">
+            <li>${Data Sources, Transform Maps, ACLs, REST APIs}</li>
+            <li>${Import Sets and dependencies}</li>
+        </ul>
+
+        <h3>${Issue examples}</h3>
         <table class="fha-doc-table">
             <thead>
                 <tr>
-                    <th>${Issue Code}</th>
+                    <th>${Code}</th>
                     <th>${Severity}</th>
                     <th>${Description}</th>
                 </tr>
             </thead>
             <tbody>
+                <tr><td><span class="fha-code-inline">UNUSED_FIELD</span></td><td><span class="fha-severity-badge fha-severity-high">HIGH</span></td><td>${Custom field never populated}</td></tr>
+                <tr><td><span class="fha-code-inline">MANY_FLOWS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Too many flows on the table}</td></tr>
                 <tr><td><span class="fha-code-inline">NO_READ_ACL</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${No read ACL defined}</td></tr>
-                <tr><td><span class="fha-code-inline">NO_WRITE_ACL</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${No write ACL defined}</td></tr>
-                <tr><td><span class="fha-code-inline">FAILED_IMPORTS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Failed imports in last 30 days}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_DATA_SOURCE</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Inactive data source found}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_TRANSFORM_MAP</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Inactive transform map found}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_LDAP_DATASOURCE</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${LDAP data source is inactive}</td></tr>
-                <tr><td><span class="fha-code-inline">INACTIVE_LDAP_TRANSFORM</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${LDAP transform map is inactive}</td></tr>
-                <tr><td><span class="fha-code-inline">NO_LDAP_FIELD_MAPS</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${LDAP transform has no field mappings}</td></tr>
-                <tr><td><span class="fha-code-inline">NO_LDAP_COALESCE</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${LDAP transform has no coalesce field (duplicates risk)}</td></tr>
-                <tr><td><span class="fha-code-inline">NO_LDAP_CONFIG</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${No LDAP configuration found for table}</td></tr>
-                <tr><td><span class="fha-code-inline">MANY_INTEGRATIONS</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${More than 10 integrations}</td></tr>
-            </tbody>
-        </table>
-
-        <h3>${Deep Scan Issues (when enabled)}</h3>
-        <table class="fha-doc-table">
-            <thead>
-                <tr>
-                    <th>${Issue Code}</th>
-                    <th>${Severity}</th>
-                    <th>${Description}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td><span class="fha-code-inline">CURRENT_UPDATE</span></td><td><span class="fha-severity-badge fha-severity-high">HIGH</span></td><td>${Business Rule uses current.update()}</td></tr>
-                <tr><td><span class="fha-code-inline">EVAL_USAGE</span></td><td><span class="fha-severity-badge fha-severity-high">HIGH</span></td><td>${Script uses eval() (security risk)}</td></tr>
-                <tr><td><span class="fha-code-inline">HARDCODED_SYSID</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Script contains hardcoded sys_id}</td></tr>
-                <tr><td><span class="fha-code-inline">QUERY_NO_LIMIT</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${GlideRecord query without setLimit()}</td></tr>
-                <tr><td><span class="fha-code-inline">SYNC_AJAX</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Synchronous GlideAjax call}</td></tr>
-                <tr><td><span class="fha-code-inline">GS_SLEEP</span></td><td><span class="fha-severity-badge fha-severity-medium">MEDIUM</span></td><td>${Script uses gs.sleep()}</td></tr>
-                <tr><td><span class="fha-code-inline">CONSOLE_LOG</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Script uses console.log}</td></tr>
-                <tr><td><span class="fha-code-inline">NO_DESCRIPTION</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${Flow has no description}</td></tr>
+                <tr><td><span class="fha-code-inline">CONSOLE_LOG</span></td><td><span class="fha-severity-badge fha-severity-low">LOW</span></td><td>${console.log detected in a script}</td></tr>
             </tbody>
         </table>
     </div>
 
-    <!-- Technical Section -->
-    <div id="technical" class="fha-doc-section">
-        <h2><i class="fa fa-code"></i> ${Technical Architecture}</h2>
-        
-        <h3>${Application Scope}</h3>
-        <p><span class="fha-code-inline">x_1310794_founda_0</span> - Foundation Health Analyzer</p>
+    <!-- Architecture Section -->
+    <div id="architecture" class="fha-doc-section">
+        <h2><i class="fa fa-code"></i> ${Technical architecture}</h2>
 
-        <h3>${Architecture Diagram}</h3>
+        <h3>${Diagram (HTML)}</h3>
         <div class="fha-arch-visual">
-            <!-- UI Layer -->
             <div class="fha-arch-layer fha-arch-ui">
                 <div class="fha-arch-layer-title">Service Portal (UI Layer)</div>
                 <div class="fha-arch-boxes">
@@ -847,10 +904,8 @@ return max(0, score)</div>
                 </div>
             </div>
             <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
-            
-            <!-- Entry Point -->
             <div class="fha-arch-layer fha-arch-entry">
-                <div class="fha-arch-layer-title">FHAnalyzer (Entry Point)</div>
+                <div class="fha-arch-layer-title">FHAnalyzer</div>
                 <div class="fha-arch-methods">
                     <code>getAvailableAnalyses()</code>
                     <code>runAnalysis(configSysId)</code>
@@ -858,15 +913,11 @@ return max(0, score)</div>
                 </div>
             </div>
             <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
-            
-            <!-- Engine -->
             <div class="fha-arch-layer fha-arch-engine">
                 <div class="fha-arch-layer-title">FHAnalysisEngine</div>
-                <div class="fha-arch-desc">Orchestrates analysis execution via FHCheckRegistry</div>
+                <div class="fha-arch-desc">${Orchestrates execution via FHCheckRegistry}</div>
             </div>
             <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
-            
-            <!-- Check Modules -->
             <div class="fha-arch-checks">
                 <div class="fha-arch-check">
                     <div class="fha-arch-check-title"><i class="fa fa-table"></i> FHCheckTable</div>
@@ -874,20 +925,16 @@ return max(0, score)</div>
                         <li>Fields &amp; Fill Rates</li>
                         <li>Business Rules</li>
                         <li>Client Scripts</li>
-                        <li>Deep Scan (scripts)</li>
-                        <li>Children Tables</li>
-                        <li>Reference Analysis</li>
+                        <li>Deep Scan</li>
                     </ul>
                 </div>
                 <div class="fha-arch-check">
                     <div class="fha-arch-check-title"><i class="fa fa-cogs"></i> FHCheckAutomation</div>
                     <ul>
                         <li>Scheduled Jobs</li>
-                        <li>Flows (Flow Designer)</li>
-                        <li>Workflows (Legacy)</li>
+                        <li>Flows</li>
+                        <li>Workflows</li>
                         <li>Notifications</li>
-                        <li>UI Actions</li>
-                        <li>UI Policies</li>
                     </ul>
                 </div>
                 <div class="fha-arch-check">
@@ -895,64 +942,52 @@ return max(0, score)</div>
                     <ul>
                         <li>Data Sources</li>
                         <li>Transform Maps</li>
-                        <li>ACLs (Security)</li>
+                        <li>ACLs</li>
                         <li>REST APIs</li>
-                        <li>Import Sets</li>
-                        <li>Dependencies</li>
                     </ul>
                 </div>
             </div>
             <div class="fha-arch-arrow"><i class="fa fa-arrow-down"></i></div>
-            
-            <!-- Context -->
             <div class="fha-arch-layer fha-arch-context">
                 <div class="fha-arch-layer-title">FHAnalysisContext</div>
-                <div class="fha-arch-desc">Stores issues, metrics, and analysis state</div>
+                <div class="fha-arch-desc">${Stores issues, metrics, options}</div>
                 <div class="fha-arch-methods">
                     <code>addIssue(code, message, severity, metadata)</code>
                 </div>
             </div>
         </div>
 
-        <h3>${Data Model}</h3>
+        <h3>${Mermaid diagram (if supported)}</h3>
+        <pre class="fha-code-block">graph TD
+  A[Service Portal] --> B[Widgets FHA]
+  B --> C[FHAnalyzer]
+  C --> D[FHAnalysisEngine]
+  D --> E[FHCheckRegistry]
+  E --> F[FHCheckTable]
+  E --> G[FHCheckAutomation]
+  E --> H[FHCheckIntegration]
+  D --> I[FHAnalysisContext]</pre>
+
+        <h3>${Data model}</h3>
         <table class="fha-doc-table">
             <thead>
                 <tr>
                     <th>${Table}</th>
                     <th>${Purpose}</th>
-                    <th>${Key Fields}</th>
+                    <th>${Key fields}</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td><span class="fha-code-inline">x_1310794_founda_0_fha_configuration</span></td>
-                    <td>${Stores analysis configurations}</td>
+                    <td>${Analysis configurations}</td>
                     <td>name, table_reference, deep_scan, include_children_tables, analyze_references</td>
                 </tr>
                 <tr>
                     <td><span class="fha-code-inline">x_1310794_founda_0_fha_results</span></td>
-                    <td>${Stores analysis results}</td>
+                    <td>${Analysis results}</td>
                     <td>number, table_name, health_score, issue_found, detail_json, status</td>
                 </tr>
-            </tbody>
-        </table>
-
-        <h3>${Script Includes}</h3>
-        <table class="fha-doc-table">
-            <thead>
-                <tr>
-                    <th>${Class}</th>
-                    <th>${Purpose}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td><span class="fha-code-inline">FHAnalyzer</span></td><td>${Main entry point - runs analysis and saves results}</td></tr>
-                <tr><td><span class="fha-code-inline">FHAnalysisEngine</span></td><td>${Orchestrates check execution}</td></tr>
-                <tr><td><span class="fha-code-inline">FHCheckRegistry</span></td><td>${Registry of available check modules}</td></tr>
-                <tr><td><span class="fha-code-inline">FHAnalysisContext</span></td><td>${Stores issues and metrics during analysis}</td></tr>
-                <tr><td><span class="fha-code-inline">FHCheckTable</span></td><td>${Table structure and script analysis}</td></tr>
-                <tr><td><span class="fha-code-inline">FHCheckAutomation</span></td><td>${Automation and workflow analysis}</td></tr>
-                <tr><td><span class="fha-code-inline">FHCheckIntegration</span></td><td>${Integration and security analysis}</td></tr>
             </tbody>
         </table>
     </div>
@@ -960,10 +995,10 @@ return max(0, score)</div>
     <!-- API Section -->
     <div id="api" class="fha-doc-section">
         <h2><i class="fa fa-plug"></i> ${REST API}</h2>
-        <p>${FHA provides a REST API for programmatic access.}</p>
+        <p>${FHA exposes a REST API for automation.}</p>
         
         <h3>${Base URL}</h3>
-        <div class="fha-code-block">https://&lt;instance&gt;.service-now.com/api/x_1310794_founda_0/fha</div>
+        <pre class="fha-code-block">https://&lt;instance&gt;.service-now.com/api/x_1310794_founda_0/fha</pre>
 
         <h3>${Endpoints}</h3>
         <table class="fha-doc-table">
@@ -975,60 +1010,67 @@ return max(0, score)</div>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-low">GET</span></td>
-                    <td><span class="fha-code-inline">/tables</span></td>
-                    <td>${List available configurations}</td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-medium">POST</span></td>
-                    <td><span class="fha-code-inline">/analyze/{table_name}</span></td>
-                    <td>${Run analysis by table name}</td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-medium">POST</span></td>
-                    <td><span class="fha-code-inline">/analyze_by_config/{config_sys_id}</span></td>
-                    <td>${Run analysis by configuration ID}</td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-low">GET</span></td>
-                    <td><span class="fha-code-inline">/analysis/{sys_id}</span></td>
-                    <td>${Get analysis result}</td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-low">GET</span></td>
-                    <td><span class="fha-code-inline">/statistics</span></td>
-                    <td>${Get global statistics}</td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-low">GET</span></td>
-                    <td><span class="fha-code-inline">/history</span></td>
-                    <td>${Get analysis history}</td>
-                </tr>
-                <tr>
-                    <td><span class="fha-severity-badge fha-severity-low">GET</span></td>
-                    <td><span class="fha-code-inline">/fields?table_name={name}</span></td>
-                    <td>${Get field information}</td>
-                </tr>
+                <tr><td><span class="fha-severity-badge fha-severity-low">GET</span></td><td><span class="fha-code-inline">/tables</span></td><td>${List configurations}</td></tr>
+                <tr><td><span class="fha-severity-badge fha-severity-medium">POST</span></td><td><span class="fha-code-inline">/analyze/{table_name}</span></td><td>${Run analysis by table}</td></tr>
+                <tr><td><span class="fha-severity-badge fha-severity-medium">POST</span></td><td><span class="fha-code-inline">/analyze_by_config/{config_sys_id}</span></td><td>${Run analysis by configuration}</td></tr>
+                <tr><td><span class="fha-severity-badge fha-severity-low">GET</span></td><td><span class="fha-code-inline">/analysis/{sys_id}</span></td><td>${Get analysis result}</td></tr>
+                <tr><td><span class="fha-severity-badge fha-severity-low">GET</span></td><td><span class="fha-code-inline">/statistics</span></td><td>${Global statistics}</td></tr>
+                <tr><td><span class="fha-severity-badge fha-severity-low">GET</span></td><td><span class="fha-code-inline">/history</span></td><td>${Analysis history}</td></tr>
+                <tr><td><span class="fha-severity-badge fha-severity-low">GET</span></td><td><span class="fha-code-inline">/fields?table_name={name}</span></td><td>${Fields and fill rate}</td></tr>
+                <tr><td><span class="fha-severity-badge fha-severity-low">POST</span></td><td><span class="fha-code-inline">/report/word</span></td><td>${Generate report}</td></tr>
             </tbody>
         </table>
 
-        <h3>${Example: Run Analysis}</h3>
-        <div class="fha-code-block">POST /api/x_1310794_founda_0/fha/analyze/incident
+        <h3>${Example: run an analysis}</h3>
+        <pre class="fha-code-block">POST /api/x_1310794_founda_0/fha/analyze/incident
 Content-Type: application/json
 Authorization: Basic &lt;credentials&gt;
 
 {
   "deep_scan": true
-}
+}</pre>
+    </div>
 
-// Response
-{
-  "success": true,
-  "analysis_id": "abc123...",
-  "health_score": 75,
-  "issues_count": 12
-}</div>
+    <!-- Best Practices Section -->
+    <div id="best-practices" class="fha-doc-section">
+        <h2><i class="fa fa-shield-alt"></i> ${Best practices and warnings}</h2>
+        <ul class="fha-doc-list">
+            <li><strong>${Performance}:</strong> ${Enable} <span class="fha-code-inline">deep_scan</span> ${only when needed.}</li>
+            <li><strong>${Security}:</strong> ${Restrict access to FHA roles.}</li>
+            <li><strong>${Quality}:</strong> ${Prioritize HIGH and MEDIUM issues.}</li>
+            <li><strong>${Debug}:</strong> ${Enable} <span class="fha-code-inline">x_1310794_founda_0.debug</span> ${for investigations.}</li>
+            <li><strong>${Internationalization}:</strong> ${Labels use the syntax} <span class="fha-code-inline">&#36;{...}</span>.</li>
+        </ul>
+        <div class="fha-info-box warning">
+            <strong>${Warning}:</strong> ${The widget does not validate API rights; ACLs and REST roles must be configured on the platform.}
+        </div>
+    </div>
+
+    <!-- Resources Section -->
+    <div id="resources" class="fha-doc-section">
+        <h2><i class="fa fa-bookmark"></i> ${Additional resources}</h2>
+        <ul class="fha-doc-list">
+            <li><strong>${Widget source}:</strong> <span class="fha-code-inline">sp_widget_5ada939c8392f21083e1b4a6feaad360.xml</span></li>
+            <li><strong>${Service Portal page}:</strong> <span class="fha-code-inline">sp_page_277a975c8392f21083e1b4a6feaad318.xml</span></li>
+            <li><strong>${Script Includes}:</strong> <span class="fha-code-inline">FHAnalyzer</span>, <span class="fha-code-inline">FHAnalysisEngine</span>, <span class="fha-code-inline">FHCheck*</span></li>
+            <li><strong>${API}:</strong> <span class="fha-code-inline">sys_ws_operation_*</span> ${in the update folder}</li>
+        </ul>
+
+        <h3>${Changelog}</h3>
+        <table class="fha-doc-table">
+            <thead>
+                <tr>
+                    <th>${Version}</th>
+                    <th>${Date}</th>
+                    <th>${Notes}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>1.1.0</td><td>2026-01-04</td><td>${Added advanced options (deep scan, child tables, references)}</td></tr>
+                <tr><td>1.1.0-doc</td><td>2026-01-14</td><td>${Documentation and structure update.}</td></tr>
+                <tr><td>1.0.0</td><td>2026-01-03</td><td>${Initial version}</td></tr>
+            </tbody>
+        </table>
     </div>
 
     <!-- Footer -->

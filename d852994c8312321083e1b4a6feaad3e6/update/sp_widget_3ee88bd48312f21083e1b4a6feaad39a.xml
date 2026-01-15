@@ -740,19 +740,19 @@
     </div>
 
     <div ng-show="c.isTab('overview')">
-      <div class="fha-card">
+        <div class="fha-card">
         <div class="fha-card__head"><h3>Result</h3></div>
-        <div class="fha-card__body">
-          <table class="fha-data-table">
-            <tbody>
+          <div class="fha-card__body">
+            <table class="fha-data-table">
+              <tbody>
               <tr><td><strong>Number</strong></td><td>{{c.getResultMeta().number || 'N/A'}}</td></tr>
               <tr><td><strong>State</strong></td><td>{{c.getResultMeta().state || 'N/A'}}</td></tr>
               <tr><td><strong>Created on</strong></td><td>{{c.getResultMeta().created_on || 'N/A'}}</td></tr>
               <tr><td><strong>Created by</strong></td><td>{{c.getResultMeta().created_by || 'N/A'}}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </tbody>
+            </table>
+    </div>
+   </div>
 
       <div class="fha-card">
         <div class="fha-card__head"><h3>Configuration</h3></div>
@@ -845,8 +845,8 @@
                         {{issue.severity | uppercase}}
                       </span>
                       <span style="margin-left:6px;">{{issue.code}} - {{issue.message}}</span>
-                    </div>
-                  </div>
+        </div>
+      </div>
                   <span ng-if="!item.issues || !item.issues.length">-</span>
                 </td>
               </tr>
