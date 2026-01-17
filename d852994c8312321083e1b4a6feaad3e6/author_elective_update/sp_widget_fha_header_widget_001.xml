@@ -694,7 +694,7 @@
         <update_guid_history>b6afb25457deb2100dc1ad13bd52054f:681004719</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
-        <sys_audit_delete display_value="FHA Header">3e10c39483deb21083e1b4a6feaad333</sys_audit_delete>
+        <sys_audit_delete display_value="">3e10c39483deb21083e1b4a6feaad333</sys_audit_delete>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:00:13</sys_created_on>

@@ -31,7 +31,7 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/tables</relative_path>
-        <request_example><![CDATA[// No request body required for GET request
+        <request_example>// No request body required for GET request
 
 // Example Response:
 {
@@ -46,7 +46,7 @@
       "description": "Analysis configuration for incident table"
     }
   ]
-}]]></request_example>
+}</request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
