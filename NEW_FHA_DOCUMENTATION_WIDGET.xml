@@ -1,0 +1,1697 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[api.controller=function($scope, $location, $timeout, $window) {
+  var c = this;
+    
+  // Active section for navigation
+  c.activeSection = 'overview';
+  var sectionIds = [
+    'overview',
+    'quickstart', 
+    'components',
+    'configuration',
+    'architecture',
+    'api',
+    'handlers',
+    'troubleshooting',
+    'bestpractices',
+    'documentation'
+  ];
+  var observer = null;
+  
+  // Data
+  c.version = c.data.appVersion || '1.3.0';
+  c.lastUpdated = c.data.lastUpdated || '2026-01-17';
+  c.components = c.data.components || {};
+  
+  // Set active section
+  c.setSection = function(section) {
+    c.activeSection = section;
+  };
+  
+  // Scroll to section with smooth behavior
+  c.scrollToSection = function(sectionId) {
+    c.activeSection = sectionId;
+    $timeout(function() {
+      var element = document.getElementById(sectionId);
+      if (element) {
+        var headerOffset = 80;
+        var elementPosition = element.getBoundingClientRect().top;
+        var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+  };
+
+  // Scroll spy - track active section based on viewport
+  function setActiveFromViewport(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting && entry.target && entry.target.id) {
+        c.activeSection = entry.target.id;
+        $scope.$applyAsync();
+      }
+    });
+  }
+
+  function initScrollSpy() {
+    if (!('IntersectionObserver' in window)) {
+      return;
+    }
+    if (observer) {
+      observer.disconnect();
+    }
+    observer = new IntersectionObserver(setActiveFromViewport, { 
+      threshold: 0.3,
+      rootMargin: '-80px 0px -60% 0px'
+    });
+    sectionIds.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        observer.observe(el);
+      }
+    });
+  }
+
+  $timeout(initScrollSpy, 300);
+
+  $scope.$on('$destroy', function() {
+    if (observer) {
+      observer.disconnect();
+    }
+  });
+  
+  // Navigation
+  c.goToDashboard = function() {
+    $window.location.href = '/fha?id=fha_homepage';
+  };
+  
+  c.openPortal = function(pageId) {
+    $window.location.href = '/fha?id=' + pageId;
+  };
+  
+  // Copy to clipboard
+  c.copyToClipboard = function(text) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function() {
+        // Show success feedback
+        c.showCopyFeedback = true;
+        $timeout(function() {
+          c.showCopyFeedback = false;
+        }, 2000);
+      });
+    }
+  };
+};]]></client_script>
+        <controller_as>c</controller_as>
+        <css>/* ===== VARIABLES ===== */
+:root {
+  --fha-primary: #1a5a96;
+  --fha-primary-light: #2980b9;
+  --fha-primary-lighter: #e8f4fc;
+  --fha-success: #059669;
+  --fha-success-light: #d1fae5;
+  --fha-warning: #d97706;
+  --fha-warning-light: #fef3c7;
+  --fha-danger: #dc2626;
+  --fha-danger-light: #fee2e2;
+  --fha-gray-50: #f9fafb;
+  --fha-gray-100: #f3f4f6;
+  --fha-gray-200: #e5e7eb;
+  --fha-gray-300: #d1d5db;
+  --fha-gray-600: #4b5563;
+  --fha-gray-700: #374151;
+  --fha-gray-800: #1f2937;
+  --fha-gray-900: #111827;
+}
+
+/* ===== CONTAINER ===== */
+.fha-doc-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  color: var(--fha-gray-900);
+  line-height: 1.6;
+}
+
+/* ===== HEADER ===== */
+.fha-doc-header {
+  background: linear-gradient(135deg, var(--fha-primary) 0%, var(--fha-primary-light) 100%);
+  color: white;
+  padding: 48px 40px;
+  margin-bottom: 0;
+  box-shadow: 0 4px 20px rgba(26, 90, 150, 0.15);
+}
+
+.fha-doc-header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.fha-doc-header h1 {
+  margin: 0 0 12px 0;
+  font-size: 36px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fha-doc-header h1 i {
+  font-size: 32px;
+}
+
+.fha-doc-subtitle {
+  font-size: 18px;
+  opacity: 0.95;
+  margin: 0 0 20px 0;
+  font-weight: 400;
+}
+
+.fha-doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.fha-doc-meta-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+}
+
+.fha-doc-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fha-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.fha-btn-primary {
+  background: white;
+  color: var(--fha-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.fha-btn-primary:hover {
+  background: var(--fha-gray-50);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.fha-btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.fha-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ===== NAVIGATION ===== */
+.fha-doc-nav {
+  background: white;
+  border-bottom: 1px solid var(--fha-gray-200);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.fha-doc-nav-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+.fha-doc-nav-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.fha-doc-nav-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.fha-doc-nav-scroll::-webkit-scrollbar-track {
+  background: var(--fha-gray-100);
+}
+
+.fha-doc-nav-scroll::-webkit-scrollbar-thumb {
+  background: var(--fha-gray-300);
+  border-radius: 2px;
+}
+
+.fha-doc-nav-items {
+  display: flex;
+  gap: 4px;
+  padding: 12px 0;
+  min-width: max-content;
+}
+
+.fha-doc-nav-btn {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--fha-gray-600);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fha-doc-nav-btn:hover {
+  background: var(--fha-gray-100);
+  color: var(--fha-gray-900);
+}
+
+.fha-doc-nav-btn.active {
+  background: var(--fha-primary);
+  color: white;
+  font-weight: 600;
+}
+
+.fha-doc-nav-btn i {
+  font-size: 13px;
+}
+
+/* ===== CONTENT ===== */
+.fha-doc-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 40px 80px;
+}
+
+.fha-doc-section {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--fha-gray-200);
+}
+
+.fha-doc-section h2 {
+  color: var(--fha-primary);
+  font-size: 28px;
+  margin: 0 0 24px 0;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--fha-primary-lighter);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+}
+
+.fha-doc-section h2 i {
+  font-size: 24px;
+}
+
+.fha-doc-section h3 {
+  color: var(--fha-gray-800);
+  font-size: 20px;
+  margin: 32px 0 16px 0;
+  font-weight: 600;
+}
+
+.fha-doc-section h4 {
+  color: var(--fha-gray-700);
+  font-size: 16px;
+  margin: 24px 0 12px 0;
+  font-weight: 600;
+}
+
+.fha-doc-section p {
+  color: var(--fha-gray-700);
+  line-height: 1.7;
+  margin-bottom: 16px;
+  font-size: 15px;
+}
+
+.fha-doc-section ul,
+.fha-doc-section ol {
+  margin: 16px 0;
+  padding-left: 28px;
+  color: var(--fha-gray-700);
+}
+
+.fha-doc-section li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+/* ===== TABLES ===== */
+.fha-doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  font-size: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.fha-doc-table thead {
+  background: var(--fha-gray-100);
+}
+
+.fha-doc-table th {
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--fha-gray-800);
+  border-bottom: 2px solid var(--fha-gray-300);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fha-doc-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--fha-gray-200);
+  vertical-align: top;
+}
+
+.fha-doc-table tbody tr:hover {
+  background: var(--fha-gray-50);
+}
+
+.fha-doc-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ===== BADGES & LABELS ===== */
+.fha-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fha-badge-success {
+  background: var(--fha-success-light);
+  color: var(--fha-success);
+}
+
+.fha-badge-warning {
+  background: var(--fha-warning-light);
+  color: var(--fha-warning);
+}
+
+.fha-badge-danger {
+  background: var(--fha-danger-light);
+  color: var(--fha-danger);
+}
+
+.fha-badge-info {
+  background: var(--fha-primary-lighter);
+  color: var(--fha-primary);
+}
+
+/* ===== CODE ===== */
+.fha-code-inline {
+  background: var(--fha-gray-100);
+  color: var(--fha-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.fha-code-block {
+  background: var(--fha-gray-900);
+  color: #e2e8f0;
+  padding: 20px;
+  border-radius: 8px;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 13px;
+  overflow-x: auto;
+  margin: 16px 0;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== INFO BOXES ===== */
+.fha-info-box {
+  background: var(--fha-primary-lighter);
+  border-left: 4px solid var(--fha-primary);
+  padding: 16px 20px;
+  border-radius: 0 8px 8px 0;
+  margin: 20px 0;
+}
+
+.fha-info-box.success {
+  background: var(--fha-success-light);
+  border-left-color: var(--fha-success);
+}
+
+.fha-info-box.warning {
+  background: var(--fha-warning-light);
+  border-left-color: var(--fha-warning);
+}
+
+.fha-info-box.danger {
+  background: var(--fha-danger-light);
+  border-left-color: var(--fha-danger);
+}
+
+.fha-info-box p:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== CARDS ===== */
+.fha-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+
+.fha-card {
+  background: var(--fha-gray-50);
+  border: 1px solid var(--fha-gray-200);
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s;
+}
+
+.fha-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.fha-card h4 {
+  color: var(--fha-primary);
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.fha-card p {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.fha-card ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+/* ===== STATS ===== */
+.fha-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.fha-stat-card {
+  background: white;
+  border: 2px solid var(--fha-gray-200);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.fha-stat-card:hover {
+  border-color: var(--fha-primary);
+  box-shadow: 0 4px 12px rgba(26, 90, 150, 0.1);
+}
+
+.fha-stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--fha-primary);
+  margin: 0 0 8px 0;
+}
+
+.fha-stat-label {
+  font-size: 13px;
+  color: var(--fha-gray-600);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .fha-doc-header {
+    padding: 32px 24px;
+  }
+  
+  .fha-doc-header h1 {
+    font-size: 28px;
+  }
+  
+  .fha-doc-nav-content {
+    padding: 0 24px;
+  }
+  
+  .fha-doc-content {
+    padding: 24px 24px 60px;
+  }
+  
+  .fha-doc-section {
+    padding: 24px;
+  }
+  
+  .fha-doc-section h2 {
+    font-size: 24px;
+  }
+  
+  .fha-card-grid,
+  .fha-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .fha-doc-table {
+    font-size: 12px;
+  }
+  
+  .fha-doc-table th,
+  .fha-doc-table td {
+    padding: 10px 12px;
+  }
+}
+
+/* ===== UTILITIES ===== */
+.fha-divider {
+  height: 1px;
+  background: var(--fha-gray-200);
+  margin: 24px 0;
+}
+
+.fha-text-center {
+  text-align: center;
+}
+
+.fha-mt-0 { margin-top: 0; }
+.fha-mb-0 { margin-bottom: 0; }
+.fha-mt-2 { margin-top: 16px; }
+.fha-mb-2 { margin-bottom: 16px; }
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fha-doc-section {
+  animation: fadeIn 0.4s ease-out;
+}</css>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description>Complete documentation widget for Foundation Health Analyzer - Single source of truth</description>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>fha-documentation</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  // No special link function needed
+}]]></link>
+        <name>FHA Documentation</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function() {
+    // Application metadata
+    data.appVersion = gs.getProperty('x_1310794_founda_0.version', '1.3.0');
+    data.lastUpdated = '2026-01-17';
+    data.scope = 'x_1310794_founda_0';
+    
+    // Component statistics
+    data.components = {
+        activeScriptIncludes: 3,
+        inactiveScriptIncludes: 9,
+        widgets: 4,
+        apiEndpoints: 8,
+        tables: 4,
+        handlers: 29
+    };
+    
+    // Portal pages
+    data.pages = {
+        documentation: 'fha_documentation',
+        homepage: 'fha_homepage',
+        results: 'fha_analysis_results'
+    };
+    
+    // Documentation links
+    data.docs = {
+        consolidated: 'CONSOLIDATED_DOCUMENTATION.md',
+        cleanup: 'OBSOLETE_COMPONENTS_CLEANUP.md',
+        widgetUpdate: 'WIDGET_UPDATE_INSTRUCTIONS.md',
+        startHere: 'START_HERE.md',
+        navigation: 'NAVIGATION_GUIDE.md'
+    };
+})();]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 00:00:00</sys_created_on>
+        <sys_id>5ada939c8392f21083e1b4a6feaad360</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHA Documentation</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_widget_5ada939c8392f21083e1b4a6feaad360</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 00:00:00</sys_updated_on>
+        <template><![CDATA[<div class="fha-doc-container">
+    <!-- Header -->
+    <div class="fha-doc-header">
+        <div class="fha-doc-header-content">
+            <h1>
+                <i class="fa fa-heartbeat"></i>
+                Foundation Health Analyzer
+            </h1>
+            <p class="fha-doc-subtitle">
+                Complete Documentation - Analyze, monitor, and optimize your ServiceNow instance
+            </p>
+            <div class="fha-doc-meta">
+                <span class="fha-doc-meta-badge">
+                    <i class="fa fa-tag"></i> Version {{c.version}}
+                </span>
+                <span class="fha-doc-meta-badge">
+                    <i class="fa fa-calendar"></i> Updated {{c.lastUpdated}}
+                </span>
+                <span class="fha-doc-meta-badge">
+                    <i class="fa fa-code"></i> Scope: {{c.data.scope}}
+                </span>
+                <span class="fha-doc-meta-badge">
+                    <i class="fa fa-check-circle"></i> Production Ready
+                </span>
+            </div>
+            <div class="fha-doc-actions">
+                <button class="fha-btn fha-btn-primary" ng-click="c.goToDashboard()">
+                    <i class="fa fa-home"></i> Go to Dashboard
+                </button>
+                <button class="fha-btn fha-btn-secondary" ng-click="c.openPortal('fha_analysis_results')">
+                    <i class="fa fa-chart-bar"></i> View Results
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="fha-doc-nav">
+        <div class="fha-doc-nav-content">
+            <div class="fha-doc-nav-scroll">
+                <div class="fha-doc-nav-items">
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'overview'}" ng-click="c.scrollToSection('overview')">
+                        <i class="fa fa-info-circle"></i> Overview
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'quickstart'}" ng-click="c.scrollToSection('quickstart')">
+                        <i class="fa fa-rocket"></i> Quick Start
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'components'}" ng-click="c.scrollToSection('components')">
+                        <i class="fa fa-puzzle-piece"></i> Components
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'configuration'}" ng-click="c.scrollToSection('configuration')">
+                        <i class="fa fa-cog"></i> Configuration
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'architecture'}" ng-click="c.scrollToSection('architecture')">
+                        <i class="fa fa-project-diagram"></i> Architecture
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'api'}" ng-click="c.scrollToSection('api')">
+                        <i class="fa fa-plug"></i> REST API
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'handlers'}" ng-click="c.scrollToSection('handlers')">
+                        <i class="fa fa-code"></i> Handlers
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'troubleshooting'}" ng-click="c.scrollToSection('troubleshooting')">
+                        <i class="fa fa-wrench"></i> Troubleshooting
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'bestpractices'}" ng-click="c.scrollToSection('bestpractices')">
+                        <i class="fa fa-shield-alt"></i> Best Practices
+                    </button>
+                    <button class="fha-doc-nav-btn" ng-class="{'active': c.activeSection === 'documentation'}" ng-click="c.scrollToSection('documentation')">
+                        <i class="fa fa-book"></i> Documentation
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="fha-doc-content">
+
+        <!-- Overview Section -->
+        <div id="overview" class="fha-doc-section">
+            <h2><i class="fa fa-info-circle"></i> Overview</h2>
+            
+            <p>
+                Foundation Health Analyzer (FHA) is a comprehensive ServiceNow application designed to analyze, monitor, and assess the health of your ServiceNow tables and configurations. It provides detailed insights into table structure, automation, integrations, security, and quality.
+            </p>
+
+            <h3>Key Features</h3>
+            <div class="fha-card-grid">
+                <div class="fha-card">
+                    <h4><i class="fa fa-search"></i> Deep Analysis</h4>
+                    <p>Comprehensive analysis of tables, fields, business rules, and scripts with configurable depth.</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-rules"></i> 29 Rule Handlers</h4>
+                    <p>Built-in detection rules for common issues, anti-patterns, and best practice violations.</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-chart-line"></i> Health Scoring</h4>
+                    <p>0-100 health score based on severity-weighted issues with clear interpretation guidelines.</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-plug"></i> REST API</h4>
+                    <p>Complete REST API with 8 endpoints for automation and integration.</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-desktop"></i> Service Portal UI</h4>
+                    <p>Modern, responsive dashboard with detailed analysis results and filtering.</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-file-export"></i> Export Reports</h4>
+                    <p>Generate JSON and Word document reports for documentation and compliance.</p>
+                </div>
+            </div>
+
+            <h3>Application Statistics</h3>
+            <div class="fha-stats-grid">
+                <div class="fha-stat-card">
+                    <div class="fha-stat-number">{{c.components.activeScriptIncludes}}</div>
+                    <div class="fha-stat-label">Active Script Includes</div>
+                </div>
+                <div class="fha-stat-card">
+                    <div class="fha-stat-number">{{c.components.widgets}}</div>
+                    <div class="fha-stat-label">Service Portal Widgets</div>
+                </div>
+                <div class="fha-stat-card">
+                    <div class="fha-stat-number">{{c.components.apiEndpoints}}</div>
+                    <div class="fha-stat-label">REST API Endpoints</div>
+                </div>
+                <div class="fha-stat-card">
+                    <div class="fha-stat-number">{{c.components.handlers}}</div>
+                    <div class="fha-stat-label">Rule Handlers</div>
+                </div>
+            </div>
+
+            <div class="fha-info-box">
+                <p><strong><i class="fa fa-lightbulb"></i> Pro Tip:</strong> Start with a quick analysis on a small table to familiarize yourself with the features before running deep scans on large production tables.</p>
+            </div>
+        </div>
+
+        <!-- Quick Start Section -->
+        <div id="quickstart" class="fha-doc-section">
+            <h2><i class="fa fa-rocket"></i> Quick Start</h2>
+
+            <h3>Prerequisites</h3>
+            <ul>
+                <li><strong>Role Required:</strong> <span class="fha-code-inline">x_1310794_founda_0.admin</span> or <span class="fha-code-inline">x_1310794_founda_0.user</span></li>
+                <li><strong>ServiceNow Version:</strong> Paris or later (recommended)</li>
+                <li><strong>Service Portal:</strong> Must be enabled</li>
+            </ul>
+
+            <h3>Three Ways to Run Analysis</h3>
+
+            <h4>1. Service Portal (Recommended)</h4>
+            <div class="fha-code-block">1. Navigate to: /fha
+2. Select a configuration from dropdown
+3. Click "Run Analysis"
+4. View results when complete</div>
+
+            <h4>2. REST API</h4>
+            <div class="fha-code-block">POST /api/x_1310794_founda_0/fha/analyze/incident
+Content-Type: application/json
+Authorization: Basic &lt;credentials&gt;
+
+{
+  "deep_scan": true,
+  "include_children_tables": false
+}</div>
+
+            <h4>3. Script Background</h4>
+            <div class="fha-code-block">var analyzer = new x_1310794_founda_0.FHAnalyzer();
+var result = analyzer.runAnalysis('CONFIG_SYS_ID');
+gs.info('Health Score: ' + result.health_score);
+gs.info('Issues: ' + result.issues_found);</div>
+
+            <h3>Your First Analysis (5 Minutes)</h3>
+            <ol>
+                <li>Create a configuration in <span class="fha-code-inline">x_1310794_founda_0_configurations</span> table</li>
+                <li>Select a small table (e.g., incident, problem)</li>
+                <li>Enable basic options only (no deep_scan initially)</li>
+                <li>Run analysis from portal</li>
+                <li>Review health score and issues</li>
+            </ol>
+
+            <div class="fha-info-box success">
+                <p><strong><i class="fa fa-check-circle"></i> Success Criteria:</strong> A health score above 70 indicates good table health. Focus on high and medium severity issues first.</p>
+            </div>
+        </div>
+
+        <!-- Components Section -->
+        <div id="components" class="fha-doc-section">
+            <h2><i class="fa fa-puzzle-piece"></i> Components Inventory</h2>
+
+            <p>Complete inventory of all FHA components with current status and recommendations.</p>
+
+            <h3>Active Components (Production)</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Type</th>
+                        <th>Purpose</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="fha-code-inline">FHAnalyzer</span></td>
+                        <td>Script Include</td>
+                        <td>Main entry point, configuration management</td>
+                        <td><span class="fha-badge fha-badge-success"><i class="fa fa-check"></i> Active</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">FHAnalysisEngine</span></td>
+                        <td>Script Include</td>
+                        <td>Orchestrates verification execution</td>
+                        <td><span class="fha-badge fha-badge-success"><i class="fa fa-check"></i> Active</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">FHARuleEvaluator</span></td>
+                        <td>Script Include</td>
+                        <td>Rule evaluation engine (29 handlers)</td>
+                        <td><span class="fha-badge fha-badge-success"><i class="fa fa-check"></i> Active</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">FHA Dashboard</span></td>
+                        <td>Widget</td>
+                        <td>Main dashboard with analysis controls</td>
+                        <td><span class="fha-badge fha-badge-success"><i class="fa fa-check"></i> Active</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">FHA Analysis Detail</span></td>
+                        <td>Widget</td>
+                        <td>Detailed results with tabs and filters</td>
+                        <td><span class="fha-badge fha-badge-success"><i class="fa fa-check"></i> Active</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">FHA Documentation</span></td>
+                        <td>Widget</td>
+                        <td>This widget - Interactive documentation</td>
+                        <td><span class="fha-badge fha-badge-success"><i class="fa fa-check"></i> Active</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">8 REST Endpoints</span></td>
+                        <td>API</td>
+                        <td>Complete REST API for automation</td>
+                        <td><span class="fha-badge fha-badge-success"><i class="fa fa-check"></i> Active</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Obsolete Components (Marked for Removal)</h3>
+            <div class="fha-info-box warning">
+                <p><strong><i class="fa fa-exclamation-triangle"></i> Cleanup Recommended:</strong> The following 9 Script Includes are inactive (<span class="fha-code-inline">active=false</span>) and can be safely removed. See <strong>OBSOLETE_COMPONENTS_CLEANUP.md</strong> for detailed instructions.</p>
+            </div>
+
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Reason</th>
+                        <th>Replaced By</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="fha-code-inline">FHCheckTable</span></td>
+                        <td>Legacy architecture</td>
+                        <td>FHARuleEvaluator</td>
+                        <td><span class="fha-badge fha-badge-danger"><i class="fa fa-trash"></i> Remove</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">FHCheckAutomation</span></td>
+                        <td>Legacy architecture</td>
+                        <td>FHARuleEvaluator</td>
+                        <td><span class="fha-badge fha-badge-danger"><i class="fa fa-trash"></i> Remove</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">FHCheckIntegration</span></td>
+                        <td>Legacy architecture</td>
+                        <td>FHARuleEvaluator</td>
+                        <td><span class="fha-badge fha-badge-danger"><i class="fa fa-trash"></i> Remove</span></td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" class="fha-text-center">
+                            <em>... 6 more (see OBSOLETE_COMPONENTS_CLEANUP.md for complete list)</em>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>Impact of Cleanup:</strong> Removing obsolete components will reduce codebase by ~47% (~4,100 lines) and eliminate technical debt.</p>
+        </div>
+
+        <!-- Configuration Section -->
+        <div id="configuration" class="fha-doc-section">
+            <h2><i class="fa fa-cog"></i> Configuration Options</h2>
+
+            <p>FHA provides flexible configuration options to control analysis depth and scope.</p>
+
+            <h3>Configuration Options</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Option</th>
+                        <th>Type</th>
+                        <th>Default</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="fha-code-inline">deep_scan</span></td>
+                        <td>Boolean</td>
+                        <td>false</td>
+                        <td>Enable script content analysis (detects eval(), hardcoded sys_ids, etc.)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">include_children_tables</span></td>
+                        <td>Boolean</td>
+                        <td>false</td>
+                        <td>Include child tables in analysis (e.g., task → incident)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">include_ldap</span></td>
+                        <td>Boolean</td>
+                        <td>false</td>
+                        <td>Include LDAP-related checks (for sys_user, sys_user_group)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">ignore_servicenow_records</span></td>
+                        <td>Boolean</td>
+                        <td>true</td>
+                        <td>Ignore OOB ServiceNow records (sys_created_by = system)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Configuration Scenarios</h3>
+            <div class="fha-card-grid">
+                <div class="fha-card">
+                    <h4><i class="fa fa-bolt"></i> Quick Health Check</h4>
+                    <ul>
+                        <li>deep_scan: <strong>❌</strong></li>
+                        <li>include_children: <strong>❌</strong></li>
+                        <li>include_ldap: <strong>❌</strong></li>
+                    </ul>
+                    <p><strong>Use:</strong> Fast overview, basic metrics</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-check-double"></i> Standard Analysis</h4>
+                    <ul>
+                        <li>deep_scan: <strong>✅</strong></li>
+                        <li>include_children: <strong>❌</strong></li>
+                        <li>include_ldap: <strong>❌</strong></li>
+                    </ul>
+                    <p><strong>Use:</strong> Recommended for most tables</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-sitemap"></i> Full Table Family</h4>
+                    <ul>
+                        <li>deep_scan: <strong>✅</strong></li>
+                        <li>include_children: <strong>✅</strong></li>
+                        <li>include_ldap: <strong>❌</strong></li>
+                    </ul>
+                    <p><strong>Use:</strong> Analyze table + all children</p>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-users"></i> Identity Management</h4>
+                    <ul>
+                        <li>deep_scan: <strong>✅</strong></li>
+                        <li>include_children: <strong>✅</strong></li>
+                        <li>include_ldap: <strong>✅</strong></li>
+                    </ul>
+                    <p><strong>Use:</strong> sys_user, sys_user_group analysis</p>
+                </div>
+            </div>
+
+            <h3>Health Score Calculation</h3>
+            <div class="fha-code-block">score = 100
+
+for each issue:
+  if severity == 'high':   score -= 15
+  if severity == 'medium': score -= 5
+  if severity == 'low':    score -= 2
+
+return max(0, score)</div>
+
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Score Range</th>
+                        <th>Status</th>
+                        <th>Guidance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-success">70 - 100</span></td>
+                        <td>Good</td>
+                        <td>Monitor and address minor items</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-warning">40 - 69</span></td>
+                        <td>Needs Attention</td>
+                        <td>Plan medium/high remediations</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-danger">0 - 39</span></td>
+                        <td>Critical</td>
+                        <td>Immediate action on high issues</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Architecture Section -->
+        <div id="architecture" class="fha-doc-section">
+            <h2><i class="fa fa-project-diagram"></i> Technical Architecture</h2>
+
+            <p>FHA follows a layered architecture with clear separation of concerns.</p>
+
+            <h3>Architecture Layers</h3>
+            <div class="fha-card-grid">
+                <div class="fha-card">
+                    <h4><i class="fa fa-desktop"></i> UI Layer</h4>
+                    <ul>
+                        <li>Service Portal widgets</li>
+                        <li>AngularJS controllers</li>
+                        <li>Responsive design</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-cogs"></i> Business Logic</h4>
+                    <ul>
+                        <li>FHAnalyzer (entry point)</li>
+                        <li>FHAnalysisEngine (orchestration)</li>
+                        <li>FHARuleEvaluator (rules)</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-database"></i> Data Layer</h4>
+                    <ul>
+                        <li>Configurations table</li>
+                        <li>Verification items</li>
+                        <li>Issue rules & Results</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-plug"></i> Integration</h4>
+                    <ul>
+                        <li>REST API (8 endpoints)</li>
+                        <li>Role-based access</li>
+                        <li>JSON responses</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Data Model</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Table</th>
+                        <th>Purpose</th>
+                        <th>Key Fields</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="fha-code-inline">configurations</span></td>
+                        <td>Analysis configurations</td>
+                        <td>name, table, deep_scan, verification_items</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">verification_items</span></td>
+                        <td>Query definitions</td>
+                        <td>category, query_type, query_value, issue_rules</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">issue_rules</span></td>
+                        <td>Detection rules</td>
+                        <td>code, type, severity, params, script</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">results</span></td>
+                        <td>Analysis results</td>
+                        <td>number, health_score, issues_found, details</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="fha-info-box">
+                <p><strong><i class="fa fa-info-circle"></i> Note:</strong> All tables use the prefix <span class="fha-code-inline">x_1310794_founda_0_</span> as part of the application scope.</p>
+            </div>
+        </div>
+
+        <!-- REST API Section -->
+        <div id="api" class="fha-doc-section">
+            <h2><i class="fa fa-plug"></i> REST API Reference</h2>
+
+            <p>FHA provides a complete REST API for automation and integration.</p>
+
+            <h3>Base URL</h3>
+            <div class="fha-code-block">https://&lt;instance&gt;.service-now.com/api/x_1310794_founda_0/fha</div>
+
+            <h3>Authentication</h3>
+            <p>All endpoints require HTTP Basic Authentication with one of these roles:</p>
+            <ul>
+                <li><span class="fha-code-inline">x_1310794_founda_0.admin</span> - Full access</li>
+                <li><span class="fha-code-inline">x_1310794_founda_0.user</span> - Read-only access</li>
+            </ul>
+
+            <h3>Available Endpoints</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-info">GET</span></td>
+                        <td><span class="fha-code-inline">/tables</span></td>
+                        <td>List all available configurations</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-warning">POST</span></td>
+                        <td><span class="fha-code-inline">/analyze/{table_name}</span></td>
+                        <td>Run analysis by table name</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-warning">POST</span></td>
+                        <td><span class="fha-code-inline">/analyze_by_config/{id}</span></td>
+                        <td>Run analysis by configuration ID</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-info">GET</span></td>
+                        <td><span class="fha-code-inline">/analysis/{analysis_id}</span></td>
+                        <td>Get detailed analysis result</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-info">GET</span></td>
+                        <td><span class="fha-code-inline">/fields?table_name={name}</span></td>
+                        <td>Get custom fields with fill rates</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-info">GET</span></td>
+                        <td><span class="fha-code-inline">/history</span></td>
+                        <td>Get paginated analysis history</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-info">GET</span></td>
+                        <td><span class="fha-code-inline">/statistics</span></td>
+                        <td>Get global statistics</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-badge fha-badge-warning">POST</span></td>
+                        <td><span class="fha-code-inline">/report/word</span></td>
+                        <td>Generate Word document report</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Example: Run Analysis</h3>
+            <div class="fha-code-block">POST /api/x_1310794_founda_0/fha/analyze/incident
+Content-Type: application/json
+Authorization: Basic &lt;credentials&gt;
+
+{
+  "deep_scan": true,
+  "include_children_tables": false
+}
+
+Response (200):
+{
+  "success": true,
+  "analysis_id": "abc123...",
+  "health_score": 75,
+  "issues_count": 12,
+  "message": "Analysis completed"
+}</div>
+
+            <div class="fha-info-box">
+                <p><strong><i class="fa fa-book"></i> Complete API Documentation:</strong> For detailed request/response examples for all endpoints, see <strong>CONSOLIDATED_DOCUMENTATION.md § REST API Reference</strong>.</p>
+            </div>
+        </div>
+
+        <!-- Handlers Section -->
+        <div id="handlers" class="fha-doc-section">
+            <h2><i class="fa fa-code"></i> Rule Handlers</h2>
+
+            <p>FHA includes 29 built-in rule handlers for detecting common issues and anti-patterns.</p>
+
+            <h3>Handler Categories</h3>
+            <div class="fha-card-grid">
+                <div class="fha-card">
+                    <h4><i class="fa fa-database"></i> Data Quality (8)</h4>
+                    <ul>
+                        <li>inactive - Inactive records</li>
+                        <li>unused_field - 0% fill rate</li>
+                        <li>low_fill_rate - Low usage</li>
+                        <li>duplicate_field - Duplicates</li>
+                        <li>missing_field - Required missing</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-code"></i> Code Quality (7)</h4>
+                    <ul>
+                        <li>hardcoded_sys_id - Hardcoded IDs</li>
+                        <li>eval_usage - eval() usage</li>
+                        <li>console_log - Debug logs</li>
+                        <li>current_update - Recursion risk</li>
+                        <li>query_no_limit - Missing setLimit()</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-chart-line"></i> Performance (6)</h4>
+                    <ul>
+                        <li>size_threshold - Size limits</li>
+                        <li>count_threshold - Count limits</li>
+                        <li>br_density - Too many BRs</li>
+                        <li>sync_ajax - Synchronous calls</li>
+                        <li>gs_sleep - Sleep usage</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-wrench"></i> Custom (8)</h4>
+                    <ul>
+                        <li>system_created - System records</li>
+                        <li>pattern_scan - Custom patterns</li>
+                        <li>field_check - Field validation</li>
+                        <li>aggregate_metric - Metrics</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Top 10 Most Useful Handlers</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Handler</th>
+                        <th>Severity</th>
+                        <th>Detects</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="fha-code-inline">unused_field</span></td>
+                        <td><span class="fha-badge fha-badge-danger">High</span></td>
+                        <td>Custom fields with 0% fill rate (never used)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">hardcoded_sys_id</span></td>
+                        <td><span class="fha-badge fha-badge-danger">High</span></td>
+                        <td>Hardcoded sys_ids in scripts (portability issue)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">eval_usage</span></td>
+                        <td><span class="fha-badge fha-badge-danger">Critical</span></td>
+                        <td>eval() usage in scripts (security risk)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">current_update</span></td>
+                        <td><span class="fha-badge fha-badge-danger">Critical</span></td>
+                        <td>current.update() in Business Rules (recursion risk)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">low_fill_rate</span></td>
+                        <td><span class="fha-badge fha-badge-warning">Medium</span></td>
+                        <td>Fields with low usage (&lt;10% fill rate)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">br_density</span></td>
+                        <td><span class="fha-badge fha-badge-warning">Medium</span></td>
+                        <td>Too many Business Rules on table (&gt;20)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">inactive</span></td>
+                        <td><span class="fha-badge fha-badge-info">Low</span></td>
+                        <td>Inactive records that could be cleaned up</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">console_log</span></td>
+                        <td><span class="fha-badge fha-badge-info">Low</span></td>
+                        <td>console.log() instead of gs.log()</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">query_no_limit</span></td>
+                        <td><span class="fha-badge fha-badge-warning">Medium</span></td>
+                        <td>GlideRecord queries without setLimit()</td>
+                    </tr>
+                    <tr>
+                        <td><span class="fha-code-inline">duplicate_field</span></td>
+                        <td><span class="fha-badge fha-badge-warning">Medium</span></td>
+                        <td>Custom fields duplicating OOTB fields</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="fha-info-box">
+                <p><strong><i class="fa fa-book-open"></i> Complete Handler Reference:</strong> For detailed documentation of all 29 handlers with parameters and examples, see <strong>docs/handlers/HANDLERS_REFERENCE.md</strong>.</p>
+            </div>
+        </div>
+
+        <!-- Troubleshooting Section -->
+        <div id="troubleshooting" class="fha-doc-section">
+            <h2><i class="fa fa-wrench"></i> Troubleshooting</h2>
+
+            <p>Common issues and their solutions.</p>
+
+            <h3>Configuration Not Found</h3>
+            <div class="fha-card">
+                <p><strong>Symptom:</strong> Analysis fails with "Configuration not found"</p>
+                <p><strong>Cause:</strong> Configuration record is inactive or deleted</p>
+                <p><strong>Solution:</strong></p>
+                <div class="fha-code-block">var config = new GlideRecord('x_1310794_founda_0_configurations');
+config.addQuery('sys_id', 'YOUR_CONFIG_SYS_ID');
+config.addQuery('active', true);
+config.query();
+if (!config.next()) {
+  gs.error('Configuration not found or inactive');
+}</div>
+            </div>
+
+            <h3>Empty Results in Widget</h3>
+            <div class="fha-card">
+                <p><strong>Symptom:</strong> Analysis completes but no data shows in widget</p>
+                <p><strong>Cause:</strong> details field not populated in results record</p>
+                <p><strong>Solution:</strong></p>
+                <ul>
+                    <li>Run a new analysis (old analyses may not have JSON details)</li>
+                    <li>Check browser console for JavaScript errors</li>
+                    <li>Verify details field contains valid JSON</li>
+                </ul>
+            </div>
+
+            <h3>Slow Analysis Performance</h3>
+            <div class="fha-card">
+                <p><strong>Symptom:</strong> Analysis takes >5 minutes to complete</p>
+                <p><strong>Cause:</strong> Large table + deep_scan + children tables</p>
+                <p><strong>Solution:</strong></p>
+                <ul>
+                    <li>Disable deep_scan for initial runs</li>
+                    <li>Set include_children_tables=false</li>
+                    <li>Add filters to verification items (encoded query)</li>
+                    <li>Run analysis during off-peak hours</li>
+                </ul>
+            </div>
+
+            <h3>REST API 403 Forbidden</h3>
+            <div class="fha-card">
+                <p><strong>Symptom:</strong> API calls return 403 error</p>
+                <p><strong>Cause:</strong> Missing role or incorrect authentication</p>
+                <p><strong>Solution:</strong></p>
+                <ul>
+                    <li>Verify user has x_1310794_founda_0.admin or .user role</li>
+                    <li>Check HTTP Basic Auth credentials</li>
+                    <li>Review REST API ACLs in system</li>
+                </ul>
+            </div>
+
+            <h3>Debug Mode</h3>
+            <p>Enable debug logging for troubleshooting:</p>
+            <div class="fha-code-block">gs.setProperty('x_1310794_founda_0.debug', 'true');
+
+// View logs in: System Logs
+// Filter: source = x_1310794_founda_0</div>
+
+            <div class="fha-info-box warning">
+                <p><strong><i class="fa fa-exclamation-triangle"></i> Warning:</strong> Debug mode generates verbose logs. Only enable for troubleshooting and disable after resolving issues.</p>
+            </div>
+        </div>
+
+        <!-- Best Practices Section -->
+        <div id="bestpractices" class="fha-doc-section">
+            <h2><i class="fa fa-shield-alt"></i> Best Practices</h2>
+
+            <h3>For Administrators</h3>
+            <div class="fha-card-grid">
+                <div class="fha-card">
+                    <h4><i class="fa fa-bolt"></i> Performance</h4>
+                    <ul>
+                        <li>Start with basic analysis before deep_scan</li>
+                        <li>Use include_children_tables only when needed</li>
+                        <li>Schedule analyses during off-peak hours</li>
+                        <li>Archive old results periodically</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-cog"></i> Configuration</h4>
+                    <ul>
+                        <li>Create separate configs for different analysis types</li>
+                        <li>Name configurations clearly</li>
+                        <li>Document configuration purposes</li>
+                        <li>Keep configs active/inactive based on usage</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-lock"></i> Security</h4>
+                    <ul>
+                        <li>Restrict admin role to authorized users</li>
+                        <li>Use user role for read-only access</li>
+                        <li>Review ACLs on custom tables</li>
+                        <li>Enable debug logging only for troubleshooting</li>
+                    </ul>
+                </div>
+                <div class="fha-card">
+                    <h4><i class="fa fa-chart-line"></i> Monitoring</h4>
+                    <ul>
+                        <li>Set up notifications for critical scores (&lt;40)</li>
+                        <li>Create dashboards to track health trends</li>
+                        <li>Review top issues monthly</li>
+                        <li>Prioritize high/medium severity issues</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>For Developers</h3>
+            <ul>
+                <li><strong>Extending FHA:</strong> Create custom Issue Rules instead of modifying core scripts</li>
+                <li><strong>Integration:</strong> Use REST API for automation and implement error handling</li>
+                <li><strong>Code Quality:</strong> Follow ServiceNow best practices in custom scripts</li>
+                <li><strong>Testing:</strong> Test custom rules on non-production instances first</li>
+            </ul>
+
+            <h3>Analysis Frequency Recommendations</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Table Type</th>
+                        <th>Frequency</th>
+                        <th>Options</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Critical production tables</td>
+                        <td>Daily</td>
+                        <td>Standard analysis</td>
+                    </tr>
+                    <tr>
+                        <td>Standard tables (moderate activity)</td>
+                        <td>Weekly</td>
+                        <td>Standard or deep scan</td>
+                    </tr>
+                    <tr>
+                        <td>Reference/configuration tables</td>
+                        <td>Monthly</td>
+                        <td>Quick health check</td>
+                    </tr>
+                    <tr>
+                        <td>Historical/archived tables</td>
+                        <td>Quarterly</td>
+                        <td>Basic analysis</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Documentation Section -->
+        <div id="documentation" class="fha-doc-section">
+            <h2><i class="fa fa-book"></i> Additional Documentation</h2>
+
+            <p>Complete documentation resources for Foundation Health Analyzer.</p>
+
+            <h3>Primary Documentation</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Description</th>
+                        <th>Pages</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>CONSOLIDATED_DOCUMENTATION.md</strong></td>
+                        <td>Complete FHA documentation - Single source of truth</td>
+                        <td>~50</td>
+                    </tr>
+                    <tr>
+                        <td><strong>START_HERE.md</strong></td>
+                        <td>Quick start guide for new users</td>
+                        <td>~8</td>
+                    </tr>
+                    <tr>
+                        <td><strong>NAVIGATION_GUIDE.md</strong></td>
+                        <td>How to navigate all documentation</td>
+                        <td>~10</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Technical Guides</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Description</th>
+                        <th>Use For</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>OBSOLETE_COMPONENTS_CLEANUP.md</strong></td>
+                        <td>Guide to remove 9 inactive Script Includes</td>
+                        <td>Technical debt cleanup</td>
+                    </tr>
+                    <tr>
+                        <td><strong>WIDGET_UPDATE_INSTRUCTIONS.md</strong></td>
+                        <td>Instructions to update widgets</td>
+                        <td>Widget maintenance</td>
+                    </tr>
+                    <tr>
+                        <td><strong>docs/handlers/HANDLERS_REFERENCE.md</strong></td>
+                        <td>Complete reference for 29 handlers</td>
+                        <td>Rule customization</td>
+                    </tr>
+                    <tr>
+                        <td><strong>docs/handlers/SCRIPTS_LIBRARY.md</strong></td>
+                        <td>15+ ready-to-use scripts</td>
+                        <td>Copy-paste examples</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Portal Pages</h3>
+            <ul>
+                <li><strong>Dashboard:</strong> <span class="fha-code-inline">/fha</span> or <span class="fha-code-inline">/fha?id=fha_homepage</span></li>
+                <li><strong>Documentation:</strong> <span class="fha-code-inline">/fha?id=fha_documentation</span> (this page)</li>
+                <li><strong>Analysis Results:</strong> <span class="fha-code-inline">/fha?id=fha_analysis_results&sys_id=RESULT_SYS_ID</span></li>
+            </ul>
+
+            <h3>Support & Contact</h3>
+            <div class="fha-info-box">
+                <p><strong>Project Owner:</strong> Wilfried Waret</p>
+                <p><strong>Application Version:</strong> {{c.version}}</p>
+                <p><strong>Last Updated:</strong> {{c.lastUpdated}}</p>
+                <p><strong>Scope:</strong> {{c.data.scope}}</p>
+            </div>
+
+            <h3>Version History</h3>
+            <table class="fha-doc-table">
+                <thead>
+                    <tr>
+                        <th>Version</th>
+                        <th>Date</th>
+                        <th>Changes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1.3.0</td>
+                        <td>2026-01-17</td>
+                        <td>Complete documentation overhaul, component cleanup, enhanced widget</td>
+                    </tr>
+                    <tr>
+                        <td>1.2.0</td>
+                        <td>2026-01-16</td>
+                        <td>Enhanced widget documentation</td>
+                    </tr>
+                    <tr>
+                        <td>1.1.0</td>
+                        <td>2026-01-04</td>
+                        <td>Rule-based architecture, 29 handlers, configuration options</td>
+                    </tr>
+                    <tr>
+                        <td>1.0.0</td>
+                        <td>2026-01-03</td>
+                        <td>Initial release</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="fha-doc-section" style="text-align: center; background: var(--fha-gray-50); margin-top: 40px;">
+        <p style="color: var(--fha-gray-600); margin-bottom: 8px;">
+            <strong>Foundation Health Analyzer</strong> v{{c.version}}
+        </p>
+        <p style="color: var(--fha-gray-500); font-size: 14px; margin: 0;">
+            Built with ❤️ for ServiceNow | Last updated: {{c.lastUpdated}}
+        </p>
+    </div>
+
+</div>]]></template>
+    </sp_widget>
+</record_update>

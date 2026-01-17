@@ -1,0 +1,120 @@
+%% Architecture du Widget FHA Documentation
+%% Widget ID: 277a975c8392f21083e1b4a6feaad318
+%% Version: 1.2.0-doc
+
+graph TB
+    subgraph "ServiceNow Platform"
+        SP[Service Portal]
+        SYS[System Properties]
+        GS[GlideSystem - gs]
+    end
+
+    subgraph "Service Portal Page"
+        PAGE[sp_page<br/>277a975c8392f21083e1b4a6feaad318<br/>fha_documentation]
+        INSTANCE[sp_instance<br/>148ddbd083d2f21083e1b4a6feaad31d]
+    end
+
+    subgraph "Widget FHA Documentation"
+        WIDGET[sp_widget<br/>5ada939c8392f21083e1b4a6feaad360]
+        
+        subgraph "Server Script"
+            SERVER[Server Controller]
+            PROPS[Read System Properties]
+            DATA[Expose Data Object]
+        end
+        
+        subgraph "Client Script"
+            CLIENT[Client Controller - api.controller]
+            STATE[State Management]
+            NAV[Navigation Methods]
+            SCROLL[Scroll Spy]
+        end
+        
+        subgraph "Template"
+            HTML[HTML Template]
+            HEADER[Header + Metadata]
+            NAVIGATION[Sticky Navigation]
+            SECTIONS[10 Documentation Sections]
+            FOOTER[Footer]
+        end
+        
+        subgraph "CSS"
+            STYLES[Inline CSS - 490 lines]
+            PALETTE[Color Palette]
+            COMPONENTS[Component Styles]
+            RESPONSIVE[Responsive Grid]
+        end
+    end
+
+    subgraph "Browser Runtime"
+        ANGULAR[AngularJS Runtime]
+        OBSERVER[IntersectionObserver API]
+        DOM[Document Object Model]
+    end
+
+    subgraph "User Interactions"
+        USER[User]
+        CLICK[Click Navigation]
+        SSCROLL[Page Scroll]
+        BACK[Back to Dashboard]
+    end
+
+    %% Connections
+    SP --> PAGE
+    PAGE --> INSTANCE
+    INSTANCE --> WIDGET
+    
+    WIDGET --> SERVER
+    WIDGET --> CLIENT
+    WIDGET --> HTML
+    WIDGET --> STYLES
+    
+    GS --> PROPS
+    SYS --> PROPS
+    PROPS --> DATA
+    SERVER --> DATA
+    
+    DATA --> HTML
+    HTML --> HEADER
+    HTML --> NAVIGATION
+    HTML --> SECTIONS
+    HTML --> FOOTER
+    
+    STYLES --> PALETTE
+    STYLES --> COMPONENTS
+    STYLES --> RESPONSIVE
+    
+    CLIENT --> STATE
+    CLIENT --> NAV
+    CLIENT --> SCROLL
+    
+    STATE --> NAVIGATION
+    NAV --> SSCROLL
+    NAV --> BACK
+    SCROLL --> OBSERVER
+    
+    ANGULAR --> CLIENT
+    DOM --> HTML
+    DOM --> OBSERVER
+    
+    USER --> CLICK
+    USER --> SSCROLL
+    CLICK --> NAV
+    SSCROLL --> SCROLL
+    BACK --> SP
+
+    %% Styling
+    classDef server fill:#34d399,stroke:#059669,stroke-width:2px,color:#000
+    classDef client fill:#60a5fa,stroke:#2563eb,stroke-width:2px,color:#000
+    classDef template fill:#fbbf24,stroke:#d97706,stroke-width:2px,color:#000
+    classDef style fill:#a78bfa,stroke:#7c3aed,stroke-width:2px,color:#000
+    classDef platform fill:#e5e7eb,stroke:#6b7280,stroke-width:2px,color:#000
+    classDef user fill:#f87171,stroke:#dc2626,stroke-width:2px,color:#000
+    
+    class SERVER,PROPS,DATA server
+    class CLIENT,STATE,NAV,SCROLL,ANGULAR client
+    class HTML,HEADER,NAVIGATION,SECTIONS,FOOTER,DOM template
+    class STYLES,PALETTE,COMPONENTS,RESPONSIVE style
+    class SP,SYS,GS,PAGE,INSTANCE platform
+    class USER,CLICK,SSCROLL,BACK user
+    class WIDGET,OBSERVER fill:#fde047,stroke:#ca8a04,stroke-width:3px,color:#000

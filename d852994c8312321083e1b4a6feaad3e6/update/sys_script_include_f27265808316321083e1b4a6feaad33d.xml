@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHAnalyzer</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description>Foundation Health Analyzer main class</description>
+        <mobile_callable>false</mobile_callable>
+        <name>FHAnalyzer</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHAnalyzer - Main analysis engine for Foundation Health Assessment
+ * This script include contains all core logic for table analysis
+ */
+var FHAnalyzer = Class.create();
+FHAnalyzer.prototype = {
+    initialize: function() {
+        this.resultsTable = 'x_1310794_founda_0_results';
+        this.configTable = 'x_1310794_founda_0_configurations';
+    },
+
+    /**
+     * Run analysis for a specific configuration
+     * @param {String} configSysId - Configuration sys_id
+     * @returns {Object} Analysis result
+     */
+    runAnalysis: function(configSysId) {
+        var config = this.getConfiguration(configSysId);
+        var engineResult = new FHAnalysisEngine().runVerification(config);
+        resultSysId = this._saveResult(config, engineResult);
+        return {
+            success: true,
+            analysis_id: resultSysId,
+            sys_id: resultSysId,
+            details: engineResult
+        };
+    },
+
+    getConfiguration: function(configSysId) {
+        var gr = new GlideRecord('x_1310794_founda_0_configurations');
+        if (!gr.get(configSysId)) return null;
+
+        var out = [];
+        var verificationItems = new GlideRecord('x_1310794_founda_0_verification_items');
+        verificationItems.addQuery('sys_id', 'IN', gr.getValue('verification_items'));
+        verificationItems.addQuery('active', true);
+        verificationItems.query();
+
+        while (verificationItems.next()) {
+            var itemObj = {
+                sys_id: verificationItems.sys_id.toString(),
+                name: verificationItems.name.toString(),
+                active: Boolean(verificationItems.active),
+                category: (verificationItems.category + '' || 'general'),
+                tableSysid: verificationItems.table + '' || '',
+                tableName: verificationItems.table.name + '' || '',
+                issues: verificationItems.issues + '' || '',
+                query_type: verificationItems.query_type + '' || '',
+                fields: verificationItems.fields + '' || '',
+                metadata: verificationItems.metadata + '' || '',
+                query_value: verificationItems.query_value + '' || '',
+                query_script: verificationItems.query_script + '' || '',
+                issue_rules: verificationItems.issue_rules + '' || ''
+            };
+            itemObj = this._ensureMetadataDefaults(itemObj);
+            out.push(itemObj);
+        }
+
+        return {
+            sys_id: gr.sys_id.toString(),
+            name: gr.name.toString(),
+            active: Boolean(gr.active),
+            table_name: gr.table.name || '',
+            table_label: gr.table.label || '',
+            table_sys_id: gr.table.sys_id || '',
+            description: gr.description || '',
+            include_children_tables: gr.include_children_tables,
+            deep_scan: gr.deep_scan,
+            ignore_servicenow_records: gr.ignore_servicenow_records,
+            include_ldap: gr.include_ldap,
+            verification_items: out
+        };
+    },
+
+    _ensureMetadataDefaults: function(item) {
+        var meta = {};
+        try {
+            if (item.metadata) {
+                meta = JSON.parse(item.metadata);
+            }
+        } catch (e) {
+            // fallback if metadata invalid
+            meta = {};
+        }
+
+        var key = item.name || item.tableName || item.category || 'item';
+        var palette = ['#0c63d4','#6f42c1','#d97706','#0f766e','#be185d','#4338ca','#2563eb','#dc2626','#16a34a'];
+        var icons = ['fa-clock','fa-cog','fa-plug','fa-shield','fa-code','fa-database','fa-bolt','fa-magic','fa-tags'];
+        var hash = 0;
+        for (var i = 0; i < key.length; i++) {
+            hash = (hash + key.charCodeAt(i)) % 997;
+        }
+        if (!meta.record_type) meta.record_type = item.tableName || item.tableSysid || 'record';
+        if (!meta.displayName) meta.displayName = item.name || item.tableName || (item.category + ' item');
+        if (!meta.icon) meta.icon = icons[hash % icons.length];
+        if (!meta.color) meta.color = palette[hash % palette.length];
+
+        item.metadata = JSON.stringify(meta);
+        return item;
+    },
+
+    /**
+     * Save analysis result to database
+     * @private
+     * @param {Object} config - Analysis configuration
+     * @param {Object} result - Analysis result
+     * @returns {String} Result sys_id
+     */
+    _saveResult: function(config, result) {
+        var gr = new GlideRecord(this.resultsTable);
+        gr.initialize();
+        gr.setValue('state', 'Completed');
+
+        // Store full details as JSON in details field
+        var detailObj = {
+            config: config,
+            issues: result.issues || [],
+            categories: result.categories || {},
+            verification_items: result.verification_items || [],
+            execution_metadata: result.execution_metadata || {},
+			result: result
+        };
+             gr.setValue('details', JSON.stringify(detailObj));
+        return gr.insert();
+    },
+
+    type: 'FHAnalyzer'
+
+
+    // /**
+    //  * Get analysis configuration by sys_id
+    //  * @param {String} configSysId - Configuration sys_id
+    //  * @returns {Object} Configuration object or null
+    //  */
+    // getAnalysisConfiguration: function(configSysId) {
+    //     try {
+
+    //         var gr = new GlideRecord(this.configTable);
+    //         if (gr.get(configSysId)) {
+    //             var config = {
+    //                 sys_id: gr.sys_id.toString(),
+    //                 name: gr.name.getDisplayValue() || '',
+    //                 table_name: gr.table.name || '',
+    //                 table_label: gr.table.label || '',
+    //                 table_sys_id: gr.table.sys_id || '',
+    //                 description: gr.description || '',
+    //                 active: gr.active,
+    //                 include_children_tables: gr.include_children_tables,
+    //                 deep_scan: gr.deep_scan,
+    //                 ignore_servicenow_records: gr.ignore_servicenow_records,
+    //                 include_ldap: gr.include_ldap,
+    //                 verification_items: this._loadVerificationItems(gr.getValue('verification_items')) || []
+    //             };
+
+    //             // Logger l'objet construit (pas le GlideRecord)
+    //             gs.info('Configuration: ' + JSON.stringify(config, null, 2));
+
+    //             // Stocker dans le champ 'details' si nécessaire
+    //             gr.setValue('details', JSON.stringify(config));
+    //             gr.update(); // N'oubliez pas de sauvegarder !
+
+    //             return config;
+    //         }
+
+    //     } catch (error) {
+    //         gs.info('Analyzer : ' + error);
+    //         // Expected output: ReferenceError: nonExistentFunction is not defined
+    //         // (Note: the exact output may be browser-dependent)
+    //     }
+    //     return null;
+    // },
+
+    /**
+     * Charge les GlideRecord des verification_items par sys_id.
+     * @param {Array} ids
+     * @returns {Array}
+     */
+    // _loadVerificationItems: function(ids) {
+    //     var out = [];
+    //     var gr = new GlideRecord('x_1310794_founda_0_verification_items');
+    //     gr.addQuery('sys_id', 'IN', ids);
+    //     gr.addQuery('active', true);
+    //     gr.query();
+    //     while (gr.next()) {
+    //         out.push(gr);
+    //     }
+    //     return out;
+    // },
+
+
+
+    // /**
+    //  * Get the table name from the table_reference field
+    //  * @private
+    //  * @param {GlideRecord} gr - Configuration GlideRecord
+    //  * @returns {String} Table name or empty string
+    //  */
+    // _getTableInfoFromReference: function(gr) {
+    //     var tableRef = gr.table;
+    //     if (tableRef && !tableRef.nil()) {
+    //         var tableGr = tableRef.getRefRecord();
+    //         if (tableGr) {
+    //             return {
+    //                 name: tableGr.getValue('name') || '',
+    //                 label: tableGr.getValue('label') || tableGr.getValue('name') || '',
+    //                 sys_id: tableGr.getUniqueValue()
+    //             };
+    //         }
+    //     }
+    //     return {
+    //         name: '',
+    //         label: '',
+    //         sys_id: ''
+    //     };
+    // },
+
+    // /**
+    //  * Get all available tables for analysis
+    //  * @returns {Array} Array of table configurations
+    //  */
+    // getAvailableAnalyses: function() {
+    //     var tables = [];
+    //     var gr = new GlideRecord(this.configTable);
+    //     gr.addQuery('active', true);
+    //     gr.orderBy('name');
+    //     gr.query();
+
+    //     while (gr.next()) {
+    //         var tableInfo = this._getTableInfoFromReference(gr);
+    //         tables.push({
+    //             config_sys_id: gr.sys_id.toString(),
+    //             display_name: gr.getValue('name') || '',
+    //             table_name: tableInfo.name,
+    //             table_label: tableInfo.label,
+    //             table_ref: tableInfo.sys_id,
+    //             description: gr.getValue('description') || ''
+    //         });
+    //     }
+
+    //     return tables;
+    // },
+
+    // /**
+    //  * getAnalysisResult(sysId)
+    //  */
+    // getAnalysisResult: function(sysId) {
+    //     if (!sysId) {
+    //         return {
+    //             success: false,
+    //             error: 'Missing analysis sys_id'
+    //         };
+    //     }
+    //     var gr = new GlideRecord(this.resultsTable);
+    //     if (!gr.get(sysId)) {
+    //         return {
+    //             success: false,
+    //             error: 'Analysis not found'
+    //         };
+    //     }
+    //     var resultObj = null;
+    //     try {
+    //         var detailJson = gr.getValue('details') || '';
+    //         resultObj = detailJson ? JSON.parse(detailJson) : {};
+    //     } catch (e) {
+    //         return {
+    //             success: false,
+    //             error: 'Invalid details: ' + e.message
+    //         };
+    //     }
+
+    //     resultObj.number = resultObj.number || gr.getValue('number') || '';
+    //     resultObj.state = resultObj.state || gr.getValue('state') || '';
+    //     resultObj.created_on = resultObj.created_on || gr.getValue('sys_created_on') || '';
+    //     resultObj.created_by = resultObj.created_by || gr.getValue('sys_created_by') || '';
+
+    //     return {
+    //         success: true,
+    //         result: resultObj
+    //     };
+    // },
+
+
+
+
+
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 20:33:51</sys_created_on>
+        <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
+        <sys_mod_count>100</sys_mod_count>
+        <sys_name>FHAnalyzer</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-10 02:48:42</sys_updated_on>
+    </sys_script_include>
+</record_update>

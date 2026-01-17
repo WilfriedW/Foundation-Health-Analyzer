@@ -1,0 +1,904 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[function($scope, spUtil, $location, $window) {
+  var c = this;
+    
+    // Data from server
+    c.analyses = c.data.analyses || [];
+    c.totalCount = c.data.totalCount || 0;
+    c.portalSuffix = c.data.portalSuffix || 'fha';
+    
+    // Pagination
+    c.currentPage = 1;
+    c.pageSize = 20;
+    c.totalPages = Math.ceil(c.totalCount / c.pageSize);
+    
+    // Filters
+    c.filters = {
+        search: '',
+        status: 'all',
+        scoreRange: 'all'
+    };
+    
+    // Sort
+    c.sortField = 'sys_created_on';
+    c.sortDirection = 'desc';
+    
+    // Get health score class
+    c.getHealthScoreClass = function(score) {
+        if (score >= 70) return 'good';
+        if (score >= 40) return 'medium';
+        return 'poor';
+    };
+    
+    // Get health score label
+    c.getHealthScoreLabel = function(score) {
+        if (score >= 70) return 'Good';
+        if (score >= 40) return 'Needs Attention';
+        return 'Critical';
+    };
+    
+    // View analysis detail
+    c.viewDetail = function(analysis) {
+        $window.location.href = '/' + c.portalSuffix + '?id=fha_analysis_detail&sys_id=' + analysis.sys_id;
+    };
+    
+    // Load more analyses
+    c.loadMore = function() {
+        if (c.currentPage < c.totalPages) {
+            c.currentPage++;
+            c.loadAnalyses();
+        }
+    };
+    
+    // Load analyses from server
+    c.loadAnalyses = function() {
+        c.loading = true;
+        c.server.get({
+            action: 'load_analyses',
+            page: c.currentPage,
+            pageSize: c.pageSize,
+            search: c.filters.search,
+            status: c.filters.status,
+            scoreRange: c.filters.scoreRange,
+            sortField: c.sortField,
+            sortDirection: c.sortDirection
+        }).then(function(response) {
+            c.loading = false;
+            if (response.data.success) {
+                if (c.currentPage === 1) {
+                    c.analyses = response.data.analyses;
+                } else {
+                    c.analyses = c.analyses.concat(response.data.analyses);
+                }
+                c.totalCount = response.data.totalCount;
+                c.totalPages = Math.ceil(c.totalCount / c.pageSize);
+            }
+        });
+    };
+    
+    // Apply filters
+    c.applyFilters = function() {
+        c.currentPage = 1;
+        c.loadAnalyses();
+    };
+    
+    // Reset filters
+    c.resetFilters = function() {
+        c.filters = {
+            search: '',
+            status: 'all',
+            scoreRange: 'all'
+        };
+        c.currentPage = 1;
+        c.loadAnalyses();
+    };
+    
+    // Sort by field
+    c.sortBy = function(field) {
+        if (c.sortField === field) {
+            c.sortDirection = c.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            c.sortField = field;
+            c.sortDirection = 'desc';
+        }
+        c.currentPage = 1;
+        c.loadAnalyses();
+    };
+    
+    // Get sort icon
+    c.getSortIcon = function(field) {
+        if (c.sortField !== field) return 'fa-sort';
+        return c.sortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+    };
+    
+    // Format date
+    c.formatDate = function(dateStr) {
+        if (!dateStr) return '';
+        var date = new Date(dateStr);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    };
+    
+    // Go back to dashboard
+    c.goToDashboard = function() {
+        $window.location.href = '/' + c.portalSuffix + '?id=fha_homepage';
+    };
+    
+    // Delete analysis
+    c.deleteAnalysis = function(analysis, $event) {
+        $event.stopPropagation();
+        if (confirm('Are you sure you want to delete this analysis?')) {
+            c.server.get({
+                action: 'delete_analysis',
+                sys_id: analysis.sys_id
+            }).then(function(response) {
+                if (response.data.success) {
+                    c.loadAnalyses();
+                }
+            });
+        }
+    };
+}
+]]></client_script>
+        <controller_as>c</controller_as>
+        <css>/* FHA Analysis List Widget Styles */
+.fha-analysis-list {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.fha-list-header {
+   background: linear-gradient(135deg, #1a5a96 0%, #2980b9 100%);
+    color: white;
+    padding: 40px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(26, 90, 150, 0.3);
+}
+
+
+.fha-list-header h1 {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.fha-list-header p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.fha-header-stats {
+  display: flex;
+  gap: 30px;
+  margin-top: 20px;
+}
+
+.fha-header-stat {
+  text-align: center;
+}
+
+.fha-header-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.fha-header-stat-label {
+  font-size: 12px;
+  opacity: 0.8;
+  text-transform: uppercase;
+}
+
+/* Filter Bar */
+.fha-filter-bar {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.fha-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fha-filter-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+.fha-filter-input {
+  padding: 8px 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  min-width: 150px;
+  transition: border-color 0.2s;
+}
+
+.fha-filter-input:focus {
+  border-color: #0378BE;
+  outline: none;
+}
+
+.fha-search-input {
+  flex: 1;
+  min-width: 250px;
+}
+
+.fha-filter-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.fha-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.fha-btn-primary {
+  background: linear-gradient(135deg, #0378BE 0%, #035B8E 100%);
+  color: white;
+}
+
+.fha-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(3, 120, 190, 0.3);
+}
+
+.fha-btn-secondary {
+  background: #f8f9fa;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.fha-btn-secondary:hover {
+  background: #e9ecef;
+}
+
+/* Analysis Cards */
+.fha-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.fha-analysis-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.fha-analysis-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.fha-card-header {
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.fha-card-info h3 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.fha-card-number {
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.fha-card-table {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+
+.fha-card-score {
+  text-align: center;
+}
+
+.fha-score-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.fha-score-circle.good {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28A745;
+  border: 3px solid #28A745;
+}
+
+.fha-score-circle.medium {
+  background: rgba(255, 193, 7, 0.15);
+  color: #856404;
+  border: 3px solid #FFC107;
+}
+
+.fha-score-circle.poor {
+  background: rgba(220, 53, 69, 0.15);
+  color: #DC3545;
+  border: 3px solid #DC3545;
+}
+
+.fha-score-label {
+  font-size: 11px;
+  color: #6c757d;
+  margin-top: 5px;
+}
+
+.fha-card-body {
+  padding: 20px;
+}
+
+.fha-card-stats {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.fha-card-stat {
+  text-align: center;
+  flex: 1;
+}
+
+.fha-card-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+}
+
+.fha-card-stat-value.danger { color: #DC3545; }
+.fha-card-stat-value.warning { color: #FFC107; }
+.fha-card-stat-value.info { color: #17A2B8; }
+
+.fha-card-stat-label {
+  font-size: 11px;
+  color: #6c757d;
+  text-transform: uppercase;
+}
+
+.fha-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 15px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.fha-card-meta i {
+  margin-right: 5px;
+}
+
+.fha-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.fha-card-action {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #f8f9fa;
+  color: #495057;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-card-action:hover {
+  background: #e9ecef;
+}
+
+.fha-card-action.danger:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #DC3545;
+}
+
+/* Empty State */
+.fha-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.fha-empty-state i {
+  font-size: 64px;
+  color: #dee2e6;
+  margin-bottom: 20px;
+}
+
+.fha-empty-state h3 {
+  margin: 0 0 10px 0;
+  color: #495057;
+}
+
+.fha-empty-state p {
+  color: #6c757d;
+  margin: 0 0 20px 0;
+}
+
+/* Load More */
+.fha-load-more {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.fha-results-count {
+  font-size: 14px;
+  color: #6c757d;
+  margin-bottom: 15px;
+}
+
+/* Loading */
+.fha-loading {
+  text-align: center;
+  padding: 40px;
+}
+
+.fha-loading i {
+  font-size: 32px;
+  color: #0378BE;
+}
+
+/* Table View */
+.fha-table-view {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.fha-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fha-table th {
+  background: #f8f9fa;
+  padding: 15px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  font-size: 13px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.fha-table th:hover {
+  background: #e9ecef;
+}
+
+.fha-table th i {
+  margin-left: 5px;
+  opacity: 0.5;
+}
+
+.fha-table th.active i {
+  opacity: 1;
+  color: #0378BE;
+}
+
+.fha-table td {
+  padding: 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.fha-table tr:hover {
+  background: #f8f9fa;
+  cursor: pointer;
+}
+
+.fha-table-score {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.fha-table-score.good {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28A745;
+}
+
+.fha-table-score.medium {
+  background: rgba(255, 193, 7, 0.15);
+  color: #856404;
+}
+
+.fha-table-score.poor {
+  background: rgba(220, 53, 69, 0.15);
+  color: #DC3545;
+}
+
+/* View Toggle */
+.fha-view-toggle {
+  display: flex;
+  gap: 5px;
+  background: #f8f9fa;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.fha-view-toggle button {
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6c757d;
+}
+
+.fha-view-toggle button.active {
+  background: white;
+  color: #0378BE;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fha-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .fha-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .fha-filter-actions {
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+  
+  .fha-header-stats {
+    flex-wrap: wrap;
+  }
+}
+</css>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>fha_analysis_results</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]></link>
+        <name>FHA Analysis Results</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function() {
+    // Get portal suffix
+    data.portalSuffix = $sp.getPortalRecord() ? $sp.getPortalRecord().getValue('url_suffix') : 'fha';
+    
+    // Load analyses
+    data.analyses = [];
+    data.totalCount = 0;
+    
+    var page = (input && input.page) || 1;
+    var pageSize = (input && input.pageSize) || 20;
+    var search = (input && input.search) || '';
+    var status = (input && input.status) || 'all';
+    var sortField = (input && input.sortField) || 'sys_created_on';
+    var sortDirection = (input && input.sortDirection) || 'desc';
+    
+    // Handle actions
+    if (input && input.action === 'delete_analysis') {
+        var delGr = new GlideRecord('x_1310794_founda_0_results');
+        if (delGr.get(input.sys_id)) {
+            delGr.deleteRecord();
+            data.success = true;
+        }
+        return;
+    }
+    
+    // Build query
+    var gr = new GlideRecord('x_1310794_founda_0_results');
+    
+    // Apply filters
+    if (status !== 'all') {
+        gr.addQuery('state', status);
+    }
+    
+    if (search) {
+        gr.addQuery('number', 'CONTAINS', search);
+    }
+    
+    // Get total count
+    var countGr = new GlideAggregate('x_1310794_founda_0_results');
+    if (status !== 'all') {
+        countGr.addQuery('state', status);
+    }
+    if (search) {
+        countGr.addQuery('number', 'CONTAINS', search);
+    }
+    countGr.addAggregate('COUNT');
+    countGr.query();
+    if (countGr.next()) {
+        data.totalCount = parseInt(countGr.getAggregate('COUNT'), 10);
+    }
+    
+    // Apply sorting
+    if (sortDirection === 'desc') {
+        gr.orderByDesc(sortField);
+    } else {
+        gr.orderBy(sortField);
+    }
+    
+    // Apply pagination
+    gr.chooseWindow((page - 1) * pageSize, page * pageSize);
+    gr.query();
+    
+    while (gr.next()) {
+        var issues = [];
+        var highCount = 0;
+        var mediumCount = 0;
+        var lowCount = 0;
+        var tableDisplayName = '';
+        var tableName = '';
+        
+        try {
+            var detailObj = JSON.parse(gr.getValue('details') || '{}');
+            issues = detailObj.issues || [];
+            issues.forEach(function(issue) {
+                if (issue.severity === 'high') highCount++;
+                else if (issue.severity === 'medium') mediumCount++;
+                else if (issue.severity === 'low') lowCount++;
+            });
+            tableDisplayName = (detailObj.config && (detailObj.config.table_label || detailObj.config.table_name)) || '';
+            tableName = (detailObj.config && detailObj.config.table_name) || '';
+        } catch(e) {
+            // ignore parse errors
+        }
+        
+        data.analyses.push({
+            sys_id: gr.getUniqueValue(),
+            number: gr.getValue('number') || '',
+            table_name: tableName,
+            table_label: tableDisplayName || 'N/A',
+            health_score: calculateScore(issues),
+            issue_count: issues.length,
+            high_count: highCount,
+            medium_count: mediumCount,
+            low_count: lowCount,
+            status: gr.getValue('state') || '',
+            created_on: gr.getValue('sys_created_on') || '',
+            created_by: gr.getDisplayValue('sys_created_by') || ''
+        });
+    }
+    
+    // Calculate stats for header
+    data.stats = {
+        total: data.totalCount,
+        avgScore: 0,
+        goodCount: 0,
+        criticalCount: 0
+    };
+    
+    if (data.analyses.length > 0) {
+        var totalScore = 0;
+        data.analyses.forEach(function(a) {
+            totalScore += a.health_score;
+            if (a.health_score >= 70) data.stats.goodCount++;
+            if (a.health_score < 40) data.stats.criticalCount++;
+        });
+        data.stats.avgScore = Math.round(totalScore / data.analyses.length);
+    }
+
+    function calculateScore(issues) {
+        var score = 100;
+        (issues || []).forEach(function(issue) {
+            if (issue.severity === 'high') score -= 15;
+            else if (issue.severity === 'medium') score -= 5;
+            else score -= 2;
+        });
+        return Math.max(0, score);
+    }
+    
+    data.success = true;
+})();
+]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 19:41:08</sys_created_on>
+        <sys_id>9f5755c88392321083e1b4a6feaad3de</sys_id>
+        <sys_mod_count>40</sys_mod_count>
+        <sys_name>FHA Analysis Results</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_widget_9f5755c88392321083e1b4a6feaad3de</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-04 01:54:49</sys_updated_on>
+        <template><![CDATA[<div class="fha-analysis-list">
+  <!-- Page Header -->
+  <div class="fha-list-header">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <h1><i class="fa fa-chart-bar"></i> Analysis History</h1>
+        <p>View and manage all your table health analyses</p>
+      </div>
+       <div class="fha-header-stats">
+      <div class="fha-header-stat">
+        <div class="fha-header-stat-value">{{c.totalCount}}</div>
+        <div class="fha-header-stat-label">Total Analyses</div>
+      </div>
+      <div class="fha-header-stat">
+        <div class="fha-header-stat-value">{{c.data.stats.avgScore || 0}}%</div>
+        <div class="fha-header-stat-label">Avg. Score</div>
+    </div>
+      <div class="fha-header-stat">
+        <div class="fha-header-stat-value" style="color: #90EE90;">{{c.data.stats.goodCount || 0}}</div>
+        <div class="fha-header-stat-label">Good Health</div>
+  </div>
+      <div class="fha-header-stat">
+        <div class="fha-header-stat-value" style="color: #FFB6C1;">{{c.data.stats.criticalCount || 0}}</div>
+        <div class="fha-header-stat-label">Critical</div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="fha-filter-bar">
+    <div class="fha-filter-group fha-search-input">
+      <i class="fa fa-search" style="color: #6c757d;"></i>
+      <input type="text" class="fha-filter-input" style="flex: 1;" 
+             placeholder="Search by number or table name..."
+             ng-model="c.filters.search"
+             ng-keyup="$event.keyCode === 13 && c.applyFilters()">
+      </div>
+      
+    <div class="fha-filter-group">
+      <label>Status:</label>
+      <select class="fha-filter-input" ng-model="c.filters.status" ng-change="c.applyFilters()">
+        <option value="all">All</option>
+        <option value="completed">Completed</option>
+        <option value="in_progress">In Progress</option>
+        <option value="failed">Failed</option>
+      </select>
+    </div>
+    
+    <div class="fha-filter-group">
+      <label>Score:</label>
+      <select class="fha-filter-input" ng-model="c.filters.scoreRange" ng-change="c.applyFilters()">
+        <option value="all">All Scores</option>
+        <option value="good">Good (70+)</option>
+        <option value="medium">Needs Attention (40-69)</option>
+        <option value="poor">Critical (&lt;40)</option>
+      </select>
+          </div>
+          
+    <div class="fha-filter-actions">
+      <button class="fha-btn fha-btn-secondary" ng-click="c.resetFilters()">
+        <i class="fa fa-times"></i> Reset
+      </button>
+      <button class="fha-btn fha-btn-primary" ng-click="c.applyFilters()">
+        <i class="fa fa-search"></i> Search
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="fha-loading" ng-if="c.loading">
+    <i class="fa fa-spinner fa-spin fa-3x"></i>
+    <p>Loading analyses...</p>
+        </div>
+  
+  <!-- Empty State -->
+  <div class="fha-empty-state" ng-if="!c.loading && c.analyses.length === 0">
+    <i class="fa fa-inbox"></i>
+    <h3>No analyses found</h3>
+    <p>Run your first analysis from the dashboard to see results here.</p>
+    <button class="fha-btn fha-btn-primary" ng-click="c.goToDashboard()">
+      <i class="fa fa-play"></i> Go to Dashboard
+    </button>
+  </div>
+
+  <!-- Analysis Cards Grid -->
+  <div class="fha-analysis-grid" ng-if="!c.loading && c.analyses.length > 0">
+    <div class="fha-analysis-card" ng-repeat="analysis in c.analyses" ng-click="c.viewDetail(analysis)">
+      
+        <div class="fha-card-header">
+        <div class="fha-card-info">
+          <div class="fha-card-number"><strong>{{analysis.number}}</strong></div>
+          <div class="fha-card-table">{{analysis.table_label || 'N/A'}}</div>
+        </div>
+        <div class="fha-card-score">
+          <div class="fha-score-circle" ng-class="c.getHealthScoreClass(analysis.health_score)">
+            {{analysis.health_score}}
+        </div>
+          <div class="fha-score-label">{{c.getHealthScoreLabel(analysis.health_score)}}</div>
+    </div>
+  </div>
+
+      <div class="fha-card-body">
+        <div class="fha-card-stats">
+          <div class="fha-card-stat">
+            <div class="fha-card-stat-value danger">{{analysis.high_count}}</div>
+            <div class="fha-card-stat-label">High</div>
+          </div>
+          <div class="fha-card-stat">
+            <div class="fha-card-stat-value warning">{{analysis.medium_count}}</div>
+            <div class="fha-card-stat-label">Medium</div>
+        </div>
+          <div class="fha-card-stat">
+            <div class="fha-card-stat-value info">{{analysis.low_count}}</div>
+            <div class="fha-card-stat-label">Low</div>
+            </div>
+          <div class="fha-card-stat">
+            <div class="fha-card-stat-value">{{analysis.issue_count}}</div>
+            <div class="fha-card-stat-label">Total</div>
+          </div>
+        </div>
+        
+        <div class="fha-card-meta">
+          <span><i class="fa fa-calendar"></i> {{c.formatDate(analysis.created_on)}}</span>
+          <span><i class="fa fa-user"></i> {{analysis.created_by}}</span>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- Load More -->
+  <div class="fha-load-more" ng-if="!c.loading && c.analyses.length > 0 && c.currentPage < c.totalPages">
+    <div class="fha-results-count">
+      Showing {{c.analyses.length}} of {{c.totalCount}} analyses
+    </div>
+    <button class="fha-btn fha-btn-secondary" ng-click="c.loadMore()">
+      <i class="fa fa-plus"></i> Load More
+    </button>
+  </div>
+
+</div>
+]]></template>
+    </sp_widget>
+</record_update>

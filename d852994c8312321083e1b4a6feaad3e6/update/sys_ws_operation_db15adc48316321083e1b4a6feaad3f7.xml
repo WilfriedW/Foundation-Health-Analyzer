@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_operation">
+    <sys_ws_operation action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <consumes>application/json,application/xml,text/xml</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_operation_uri/>
+        <enforce_acl/>
+        <http_method>GET</http_method>
+        <name>History</name>
+        <operation_script><![CDATA[(function process(request, response) {
+    try {
+        // Get query parameters
+        var limit = parseInt(request.queryParams.limit, 10) || 20;
+        var offset = parseInt(request.queryParams.offset, 10) || 0;
+        var tableName = request.queryParams.table_name || '';
+        var status = request.queryParams.status || '';
+        
+        // Cap limit at 100
+        if (limit > 100) limit = 100;
+        
+        var history = [];
+        var totalCount = 0;
+        
+        // Count total records
+        var countGa = new GlideAggregate('x_1310794_founda_0_fha_results');
+        if (tableName) {
+            countGa.addQuery('table_name.name', tableName);
+        }
+        if (status) {
+            countGa.addQuery('status', status);
+        }
+        countGa.addAggregate('COUNT');
+        countGa.query();
+        if (countGa.next()) {
+            totalCount = parseInt(countGa.getAggregate('COUNT'), 10) || 0;
+        }
+        
+        // Get history records
+        var gr = new GlideRecord('x_1310794_founda_0_fha_results');
+        if (tableName) {
+            gr.addQuery('table_name.name', tableName);
+        }
+        if (status) {
+            gr.addQuery('status', status);
+        }
+        gr.orderByDesc('sys_created_on');
+        gr.chooseWindow(offset, offset + limit);
+        gr.query();
+        
+        while (gr.next()) {
+            history.push({
+                sys_id: gr.getUniqueValue(),
+                number: gr.getValue('number'),
+                table_name: gr.table_name ? gr.table_name.getDisplayValue() : '',
+                health_score: parseInt(gr.getValue('health_score'), 10) || 0,
+                issues_count: parseInt(gr.getValue('issue_found'), 10) || 0,
+                status: gr.getValue('status'),
+                created_on: gr.getValue('sys_created_on'),
+                created_by: gr.sys_created_by ? gr.sys_created_by.getDisplayValue() : ''
+            });
+        }
+        
+        response.setStatus(200);
+        response.setBody({
+            success: true,
+            total: totalCount,
+            limit: limit,
+            offset: offset,
+            history: history
+        });
+    } catch (error) {
+        response.setStatus(500);
+        response.setBody({
+            success: false,
+            error: error.message
+        });
+    }
+})(request, response);]]></operation_script>
+        <operation_uri>/api/x_1310794_founda_0/fha/history</operation_uri>
+        <produces>application/json,application/xml,text/xml</produces>
+        <produces_customized>false</produces_customized>
+        <relative_path>/history</relative_path>
+        <request_example><![CDATA[// Query Parameters (all optional):
+// - limit: Number of records (default: 20, max: 100)
+// - offset: Pagination offset (default: 0)
+// - table_name: Filter by table name
+// - status: Filter by status (completed, failed)
+
+// Example: /api/x_1310794_founda_0/fha/history?limit=10&offset=0&status=completed
+
+// Success Response (200):
+{
+  "success": true,
+  "total": 42,
+  "limit": 10,
+  "offset": 0,
+  "history": [
+    {
+      "sys_id": "abc123...",
+      "number": "FHAR0001042",
+      "table_name": "Incident",
+      "health_score": 85,
+      "issues_count": 5,
+      "status": "completed",
+      "created_on": "2026-01-03 10:30:00",
+      "created_by": "admin"
+    }
+  ]
+}]]></request_example>
+        <requires_acl_authorization>true</requires_acl_authorization>
+        <requires_authentication>true</requires_authentication>
+        <requires_snc_internal_role>true</requires_snc_internal_role>
+        <short_description>Get paginated history of all analyses with optional filters</short_description>
+        <sys_class_name>sys_ws_operation</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 20:44:22</sys_created_on>
+        <sys_id>db15adc48316321083e1b4a6feaad3f7</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>History</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_ws_operation_db15adc48316321083e1b4a6feaad3f7</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-02 20:44:22</sys_updated_on>
+        <web_service_definition display_value="Foundation Health Analyzer API">8add5d0883d2321083e1b4a6feaad355</web_service_definition>
+        <web_service_version/>
+    </sys_ws_operation>
+</record_update>
