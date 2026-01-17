@@ -277,326 +277,8 @@
   c.init();
 }]]></client_script>
         <controller_as>c</controller_as>
-        <css>.fha-detail {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 22px 18px 28px;
-  background: #f8fafc;
-}
-
-.fha-header {
-  background: linear-gradient(135deg, #0c63d4 0%, #0a4f9c 100%);
-  color: #fff;
-  padding: 22px 24px;
-  border-radius: 14px;
-  margin-bottom: 18px;
-  box-shadow: 0 8px 28px rgba(12, 99, 212, 0.25);
-}
-
-.fha-header h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.fha-stats {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.fha-stat-card {
-  flex: 1;
-  min-width: 200px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.04);
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.fha-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(17, 24, 39, 0.08);
-}
-
-.fha-stat-value {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-
-.fha-stat-value.danger {
-  color: #b91c1c;
-}
-
-.fha-stat-value.warning {
-  color: #b45309;
-}
-
-.fha-stat-value.info {
-  color: #075985;
-}
-
-.fha-stat-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #4b5563;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-
-
-
-.fha-meta {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
-
-.fha-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 8px 0 16px;
-}
-
-.fha-btn {
-  background: #0c63d4;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(12, 99, 212, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.fha-btn i {
-  margin-right: 6px;
-}
-
-.fha-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(12, 99, 212, 0.3);
-}
-
-.fha-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.15);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.25);
-  font-weight: 600;
-}
-
-.fha-tabs {
-  display: flex;
-  gap: 10px;
-  margin: 18px 0 14px;
-  flex-wrap: wrap;
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 6px;
-}
-
-.fha-tab-btn {
-  border: none;
-  background: transparent;
-  padding: 10px 16px;
-  border-radius: 10px 10px 0 0;
-  cursor: pointer;
-  font-weight: 700;
-  color: #4b5563;
-  border-bottom: 3px solid transparent;
-  transition: all 0.2s ease;
-}
-
-.fha-tab-btn:hover {
-  color: #0c63d4;
-  background: #eef5ff;
-}
-
-.fha-tab-btn.active {
-  color: #0c63d4;
-  border-bottom-color: #0c63d4;
-  background: #eef5ff;
-}
-
-.fha-tab-btn .fha-badge {
-  background: #0c63d4;
-  color: #fff;
-  border: none;
-  padding: 3px 8px;
-  font-size: 11px;
-}
-
-.fha-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  margin-bottom: 16px;
-  box-shadow: 0 6px 18px rgba(17, 24, 39, 0.06);
-  overflow: hidden;
-}
-
-.fha-card h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.fha-card__head {
-  padding: 14px 16px;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f8fafc;
-}
-
-.fha-card__body {
-  padding: 16px;
-}
-
-.fha-data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.fha-data-table th,
-.fha-data-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #eef2f7;
-  text-align: left;
-}
-
-.fha-data-table th {
-  background: #f3f6fb;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.fha-data-table tr:hover td {
-  background: #f9fbff;
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  background: #eef2f7;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
-}
-
-.pill.red { background: #fee2e2; color: #b91c1c; }
-.pill.amber { background: #fef3c7; color: #b45309; }
-.pill.blue { background: #dbeafe; color: #1d4ed8; }
-.pill.gray { background: #e5e7eb; color: #374151; }
-.pill.cat {
-  color: #fff;
-  border: none;
-}
-
-.issue-badge {
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  display: inline-block;
-  letter-spacing: 0.4px;
-}
-.sev-high { background: #fee2e2; color: #b91c1c; }
-.sev-medium { background: #fef3c7; color: #b45309; }
-.sev-low { background: #e0f2fe; color: #075985; }
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  margin: 0 0 6px 0;
-  color: #0f172a;
-}
-
-.filter-bar {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.filter-bar label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #4b5563;
-}
-
-.filter-bar input,
-.filter-bar select {
-  padding: 8px 10px;
-  border: 1px solid #cfd8e3;
-  border-radius: 8px;
-  font-size: 13px;
-  background: #fff;
-  min-width: 140px;
-}
-
-.filter-bar input:focus,
-.filter-bar select:focus {
-  outline: none;
-  border-color: #0c63d4;
-  box-shadow: 0 0 0 3px rgba(12, 99, 212, 0.18);
-}
-
-.fha-link {
-  color: #0c63d4;
-  text-decoration: none;
-}
-
-.fha-link:hover {
-  text-decoration: underline;
-}
-
-.alert {
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
-  border: 1px solid transparent;
-}
-.alert-danger { background: #fef2f2; color: #b91c1c; border-color: #fecdd3; }
-.alert-info { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
-
-@media (max-width: 768px) {
-  .fha-stat-card {
-    flex: 1 1 45%;
-  }
-}
-
-@media (max-width: 480px) {
-  .fha-stat-card {
-    flex: 1 1 100%;
-  }
-}</css>
+        <css>/* CSS centralisé dans le thème FHA */
+</css>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -694,11 +376,11 @@
     </div>
   </div>
 
-  <div class="alert alert-danger" ng-if="c.error">
+  <div class="fha-alert fha-alert-danger" ng-if="c.error">
     {{c.error}}
   </div>
 
-  <div class="alert alert-info" ng-if="c.loading">
+  <div class="fha-alert fha-alert-info" ng-if="c.loading">
     ${Loading analysis results...}
   </div>
 
@@ -775,7 +457,7 @@
     <div ng-show="c.categoryTabs.indexOf(c.activeTab) !== -1">
       <div class="fha-card">
         <div class="fha-card__head">
-          <div class="filter-bar">
+          <div class="fha-filter-bar">
             <label>Severity:</label>
             <select ng-model="c.filters.severity">
               <option value="all">All</option>
@@ -822,26 +504,26 @@
             <tbody>
               <tr ng-repeat="item in c.filteredData(c.activeTab)">
                 <td>
-                  <span class="pill cat" ng-style="{'background': (c.getMeta(item).color || '#4b5563')}">
+                  <span class="fha-pill fha-pill-cat" ng-style="{'background': (c.getMeta(item).color || 'var(--fha-gray-500)')}">
                     <i class="fa" ng-class="c.getMeta(item).icon || 'fa-tag'"></i>
                     {{c.getTypeLabel(item)}}
                   </span>
                 </td>
                 <td>
-                  <i class="fa" ng-class="c.getMeta(item).icon || 'fa-file-text-o'" ng-style="{'color': c.getMeta(item).color || '#0f172a', 'margin-right':'6px'}"></i>
+                  <i class="fa" ng-class="c.getMeta(item).icon || 'fa-file-text-o'" ng-style="{'color': c.getMeta(item).color || 'var(--fha-gray-800)', 'margin-right':'6px'}"></i>
                   {{c.val(item.values, 'name') || item.sys_id}}
                 </td>
                 <td>{{item.table}}</td>
                 <td>
-                  <span class="pill blue" ng-if="c.isActive(c.val(item.values, 'active'))">Active</span>
-                  <span class="pill gray" ng-if="!c.isActive(c.val(item.values, 'active'))">Inactive</span>
+                  <span class="fha-pill fha-pill-blue" ng-if="c.isActive(c.val(item.values, 'active'))">Active</span>
+                  <span class="fha-pill fha-pill-gray" ng-if="!c.isActive(c.val(item.values, 'active'))">Inactive</span>
                 </td>
                 <td>{{c.val(item.values, 'sys_created_by') || '-'}}</td>
                 <td>{{c.val(item.values, 'sys_updated_by') || '-'}}</td>
                 <td>
                   <div ng-if="item.issues && item.issues.length">
                     <div ng-repeat="issue in item.issues">
-                      <span class="issue-badge" ng-class="{'sev-high': issue.severity=='high','sev-medium': issue.severity=='medium','sev-low': issue.severity=='low'}">
+                      <span class="fha-issue-badge" ng-class="{'fha-sev-high': issue.severity=='high','fha-sev-medium': issue.severity=='medium','fha-sev-low': issue.severity=='low'}">
                         {{issue.severity | uppercase}}
                       </span>
                       <span style="margin-left:6px;">{{issue.code}} - {{issue.message}}</span>
@@ -853,7 +535,7 @@
             </tbody>
           </table>
         </div>
-        <div class="fha-card__body" ng-if="!c.filteredData(c.activeTab).length"><span class="pill gray">No data</span></div>
+        <div class="fha-card__body" ng-if="!c.filteredData(c.activeTab).length"><span class="fha-pill fha-pill-gray">No data</span></div>
       </div>
     </div>
 
@@ -861,7 +543,7 @@
       <div class="fha-card">
         <div class="fha-card__head">
           <h3>Issues</h3>
-          <div class="filter-bar">
+          <div class="fha-filter-bar">
             <label>Severity:</label>
             <select ng-model="c.filters.severity">
               <option value="all">All</option>
@@ -894,7 +576,7 @@
             </thead>
             <tbody>
               <tr ng-repeat="issue in c.filteredIssues()">
-                <td><span class="issue-badge" ng-class="{'sev-high': issue.severity=='high','sev-medium': issue.severity=='medium','sev-low': issue.severity=='low'}">{{issue.severity | uppercase}}</span></td>
+                <td><span class="fha-issue-badge" ng-class="{'fha-sev-high': issue.severity=='high','fha-sev-medium': issue.severity=='medium','fha-sev-low': issue.severity=='low'}">{{issue.severity | uppercase}}</span></td>
                 <td>{{issue.category || 'general'}}</td>
                 <td>{{issue.code}}</td>
                 <td>{{issue.message}}</td>
@@ -907,7 +589,7 @@
             </tbody>
           </table>
         </div>
-        <div class="fha-card__body" ng-if="!c.filteredIssues().length"><span class="pill gray">No issues</span></div>
+        <div class="fha-card__body" ng-if="!c.filteredIssues().length"><span class="fha-pill fha-pill-gray">No issues</span></div>
       </div>
     </div>
 
