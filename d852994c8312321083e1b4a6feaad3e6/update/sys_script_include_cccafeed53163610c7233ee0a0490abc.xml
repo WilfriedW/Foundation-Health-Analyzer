@@ -3,9 +3,12 @@
         <access>package_private</access>
         <active>true</active>
         <api_name>x_1310794_founda_0.FHARuleEvaluator</api_name>
+        <caller_access/>
         <client_callable>false</client_callable>
         <description>Apply issue rules to analyzed records</description>
+        <mobile_callable>false</mobile_callable>
         <name>FHARuleEvaluator</name>
+        <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[var FHARuleEvaluator = Class.create();
 FHARuleEvaluator.prototype = {
     initialize: function() {},

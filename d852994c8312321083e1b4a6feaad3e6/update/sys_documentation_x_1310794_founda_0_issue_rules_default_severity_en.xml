@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_documentation element="default_severity" label="Default severity" language="en" table="x_1310794_founda_0_issue_rules">
+        <sys_documentation action="INSERT_OR_UPDATE">
+            <element>default_severity</element>
+            <help/>
+            <hint/>
+            <label>Default severity</label>
+            <language>en</language>
+            <name>x_1310794_founda_0_issue_rules</name>
+            <plural>Default severities</plural>
+            <sys_class_name>sys_documentation</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-01-17 20:09:15</sys_created_on>
+            <sys_id>bdfceef4536e7e10c7233ee0a0490e92</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>Default severity</sys_name>
+            <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+            <sys_update_name>sys_documentation_x_1310794_founda_0_issue_rules_default_severity_en</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-01-17 20:09:15</sys_updated_on>
+            <url/>
+            <url_target/>
+        </sys_documentation>
+    </sys_documentation>
+</record_update>
