@@ -3,9 +3,12 @@
         <access>package_private</access>
         <active>true</active>
         <api_name>x_1310794_founda_0.FHARuleEvaluator</api_name>
+        <caller_access/>
         <client_callable>false</client_callable>
         <description>Apply issue rules to analyzed records</description>
+        <mobile_callable>false</mobile_callable>
         <name>FHARuleEvaluator</name>
+        <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[var FHARuleEvaluator = Class.create();
 FHARuleEvaluator.prototype = {
     initialize: function() {
@@ -23,18 +26,18 @@ FHARuleEvaluator.prototype = {
     evaluate: function(item, rules, context) {
         var issues = [];
         var self = this;
-        
+
         (rules || []).forEach(function(rule) {
             var params = self._safeParse(rule.params, {});
             if (!self._isApplicable(item, params)) return;
-            
+
             // Execute the rule script (all handlers are now in scripts)
             var scriptIssues = self._runScript(rule.script, item, rule, params, context);
             if (scriptIssues && scriptIssues.length) {
                 issues = issues.concat(scriptIssues);
             }
         });
-        
+
         return issues;
     },
 
@@ -44,12 +47,12 @@ FHARuleEvaluator.prototype = {
      */
     _loadHandlers: function() {
         if (this._handlersCache) return this._handlersCache;
-        
+
         var handlers = {};
         var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
         gr.addQuery('active', true);
         gr.query();
-        
+
         while (gr.next()) {
             var code = gr.getValue('code');
             if (code) {
@@ -64,41 +67,9 @@ FHARuleEvaluator.prototype = {
                 };
             }
         }
-        
+
         this._handlersCache = handlers;
         return handlers;
-    },
-
-    /**
-     * Legacy _handlers object - REMOVED
-     * All handlers are now stored in x_1310794_founda_0_issue_rules table
-     * 
-     * Migration date: 2026-01-17
-     * Total handlers migrated: 35
-     * 
-     * Core handlers: inactive, system_created, count_threshold, missing_field, 
-     *                duplicate, size_threshold, br_density, hardcoded_sys_id
-     * 
-     * Generic handlers: field_check, pattern_scan, aggregate_metric
-     * 
-     * Flag-based handlers: missing_acl, acl_issue, risky_field, public_endpoint,
-     *                      public_access, br_heavy, cs_heavy, ui_action, job_error,
-     *                      job_inactive, flow_error, flow_config, notification,
-     *                      integration_error, integration_config, widget_perf,
-     *                      query_scan, script_weight, audit, security, catalog,
-     *                      mail_config, observability
-     */
-    _handlers: {
-        // ALL HANDLERS HAVE BEEN MIGRATED TO x_1310794_founda_0_issue_rules TABLE
-        // Migration completed: 2026-01-17
-        // Total handlers migrated: 35
-        // 
-        // To add new handlers:
-        // 1. Create a new record in x_1310794_founda_0_issue_rules table
-        // 2. Set the handler script in the 'script' field
-        // 3. Set active = true
-        // 
-        // Handlers are now fully configurable without code changes
     },
 
     _issue: function(rule, message, details) {
@@ -112,13 +83,18 @@ FHARuleEvaluator.prototype = {
 
     _safeParse: function(str, fb) {
         if (fb === undefined) fb = {};
-        try { if (!str) return fb; return JSON.parse(str); } catch(e){ return fb; }
+        try {
+            if (!str) return fb;
+            return JSON.parse(str);
+        } catch (e) {
+            return fb;
+        }
     },
 
     _runScript: function(script, item, rule, params, context) {
         if (!script || typeof script !== 'string' || !script.trim()) return [];
         try {
-            var fn = new Function('item','rule','params','context','issue','issues', script + '\n; return issues;');
+            var fn = new Function('item', 'rule', 'params', 'context', 'issue', 'issues', script + '\n; return issues;');
             var res = fn(item, rule, params, context, this._issue.bind(this), []);
             if (!res) return [];
             if (Array.isArray(res)) return res;
@@ -133,7 +109,8 @@ FHARuleEvaluator.prototype = {
         // optional filters in params:
         // allowed_tables: comma list
         // allowed_categories: comma list
-        var tblOk = true, catOk = true;
+        var tblOk = true,
+            catOk = true;
         if (params.allowed_tables) {
             tblOk = this._matchList(item.table, params.allowed_tables);
         }
@@ -145,7 +122,11 @@ FHARuleEvaluator.prototype = {
 
     _matchList: function(value, listStr) {
         if (!listStr) return true;
-        var parts = listStr.split(',').map(function(p){ return (p || '').trim(); }).filter(function(p){ return !!p; });
+        var parts = listStr.split(',').map(function(p) {
+            return (p || '').trim();
+        }).filter(function(p) {
+            return !!p;
+        });
         if (!parts.length) return true;
         return parts.indexOf(value) !== -1;
     },
@@ -156,13 +137,13 @@ FHARuleEvaluator.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-13 21:15:00</sys_created_on>
         <sys_id>cccafeed53163610c7233ee0a0490abc</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>1</sys_mod_count>
         <sys_name>FHARuleEvaluator</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_cccafeed53163610c7233ee0a0490abc</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-13 21:15:00</sys_updated_on>
+        <sys_updated_on>2026-01-17 23:07:55</sys_updated_on>
     </sys_script_include>
 </record_update>
