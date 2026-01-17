@@ -5,7 +5,18 @@
 Foundation Health Analyzer is a ServiceNow scoped application designed to analyze the health and configuration of ServiceNow tables. It provides detailed insights into table structure, customizations, business rules, automation, integrations, and potential issues.
 
 **Application Scope:** `x_1310794_founda_0`  
-**Version:** 1.0.0
+**Version:** 1.3.0  
+**Last Updated:** 2026-01-17
+
+---
+
+## 🚀 Quick Links
+
+- **📚 Complete Documentation**: [CONSOLIDATED_DOCUMENTATION.md](CONSOLIDATED_DOCUMENTATION.md) - **START HERE** (50+ pages, single source of truth)
+- **🔧 Widget Update Guide**: [WIDGET_UPDATE_INSTRUCTIONS.md](WIDGET_UPDATE_INSTRUCTIONS.md)
+- **🧹 Cleanup Guide**: [OBSOLETE_COMPONENTS_CLEANUP.md](OBSOLETE_COMPONENTS_CLEANUP.md)
+- **📊 Documentation Summary**: [DOCUMENTATION_OVERHAUL_SUMMARY.md](DOCUMENTATION_OVERHAUL_SUMMARY.md)
+- **🌐 Portal Access**: `/fha?id=fha_documentation`
 
 ---
 

@@ -30,36 +30,79 @@ FHARuleEvaluator.prototype = {
     },
 
     _handlers: {
-        inactive: function(item, rule) {
+        inactive: function(item, rule, params) {
             var activeVal = (item.values.active || '').toString().toLowerCase();
             if (activeVal === 'false') {
-                return [this._issue(rule, 'Inactive record', { field: 'active', expected: 'true', actual: 'false' })];
+                var recordName = item.values.name || item.values.title || 'Record';
+                var message = 'Inactive record: "' + recordName + '". Consider activating or removing if no longer needed.';
+                return [this._issue(rule, message, { 
+                    field: 'active', 
+                    expected: 'true', 
+                    actual: 'false',
+                    record_table: item.table,
+                    record_sys_id: item.sys_id,
+                    record_name: recordName
+                })];
             }
             return [];
         },
-        system_created: function(item, rule) {
-            if ((item.values.sys_created_by || '').toString() === 'system') {
-                return [this._issue(rule, 'Created by system user')];
+        system_created: function(item, rule, params) {
+            var createdBy = (item.values.sys_created_by || '').toString();
+            if (createdBy === 'system') {
+                var recordName = item.values.name || item.values.title || 'Record';
+                var message = 'Record "' + recordName + '" created by system user. Review ownership and ensure proper documentation.';
+                return [this._issue(rule, message, {
+                    field: 'sys_created_by',
+                    actual: 'system',
+                    record_table: item.table,
+                    record_sys_id: item.sys_id,
+                    record_name: recordName,
+                    recommendation: 'System-created records should have clear documentation and ownership'
+                })];
             }
             return [];
         },
         count_threshold: function(item, rule, params, context) {
             var threshold = params.threshold || 0;
             var total = (context && context.totalCount) || 0;
+            
+            // Aggregate rule: only fire once per dataset, not per item
+            if (!context) context = {};
+            if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
+            var key = 'count_threshold_' + rule.code;
+            if (context._aggregateIssuesFired[key]) return [];
+            
             if (threshold && total > threshold) {
-                return [this._issue(rule, 'Too many records (' + total + ' > ' + threshold + ')')];
+                context._aggregateIssuesFired[key] = true;
+                
+                var message = 'Too many records (' + total + ' > ' + threshold + '). Review and clean up unnecessary records.';
+                var details = {
+                    count: total,
+                    threshold: threshold
+                };
+                
+                return [this._issue(rule, message, details)];
             }
             return [];
         },
         missing_field: function(item, rule, params) {
             var fields = (params.field || params.fields || '').split(',');
             var issues = [];
+            var recordName = item.values.name || item.values.title || 'Record';
+            
             fields.forEach(function(fRaw) {
                 var f = (fRaw || '').trim();
                 if (!f) return;
                 var v = item.values[f];
                 if (v === undefined || v === null || v === '') {
-                    issues.push(this._issue(rule, 'Missing field: ' + f, { field: f }));
+                    var message = 'Missing required field "' + f + '" in "' + recordName + '". This may cause issues or incomplete configuration.';
+                    issues.push(this._issue(rule, message, { 
+                        field: f,
+                        record_table: item.table,
+                        record_sys_id: item.sys_id,
+                        record_name: recordName,
+                        recommendation: 'Fill in the ' + f + ' field to complete the configuration'
+                    }));
                 }
             }, this);
             return issues;
@@ -87,8 +130,22 @@ FHARuleEvaluator.prototype = {
             var field = params.field || 'text';
             var maxLen = params.max_len || 0;
             var val = (item.values[field] || '').toString();
+            var recordName = item.values.name || item.values.title || 'Record';
+            
             if (maxLen && val.length > maxLen) {
-                return [this._issue(rule, 'Field too long: ' + field + ' (' + val.length + ' > ' + maxLen + ')', { field: field, length: val.length })];
+                var percentage = Math.round((val.length / maxLen) * 100);
+                var message = 'Field "' + field + '" too long in "' + recordName + '": ' + val.length + ' characters (limit: ' + maxLen + ', ' + percentage + '%). Consider refactoring or splitting.';
+                
+                return [this._issue(rule, message, { 
+                    field: field, 
+                    length: val.length,
+                    max_length: maxLen,
+                    percentage: percentage,
+                    record_table: item.table,
+                    record_sys_id: item.sys_id,
+                    record_name: recordName,
+                    recommendation: 'Break down large ' + field + ' into smaller functions or modules'
+                })];
             }
             return [];
         },
@@ -99,11 +156,31 @@ FHARuleEvaluator.prototype = {
             return [];
         },
         duplicate: function(item, rule, params, context) {
-            var key = (item.values.name || '') + '|' + (item.values.code || '');
+            var keyFields = params.key_fields || 'name,code';
+            var fields = keyFields.split(',').map(function(f){ return (f || '').trim(); });
+            
+            var keyParts = [];
+            fields.forEach(function(f) {
+                keyParts.push(item.values[f] || '');
+            });
+            var key = keyParts.join('|');
+            
             var seen = context && context._dupsSeen;
             if (!seen) return [];
+            
             if (seen[key] && seen[key] !== item.sys_id) {
-                return [this._issue(rule, 'Duplicate name/code detected', { duplicate_of: seen[key] })];
+                var recordName = item.values.name || item.values.title || 'Record';
+                var message = 'Duplicate detected: "' + recordName + '" has the same ' + fields.join(', ') + ' as another record. This may cause conflicts.';
+                
+                return [this._issue(rule, message, { 
+                    duplicate_of: seen[key],
+                    key_fields: fields,
+                    key_value: key,
+                    record_table: item.table,
+                    record_sys_id: item.sys_id,
+                    record_name: recordName,
+                    recommendation: 'Rename or merge with the duplicate record'
+                })];
             }
             return [];
         },
@@ -122,8 +199,32 @@ FHARuleEvaluator.prototype = {
         br_density: function(item, rule, params, context) {
             var count = context && context.totalCount;
             var threshold = params.threshold || 0;
+            
+            // Aggregate rule: only fire once per dataset, not per item
+            if (!context) context = {};
+            if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
+            var key = 'br_density_' + rule.code;
+            if (context._aggregateIssuesFired[key]) return [];
+            
             if (threshold && count > threshold) {
-                return [this._issue(rule, 'Too many Business Rules (' + count + ' > ' + threshold + ')')];
+                context._aggregateIssuesFired[key] = true;
+                
+                // Get the table name from the first item
+                var tableName = item.table || 'sys_script';
+                var tableValue = item.values && item.values.collection ? item.values.collection : 'unknown';
+                
+                var message = 'Too many Business Rules (' + count + ' > ' + threshold + ') - Table: ' + tableValue + '. Click to view all active Business Rules and consider consolidating to improve performance.';
+                
+                var details = {
+                    count: count,
+                    threshold: threshold,
+                    table: tableValue,
+                    record_table: 'sys_script',
+                    record_filter: 'collection=' + tableValue + '^active=true',
+                    record_name: 'View ' + count + ' Business Rules'
+                };
+                
+                return [this._issue(rule, message, details)];
             }
             return [];
         },
@@ -189,8 +290,9 @@ FHARuleEvaluator.prototype = {
         },
         hardcoded_sys_id: function(item, rule, params) {
             // Scan configuration scripts and record fields (if provided in params.fields) for 32-hex sys_ids
-            var regex = /[0-9a-f]{32}/i;
-            var hit = null;
+            var regex = /[0-9a-f]{32}/ig;
+            var hits = [];
+            var recordName = item.values.name || item.values.title || 'Record';
 
             // 1) Scan record fields (item.values) if fields provided
             var fields = (params.fields || '').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
@@ -198,34 +300,47 @@ FHARuleEvaluator.prototype = {
                 var f = fields[i];
                 var val = (item.values && item.values[f]) || '';
                 if (typeof val !== 'string') continue;
-                var mVal = val.match(regex);
-                if (mVal) {
-                    hit = { field: f, match: mVal[0] };
-                    break;
+                var matches = val.match(regex);
+                if (matches && matches.length > 0) {
+                    hits.push({ field: f, matches: matches, count: matches.length });
                 }
             }
 
             // 2) Scan item config scripts/queries
-            if (!hit) {
-                var sources = [
-                    { field: 'query_script', value: item.query_script },
-                    { field: 'query_value', value: item.query_value },
-                    { field: 'metadata', value: item.metadata },
-                    { field: 'issues', value: item.issues } // legacy config string, not the array
-                ];
-                for (var j = 0; j < sources.length; j++) {
-                    var src = sources[j];
-                    if (!src.value || typeof src.value !== 'string') continue;
-                    var m = src.value.match(regex);
-                    if (m) {
-                        hit = { field: src.field, match: m[0] };
-                        break;
-                    }
+            var sources = [
+                { field: 'query_script', value: item.query_script },
+                { field: 'query_value', value: item.query_value },
+                { field: 'metadata', value: item.metadata },
+                { field: 'script', value: item.values && item.values.script }
+            ];
+            for (var j = 0; j < sources.length; j++) {
+                var src = sources[j];
+                if (!src.value || typeof src.value !== 'string') continue;
+                var m = src.value.match(regex);
+                if (m && m.length > 0) {
+                    hits.push({ field: src.field, matches: m, count: m.length });
                 }
             }
 
-            if (hit) {
-                return [this._issue(rule, 'Hardcoded sys_id detected in ' + hit.field, hit)];
+            if (hits.length > 0) {
+                var totalSysIds = 0;
+                var fieldsList = [];
+                hits.forEach(function(h) {
+                    totalSysIds += h.count;
+                    fieldsList.push(h.field + ' (' + h.count + ')');
+                });
+                
+                var message = 'Hardcoded sys_id(s) detected in "' + recordName + '": ' + totalSysIds + ' occurrence(s) in fields [' + fieldsList.join(', ') + ']. Replace with dynamic queries or GlideRecord lookups.';
+                
+                return [this._issue(rule, message, {
+                    hits: hits,
+                    total_sys_ids: totalSysIds,
+                    fields: fieldsList,
+                    record_table: item.table,
+                    record_sys_id: item.sys_id,
+                    record_name: recordName,
+                    recommendation: 'Replace hardcoded sys_ids with dynamic queries using name or other unique fields'
+                })];
             }
             return [];
         },
@@ -275,6 +390,193 @@ FHARuleEvaluator.prototype = {
             if (item.values && item.values.no_metrics === 'true') {
                 return [this._issue(rule, 'No metrics/logs on critical component')];
             }
+            return [];
+        },
+        
+        // ========== HANDLERS GÉNÉRIQUES AVANCÉS ==========
+        
+        /**
+         * field_check - Handler générique pour vérifier des conditions sur des champs
+         * Params:
+         *   - field: nom du champ à vérifier
+         *   - operator: 'equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty', 'regex', 'gt', 'lt', 'gte', 'lte'
+         *   - expected: valeur attendue (selon l'opérateur)
+         *   - message_template: template de message (optionnel)
+         */
+        field_check: function(item, rule, params) {
+            var field = params.field;
+            if (!field) return [];
+            
+            var value = item.values && item.values[field];
+            var operator = params.operator || 'equals';
+            var expected = params.expected;
+            var recordName = item.values.name || item.values.title || 'Record';
+            
+            var condition = false;
+            var actualStr = String(value || '');
+            var expectedStr = String(expected || '');
+            
+            switch(operator) {
+                case 'equals':
+                    condition = actualStr === expectedStr;
+                    break;
+                case 'not_equals':
+                    condition = actualStr !== expectedStr;
+                    break;
+                case 'contains':
+                    condition = actualStr.indexOf(expectedStr) !== -1;
+                    break;
+                case 'not_contains':
+                    condition = actualStr.indexOf(expectedStr) === -1;
+                    break;
+                case 'empty':
+                    condition = !value || value === '';
+                    break;
+                case 'not_empty':
+                    condition = value && value !== '';
+                    break;
+                case 'regex':
+                    try {
+                        var regex = new RegExp(expectedStr);
+                        condition = regex.test(actualStr);
+                    } catch(e) {
+                        gs.warn('[field_check] Invalid regex: ' + expectedStr);
+                        return [];
+                    }
+                    break;
+                case 'gt':
+                    condition = parseFloat(value) > parseFloat(expected);
+                    break;
+                case 'lt':
+                    condition = parseFloat(value) < parseFloat(expected);
+                    break;
+                case 'gte':
+                    condition = parseFloat(value) >= parseFloat(expected);
+                    break;
+                case 'lte':
+                    condition = parseFloat(value) <= parseFloat(expected);
+                    break;
+                default:
+                    gs.warn('[field_check] Unknown operator: ' + operator);
+                    return [];
+            }
+            
+            if (condition) {
+                var message = params.message_template || 
+                    'Field "' + field + '" ' + operator + ' "' + expectedStr + '" in "' + recordName + '"';
+                
+                return [this._issue(rule, message, {
+                    field: field,
+                    operator: operator,
+                    expected: expectedStr,
+                    actual: actualStr,
+                    record_table: item.table,
+                    record_sys_id: item.sys_id,
+                    record_name: recordName
+                })];
+            }
+            return [];
+        },
+        
+        /**
+         * pattern_scan - Scan de patterns dans des champs (regex)
+         * Params:
+         *   - fields: liste de champs à scanner (CSV)
+         *   - pattern: regex à chercher
+         *   - message_template: template de message
+         */
+        pattern_scan: function(item, rule, params) {
+            if (!params.pattern) return [];
+            
+            var pattern = params.pattern;
+            var fields = (params.fields || '').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
+            var recordName = item.values.name || item.values.title || 'Record';
+            
+            try {
+                var regex = new RegExp(pattern, 'i');
+                
+                for (var i = 0; i < fields.length; i++) {
+                    var field = fields[i];
+                    var value = item.values && item.values[field];
+                    if (!value || typeof value !== 'string') continue;
+                    
+                    var match = value.match(regex);
+                    if (match) {
+                        var message = params.message_template || 
+                            'Pattern "' + pattern + '" found in field "' + field + '" of "' + recordName + '"';
+                        
+                        return [this._issue(rule, message, {
+                            field: field,
+                            pattern: pattern,
+                            match: match[0],
+                            record_table: item.table,
+                            record_sys_id: item.sys_id,
+                            record_name: recordName
+                        })];
+                    }
+                }
+            } catch(e) {
+                gs.warn('[pattern_scan] Invalid regex: ' + pattern + ' - ' + e.message);
+            }
+            
+            return [];
+        },
+        
+        /**
+         * aggregate_metric - Handler agrégé personnalisable
+         * Params:
+         *   - metric: 'count', 'sum', 'avg', 'max', 'min'
+         *   - field: champ pour sum/avg/max/min
+         *   - threshold: seuil
+         *   - operator: 'gt', 'lt', 'gte', 'lte', 'equals'
+         *   - message_template: template de message
+         */
+        aggregate_metric: function(item, rule, params, context) {
+            var metric = params.metric || 'count';
+            var threshold = params.threshold;
+            var operator = params.operator || 'gt';
+            
+            // Aggregate rule: only fire once per dataset
+            if (!context) context = {};
+            if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
+            var key = 'aggregate_metric_' + rule.code;
+            if (context._aggregateIssuesFired[key]) return [];
+            
+            var value = 0;
+            var count = context && context.totalCount || 0;
+            
+            if (metric === 'count') {
+                value = count;
+            } else {
+                // Pour sum/avg/max/min, on devrait accumuler dans le context
+                // Pour simplifier, on retourne ici mais cela nécessite une amélioration du moteur
+                gs.warn('[aggregate_metric] Metrics other than count require engine support');
+                return [];
+            }
+            
+            var condition = false;
+            switch(operator) {
+                case 'gt': condition = value > threshold; break;
+                case 'lt': condition = value < threshold; break;
+                case 'gte': condition = value >= threshold; break;
+                case 'lte': condition = value <= threshold; break;
+                case 'equals': condition = value === threshold; break;
+            }
+            
+            if (condition) {
+                context._aggregateIssuesFired[key] = true;
+                
+                var message = params.message_template || 
+                    metric.toUpperCase() + ' ' + operator + ' threshold (' + value + ' ' + operator + ' ' + threshold + ')';
+                
+                return [this._issue(rule, message, {
+                    metric: metric,
+                    value: value,
+                    threshold: threshold,
+                    operator: operator
+                })];
+            }
+            
             return [];
         }
     },
