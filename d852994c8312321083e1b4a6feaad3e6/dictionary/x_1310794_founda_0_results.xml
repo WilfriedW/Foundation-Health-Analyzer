@@ -4,9 +4,9 @@
         <element attributes="edge_encryption_enabled=true" default="javascript:global.getNextObjNumberPadded();" label="Number" max_length="40" name="number" read_only="true" type="string"/>
         <element choice="1" label="State" max_length="40" name="state" type="string">
             <choice>
+                <element inactive_on_update="false" label="Completed" sequence="1" value="Completed"/>
                 <element inactive_on_update="false" label="Error" sequence="0" value="Error"/>
                 <element inactive_on_update="false" label="In Progress" sequence="2" value="In Progress"/>
-                <element inactive_on_update="false" label="Completed" sequence="1" value="Completed"/>
             </choice>
         </element>
     </element>

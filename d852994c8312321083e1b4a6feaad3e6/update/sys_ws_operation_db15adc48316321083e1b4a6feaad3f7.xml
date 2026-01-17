@@ -80,13 +80,13 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/history</relative_path>
-        <request_example><![CDATA[// Query Parameters (all optional):
+        <request_example>// Query Parameters (all optional):
 // - limit: Number of records (default: 20, max: 100)
 // - offset: Pagination offset (default: 0)
 // - table_name: Filter by table name
 // - status: Filter by status (completed, failed)
 
-// Example: /api/x_1310794_founda_0/fha/history?limit=10&offset=0&status=completed
+// Example: /api/x_1310794_founda_0/fha/history?limit=10&amp;offset=0&amp;status=completed
 
 // Success Response (200):
 {
@@ -106,7 +106,7 @@
       "created_by": "admin"
     }
   ]
-}]]></request_example>
+}</request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>

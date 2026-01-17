@@ -105,7 +105,7 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/fields</relative_path>
-        <request_example><![CDATA[// Query Parameter: table_name (required)
+        <request_example>// Query Parameter: table_name (required)
 // Example: /api/x_1310794_founda_0/fha/fields?table_name=incident
 
 // Success Response (200):
@@ -131,7 +131,7 @@
 {
   "success": false,
   "error": "Table not found: my_table"
-}]]></request_example>
+}</request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
