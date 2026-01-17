@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHAnalysisEngine</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHAnalysisEngine</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHAnalysisEngine = Class.create();
+FHAnalysisEngine.prototype = {
+    initialize: function() {
+        // this.utils = new FHScanUtils();
+    },
+
+    /**
+     * Executes verification for a configured item (e.g., Flow, Change Request)
+     * @param {GlideRecord} configRecord - Configuration record from your "Items to Verify" table
+     * @returns {Object} - Verification result { success: Boolean, data: Array, errors: Array, metadata: Object }
+     */
+    runVerification: function(configRecord) {
+        var result = {
+            success: false, // Default to false; set to true if execution completes
+            data: [], // Array to store verified records
+            errors: [], // Array to store execution errors
+            metadata: {}, // Additional info (e.g., execution time)
+        };
+
+        var rulesMap = this._loadIssueRules(configRecord.verification_items || []);
+        var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
+
+        configRecord.verification_items.forEach(item => {
+            try {
+                // --- 1. Extract configuration parameters ---
+                var tableName = item.tableName;
+                var queryType = item.query_type.toLowerCase();
+                var queryValue = item.query_value || '';
+                var queryScript = item.query_script || '';
+                var fields = (item.fields && item.fields.split(',')) || [];
+                var defaults = ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'];
+                fields = fields.map(function(f) {
+                    return (f || '').trim();
+                }).filter(function(f) {
+                    return !!f;
+                });
+                defaults.forEach(function(df) {
+                    if (fields.indexOf(df) === -1) fields.push(df);
+                });
+                var category = item.category;
+
+                // --- 2. Build the query based on type ---
+                var gr = new GlideRecord(tableName);
+
+                if (queryType === 'script') {
+                    if (queryScript) {
+                        var scriptResults = [];
+                        var flowIds = scriptResults;
+                        try {
+                            eval(queryScript);
+                        } catch (eScript) {
+                            result.errors.push("Query script error: " + eScript.message);
+                            gs.error("[FHAnalysisEngine] Query script error: " + eScript.message);
+                        }
+                        var ids = this._flattenIds(scriptResults);
+                        if (ids.length > 0) {
+                            gr.addQuery('sys_id', 'IN', ids.join(','));
+                        } else {
+                            result.success = true;
+                            return result;
+                        }
+                    }
+                } else {
+                    gr.addEncodedQuery(queryValue.replaceAll("{0}", configRecord.table_name));
+                }
+
+                // --- 3. Execute query and process records ---
+                gr.query();
+
+                while (gr.next()) {
+                    var record = this._processRecord(gr, fields, item);
+                    record._rules = rulesMap[item.sys_id] || [];
+                    result.data.push(record);
+                }
+
+                // --- 5. Analyze results for issues (via FHARuleEvaluator) ---
+                result = this._analyzeResults(result);
+                result.success = true;
+
+            } catch (e) {
+                result.errors.push("Verification error: " + e.message);
+                gs.error("[FHAnalysisEngine] Verification error: " + eScript.message + "\nStack: " + e.stack);
+
+            }
+        });
+        return result;
+
+    },
+
+    /**
+     * Processes a single record to extract relevant data
+     * @param {GlideRecord} gr - Current record
+     * @param {Array} fields - Fields to extract
+     * @returns {Object} - Processed record with values and empty issues array
+     */
+    _processRecord: function(gr, fields, item) {
+        var record = {
+            sys_id: gr.sys_id.toString(),
+            table: gr.getTableName(),
+            values: {}, // Stores field values (e.g., { name: 'My Flow', active: 'false' })
+            issues: [], // Populated later by _analyzeResults
+            category: item.category
+
+        };
+
+        // Extract requested fields
+        fields.forEach(function(field) {
+            record.values[field] = gr.getValue(field); // use raw value (needed for scripts/sys_id detection)
+        });
+        return record;
+    },
+
+    /**
+     * Analyzes records to detect issues (e.g., inactive Flows, stale records)
+     * @param {Object} result - Current result object
+     * @param {Object} issuesConfig - Issue rules (e.g., { inactivityIssueCode: 'INACTIVE', manyThreshold: 10 })
+     * @returns {Object} - Updated result with issues
+     */
+    _analyzeResults: function(result) {
+        try {
+            // context for aggregate-aware rules
+            var context = {
+                totalCount: result.data.length,
+                _dupsSeen: {}
+            };
+            result.data.forEach(function(it) {
+                var key = (it.values.name || '') + '|' + (it.values.code || '');
+                if (!context._dupsSeen[key]) context._dupsSeen[key] = it.sys_id;
+            });
+
+            var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
+            var aggregatedIssues = [];
+
+            result.data.forEach(function(item) {
+                var rules = item._rules || [];
+                item.issues = ruleEval.evaluate(item, rules, context) || [];
+
+                // Aggregate issues at result level for portal/widget
+                (item.issues || []).forEach(function(is) {
+                    var issueDetails = is.details || {};
+                    aggregatedIssues.push({
+                        code: is.code || '',
+                        message: is.message || '',
+                        severity: is.severity || 'medium',
+                        record_table: issueDetails.record_table || item.table || '',
+                        record_sys_id: issueDetails.record_sys_id || item.sys_id || '',
+                        record_name: issueDetails.record_name || (item.values && item.values.name) || '',
+                        record_filter: issueDetails.record_filter || '',
+                        category: item.category || '',
+                        details: issueDetails
+                    });
+                });
+            });
+
+            result.issues = aggregatedIssues;
+
+        } catch (error) {
+            gs.error("[FHAnalysisEngine] _analyzeResults: " + error.message);
+        }
+        return result;
+    },
+
+    _flattenIds: function(list) {
+        var ids = [];
+        if (!list) return ids;
+        var pushId = function(v) {
+            if (!v) return;
+            if (typeof v === 'string') {
+                if (v.indexOf(',') > -1) {
+                    v.split(',').forEach(pushId);
+                } else {
+                    ids.push(v);
+                }
+            } else if (Array.isArray(v)) {
+                v.forEach(pushId);
+            } else if (v.sys_id) {
+                ids.push(String(v.sys_id));
+            } else if (v.getUniqueValue && typeof v.getUniqueValue === 'function') {
+                ids.push(String(v.getUniqueValue()));
+            }
+        };
+        pushId(list);
+        return ids;
+    },
+
+    _loadIssueRules: function(items) {
+        var map = {};
+        var ids = [];
+        (items || []).forEach(function(it) {
+            if (it.issue_rules) {
+                ids = ids.concat(String(it.issue_rules).split(','));
+            }
+        });
+        ids = ids.filter(function(x) {
+            return x;
+        });
+        if (!ids.length) return map;
+
+        var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
+        gr.addQuery('sys_id', 'IN', ids.join(','));
+        gr.addQuery('active', true);
+        gr.query();
+        while (gr.next()) {
+            var rule = {
+                sys_id: gr.getUniqueValue(),
+                name: gr.getValue('name') || '',
+                code: gr.getValue('code') || '',
+                type: gr.getValue('type') || '',
+                default_severity: gr.getValue('default_severity') || 'medium',
+                params: gr.getValue('params') || '{}',
+                script: gr.getValue('script') || ''
+            };
+            // attach by each item that referenced it
+            (items || []).forEach(function(it) {
+                if (String(it.issue_rules || '').indexOf(rule.sys_id) > -1) {
+                    if (!map[it.sys_id]) map[it.sys_id] = [];
+                    map[it.sys_id].push(rule);
+                }
+            });
+        }
+        return map;
+    },
+
+    type: 'FHAnalysisEngine'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-07 01:18:57</sys_created_on>
+        <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
+        <sys_mod_count>87</sys_mod_count>
+        <sys_name>FHAnalysisEngine</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 18:52:15</sys_updated_on>
+    </sys_script_include>
+</record_update>

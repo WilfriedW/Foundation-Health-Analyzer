@@ -1,0 +1,100 @@
+%% Diagramme de séquence - Widget FHA Documentation
+%% Widget ID: 277a975c8392f21083e1b4a6feaad318
+%% Version: 1.2.0-doc
+
+sequenceDiagram
+    actor User
+    participant Browser
+    participant ServicePortal as Service Portal
+    participant ServerScript as Server Script
+    participant GlideSystem as gs (System Properties)
+    participant ClientScript as Client Script (AngularJS)
+    participant IntersectionObs as IntersectionObserver
+    participant DOM
+
+    %% Phase 1: Chargement initial
+    Note over User,DOM: Phase 1: Chargement de la page
+    User->>Browser: Accède à /fha?id=fha_documentation
+    Browser->>ServicePortal: GET Request
+    ServicePortal->>ServerScript: Execute server script
+    
+    ServerScript->>GlideSystem: gs.getProperty('x_1310794_founda_0.version')
+    GlideSystem-->>ServerScript: '1.1.0' ou fallback
+    
+    ServerScript->>GlideSystem: gs.getProperty('x_1310794_founda_0.doc.last_updated')
+    GlideSystem-->>ServerScript: '2026-01-14' ou fallback
+    
+    ServerScript->>ServerScript: Set data.pageId, data.widgetId
+    Note right of ServerScript: data = {<br/>appVersion: '1.1.0',<br/>lastUpdated: '2026-01-14',<br/>pageId: '277a975c...',<br/>widgetId: '5ada939c...'<br/>}
+    
+    ServerScript-->>ServicePortal: Return data object
+    ServicePortal->>Browser: Render HTML template with data
+    Browser->>DOM: Build DOM tree
+    
+    %% Phase 2: Initialisation client
+    Note over User,DOM: Phase 2: Initialisation client-side
+    Browser->>ClientScript: Execute api.controller
+    ClientScript->>ClientScript: Initialize state<br/>c.activeSection = 'description'
+    ClientScript->>ClientScript: Define sectionIds array
+    
+    ClientScript->>Browser: $timeout(initScrollSpy, 0)
+    Browser->>ClientScript: Execute initScrollSpy
+    
+    ClientScript->>Browser: Check IntersectionObserver support
+    alt IntersectionObserver supported
+        ClientScript->>IntersectionObs: new IntersectionObserver(callback, {threshold: 0.35})
+        loop For each section in sectionIds
+            ClientScript->>DOM: document.getElementById(sectionId)
+            DOM-->>ClientScript: Element reference
+            ClientScript->>IntersectionObs: observer.observe(element)
+        end
+        Note right of IntersectionObs: Observer actif<br/>Surveillance des sections
+    else Not supported
+        Note right of ClientScript: Fallback gracieux<br/>Navigation reste fonctionnelle
+    end
+    
+    Browser-->>User: Page displayed
+    
+    %% Phase 3: Interaction utilisateur - Click navigation
+    Note over User,DOM: Phase 3a: Click sur bouton navigation
+    User->>Browser: Click "Configuration" button
+    Browser->>ClientScript: ng-click="c.scrollToSection('configuration')"
+    ClientScript->>ClientScript: c.activeSection = 'configuration'
+    ClientScript->>DOM: document.getElementById('configuration')
+    DOM-->>ClientScript: Element reference
+    ClientScript->>DOM: element.scrollIntoView({behavior: 'smooth'})
+    DOM->>Browser: Smooth scroll animation
+    Browser-->>User: Scroll vers section Configuration
+    
+    %% Phase 4: Interaction utilisateur - Scroll manuel
+    Note over User,DOM: Phase 3b: Scroll manuel de l'utilisateur
+    User->>Browser: Scroll down page
+    Browser->>IntersectionObs: Viewport change detected
+    
+    loop Each observed section
+        IntersectionObs->>IntersectionObs: Check intersection ratio
+        alt Section >= 35% visible
+            IntersectionObs->>ClientScript: setActiveFromViewport(entries)
+            ClientScript->>ClientScript: entry.isIntersecting = true
+            ClientScript->>ClientScript: c.activeSection = entry.target.id
+            ClientScript->>Browser: $scope.$applyAsync()
+            Browser->>DOM: Update navigation button classes
+            Note right of DOM: Bouton correspondant<br/>devient actif (classe 'active')
+            DOM-->>User: Visual feedback
+        end
+    end
+    
+    %% Phase 5: Retour au dashboard
+    Note over User,DOM: Phase 4: Retour au dashboard
+    User->>Browser: Click "Back to dashboard"
+    Browser->>ClientScript: ng-click="c.goToDashboard()"
+    ClientScript->>Browser: window.location.href = '/fha?id=fha_homepage'
+    Browser->>ServicePortal: Navigate to dashboard
+    ServicePortal-->>User: FHA Homepage displayed
+    
+    %% Phase 6: Cleanup
+    Note over User,DOM: Phase 5: Cleanup (navigation away)
+    Browser->>ClientScript: $scope.$on('$destroy')
+    ClientScript->>IntersectionObs: observer.disconnect()
+    Note right of IntersectionObs: Cleanup complet<br/>Pas de fuite mémoire
+    ClientScript-->>Browser: Cleanup done

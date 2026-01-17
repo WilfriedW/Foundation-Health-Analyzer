@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_dictionary">
+    <sys_dictionary action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <array>false</array>
+        <attributes/>
+        <column_label>Name</column_label>
+        <element>name</element>
+        <internal_type>string</internal_type>
+        <mandatory>true</mandatory>
+        <max_length>100</max_length>
+        <name>x_1310794_founda_0_issue_rules</name>
+        <reference/>
+        <sys_class_name>sys_dictionary</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 21:05:00</sys_created_on>
+        <sys_id>4444feed53163610c7233ee0a0490abd</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_issue_rules.name</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_dictionary_4444feed53163610c7233ee0a0490abd</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 21:05:00</sys_updated_on>
+        <table_reference>false</table_reference>
+        <text_index>false</text_index>
+    </sys_dictionary>
+    <sys_dictionary action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <array>false</array>
+        <attributes/>
+        <column_label>Code</column_label>
+        <element>code</element>
+        <internal_type>string</internal_type>
+        <mandatory>true</mandatory>
+        <max_length>80</max_length>
+        <name>x_1310794_founda_0_issue_rules</name>
+        <reference/>
+        <sys_class_name>sys_dictionary</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 21:05:00</sys_created_on>
+        <sys_id>4444feed53163610c7233ee0a0490abe</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_issue_rules.code</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_dictionary_4444feed53163610c7233ee0a0490abe</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 21:05:00</sys_updated_on>
+        <table_reference>false</table_reference>
+        <text_index>false</text_index>
+    </sys_dictionary>
+    <sys_dictionary action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <array>false</array>
+        <attributes/>
+        <column_label>Type</column_label>
+        <element>type</element>
+        <internal_type>string</internal_type>
+        <mandatory>true</mandatory>
+        <max_length>80</max_length>
+        <name>x_1310794_founda_0_issue_rules</name>
+        <reference/>
+        <sys_class_name>sys_dictionary</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 21:05:00</sys_created_on>
+        <sys_id>4444feed53163610c7233ee0a0490abf</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_issue_rules.type</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_dictionary_4444feed53163610c7233ee0a0490abf</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 21:05:00</sys_updated_on>
+        <table_reference>false</table_reference>
+        <text_index>false</text_index>
+    </sys_dictionary>
+    <sys_dictionary action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <array>false</array>
+        <attributes/>
+        <column_label>Default severity</column_label>
+        <element>default_severity</element>
+        <internal_type>string</internal_type>
+        <mandatory>false</mandatory>
+        <max_length>40</max_length>
+        <name>x_1310794_founda_0_issue_rules</name>
+        <reference/>
+        <sys_class_name>sys_dictionary</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 21:05:00</sys_created_on>
+        <sys_id>4444feed53163610c7233ee0a0490ac0</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_issue_rules.default_severity</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_dictionary_4444feed53163610c7233ee0a0490ac0</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 21:05:00</sys_updated_on>
+        <table_reference>false</table_reference>
+        <text_index>false</text_index>
+    </sys_dictionary>
+    <sys_dictionary action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <array>false</array>
+        <attributes/>
+        <column_label>Params</column_label>
+        <element>params</element>
+        <internal_type>string</internal_type>
+        <mandatory>false</mandatory>
+        <max_length>4000</max_length>
+        <name>x_1310794_founda_0_issue_rules</name>
+        <reference/>
+        <sys_class_name>sys_dictionary</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 21:05:00</sys_created_on>
+        <sys_id>4444feed53163610c7233ee0a0490ac1</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_issue_rules.params</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_dictionary_4444feed53163610c7233ee0a0490ac1</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 21:05:00</sys_updated_on>
+        <table_reference>false</table_reference>
+        <text_index>false</text_index>
+    </sys_dictionary>
+    <sys_dictionary action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <array>false</array>
+        <attributes/>
+        <column_label>Active</column_label>
+        <element>active</element>
+        <internal_type>truefalse</internal_type>
+        <mandatory>false</mandatory>
+        <max_length>40</max_length>
+        <name>x_1310794_founda_0_issue_rules</name>
+        <reference/>
+        <sys_class_name>sys_dictionary</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 21:05:00</sys_created_on>
+        <sys_id>4444feed53163610c7233ee0a0490ac2</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_issue_rules.active</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_dictionary_4444feed53163610c7233ee0a0490ac2</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 21:05:00</sys_updated_on>
+        <table_reference>false</table_reference>
+        <text_index>false</text_index>
+    </sys_dictionary>
+</record_update>
