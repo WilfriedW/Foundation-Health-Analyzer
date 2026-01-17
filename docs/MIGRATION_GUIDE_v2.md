@@ -3,6 +3,7 @@
 ## 🎯 Objectif
 
 Ce guide vous aide à migrer vos règles de vérification vers la nouvelle architecture simplifiée avec :
+
 - **Handlers génériques** : Plus flexibles et réutilisables
 - **Scripts personnalisés** : Logique métier dans les règles, pas dans le code
 - **Messages enrichis** : Plus informatifs et actionnables
@@ -13,40 +14,40 @@ Ce guide vous aide à migrer vos règles de vérification vers la nouvelle archi
 
 Les handlers suivants restent disponibles mais **devraient être remplacés** par des scripts personnalisés :
 
-| Handler ancien | Remplacement recommandé | Raison |
-|----------------|-------------------------|--------|
-| `missing_acl` | Script personnalisé | Logique métier spécifique |
-| `acl_issue` | Script personnalisé | Logique métier spécifique |
-| `index_needed` | Script personnalisé | Logique métier spécifique |
-| `risky_field` | Script personnalisé | Logique métier spécifique |
-| `public_endpoint` | Script personnalisé | Logique métier spécifique |
-| `public_access` | Script personnalisé | Logique métier spécifique |
-| `br_heavy` | Script personnalisé | Logique métier spécifique |
-| `cs_heavy` | Script personnalisé | Logique métier spécifique |
-| `ui_action` | Script personnalisé | Logique métier spécifique |
-| `job_error` | Script personnalisé | Logique métier spécifique |
-| `job_inactive` | Script personnalisé | Logique métier spécifique |
-| `flow_error` | Script personnalisé | Logique métier spécifique |
-| `flow_config` | Script personnalisé | Logique métier spécifique |
-| `notification` | Script personnalisé | Logique métier spécifique |
-| `integration_error` | Script personnalisé | Logique métier spécifique |
-| `integration_config` | Script personnalisé | Logique métier spécifique |
-| `widget_perf` | Script personnalisé | Logique métier spécifique |
-| `query_scan` | Script personnalisé | Logique métier spécifique |
-| `script_weight` | Script personnalisé | Logique métier spécifique |
-| `audit` | Script personnalisé | Logique métier spécifique |
-| `security` | Script personnalisé | Logique métier spécifique |
-| `catalog` | Script personnalisé | Logique métier spécifique |
-| `mail_config` | Script personnalisé | Logique métier spécifique |
-| `observability` | Script personnalisé | Logique métier spécifique |
+| Handler ancien       | Remplacement recommandé | Raison                    |
+| -------------------- | ----------------------- | ------------------------- |
+| `missing_acl`        | Script personnalisé     | Logique métier spécifique |
+| `acl_issue`          | Script personnalisé     | Logique métier spécifique |
+| `index_needed`       | Script personnalisé     | Logique métier spécifique |
+| `risky_field`        | Script personnalisé     | Logique métier spécifique |
+| `public_endpoint`    | Script personnalisé     | Logique métier spécifique |
+| `public_access`      | Script personnalisé     | Logique métier spécifique |
+| `br_heavy`           | Script personnalisé     | Logique métier spécifique |
+| `cs_heavy`           | Script personnalisé     | Logique métier spécifique |
+| `ui_action`          | Script personnalisé     | Logique métier spécifique |
+| `job_error`          | Script personnalisé     | Logique métier spécifique |
+| `job_inactive`       | Script personnalisé     | Logique métier spécifique |
+| `flow_error`         | Script personnalisé     | Logique métier spécifique |
+| `flow_config`        | Script personnalisé     | Logique métier spécifique |
+| `notification`       | Script personnalisé     | Logique métier spécifique |
+| `integration_error`  | Script personnalisé     | Logique métier spécifique |
+| `integration_config` | Script personnalisé     | Logique métier spécifique |
+| `widget_perf`        | Script personnalisé     | Logique métier spécifique |
+| `query_scan`         | Script personnalisé     | Logique métier spécifique |
+| `script_weight`      | Script personnalisé     | Logique métier spécifique |
+| `audit`              | Script personnalisé     | Logique métier spécifique |
+| `security`           | Script personnalisé     | Logique métier spécifique |
+| `catalog`            | Script personnalisé     | Logique métier spécifique |
+| `mail_config`        | Script personnalisé     | Logique métier spécifique |
+| `observability`      | Script personnalisé     | Logique métier spécifique |
 
 ### Nouveaux handlers génériques
 
-| Handler | Description | Cas d'usage |
-|---------|-------------|-------------|
-| `field_check` | Vérification générique de champ | Remplace tous les handlers booléens |
-| `pattern_scan` | Scan de patterns regex | Recherche de patterns dans le code |
-| `aggregate_metric` | Métriques agrégées personnalisables | Comptages et calculs sur datasets |
+| Handler            | Description                         | Cas d'usage                         |
+| ------------------ | ----------------------------------- | ----------------------------------- |
+| `field_check`      | Vérification générique de champ     | Remplace tous les handlers booléens |
+| `pattern_scan`     | Scan de patterns regex              | Recherche de patterns dans le code  |
+| `aggregate_metric` | Métriques agrégées personnalisables | Comptages et calculs sur datasets   |
 
 ## 🚀 Plan de migration en 3 phases
 
@@ -60,7 +61,7 @@ Les handlers suivants restent disponibles mais **devraient être remplacés** pa
 -- Lister toutes les règles avec des handlers legacy
 SELECT name, code, type
 FROM x_1310794_founda_0_issue_rules
-WHERE type IN ('missing_acl', 'acl_issue', 'br_heavy', 'cs_heavy', 'job_error', 
+WHERE type IN ('missing_acl', 'acl_issue', 'br_heavy', 'cs_heavy', 'job_error',
                'flow_error', 'integration_error', 'widget_perf', 'query_scan')
 ORDER BY type, name
 ```
@@ -72,6 +73,7 @@ Référez-vous à `SCRIPTS_LIBRARY.md` et copiez le script correspondant dans le
 **Exemple concret :**
 
 **Avant :**
+
 ```
 Name: Heavy Business Rule
 Code: BR_HEAVY
@@ -81,6 +83,7 @@ Script: (vide)
 ```
 
 **Après :**
+
 ```
 Name: Heavy Business Rule
 Code: BR_HEAVY
@@ -91,11 +94,11 @@ if (item.values.script) {
     var script = item.values.script.toString();
     var lineCount = (script.match(/\n/g) || []).length + 1;
     var charCount = script.length;
-    
+
     if (lineCount > 100 || charCount > 2000) {
         issues.push({
             code: rule.code,
-            message: 'Business Rule "' + item.values.name + '" is too complex: ' + 
+            message: 'Business Rule "' + item.values.name + '" is too complex: ' +
                      lineCount + ' lines, ' + charCount + ' characters. Consider refactoring into Script Include.',
             severity: lineCount > 200 ? 'high' : 'medium',
             details: {
@@ -124,6 +127,7 @@ if (item.values.script) {
 #### Utiliser field_check pour les vérifications simples
 
 **Avant (3 règles distinctes) :**
+
 ```json
 {
   "name": "Missing ACL",
@@ -133,6 +137,7 @@ if (item.values.script) {
 ```
 
 **Après (1 règle flexible) :**
+
 ```json
 {
   "name": "Missing ACL",
@@ -156,31 +161,31 @@ Pour chaque script personnalisé, enrichissez les détails :
 ```javascript
 // Minimum
 issues.push({
-    code: rule.code,
-    message: 'Problem detected',
-    severity: 'medium'
+  code: rule.code,
+  message: "Problem detected",
+  severity: "medium",
 });
 
 // Enrichi (recommandé)
 issues.push({
-    code: rule.code,
-    message: 'Clear description with context and recommendation',
-    severity: 'medium',
-    details: {
-        // Liens directs
-        record_table: item.table,
-        record_sys_id: item.sys_id,
-        record_name: item.values.name,
-        record_filter: 'field=value',  // Pour afficher une liste
-        
-        // Métriques
-        actual_value: 'valeur actuelle',
-        expected_value: 'valeur attendue',
-        threshold: 100,
-        
-        // Recommandation
-        recommendation: 'Suggestion concrète pour résoudre le problème'
-    }
+  code: rule.code,
+  message: "Clear description with context and recommendation",
+  severity: "medium",
+  details: {
+    // Liens directs
+    record_table: item.table,
+    record_sys_id: item.sys_id,
+    record_name: item.values.name,
+    record_filter: "field=value", // Pour afficher une liste
+
+    // Métriques
+    actual_value: "valeur actuelle",
+    expected_value: "valeur attendue",
+    threshold: 100,
+
+    // Recommandation
+    recommendation: "Suggestion concrète pour résoudre le problème",
+  },
 });
 ```
 
@@ -211,6 +216,7 @@ issues.push({
 ### Exemple 1 : Job Error
 
 **Avant :**
+
 ```
 Table: x_1310794_founda_0_issue_rules
 
@@ -223,6 +229,7 @@ Script: (empty)
 ```
 
 **Après :**
+
 ```
 Table: x_1310794_founda_0_issue_rules
 
@@ -241,14 +248,14 @@ if (item.values.active === 'true') {
     errorGr.orderByDesc('sys_created_on');
     errorGr.setLimit(1);
     errorGr.query();
-    
+
     if (errorGr.next()) {
         var errorTime = errorGr.sys_created_on.getDisplayValue();
         var errorMsg = errorGr.error_string || 'Unknown error';
-        
+
         issues.push({
             code: rule.code,
-            message: 'Scheduled Job "' + item.values.name + '" has errors. Last error at ' + 
+            message: 'Scheduled Job "' + item.values.name + '" has errors. Last error at ' +
                      errorTime + ': ' + errorMsg.substring(0, 100),
             severity: 'high',
             details: {
@@ -267,6 +274,7 @@ if (item.values.active === 'true') {
 ### Exemple 2 : Missing ACL
 
 **Avant :**
+
 ```
 Name: Missing ACL
 Code: MISSING_ACL
@@ -277,6 +285,7 @@ Script: (empty)
 ```
 
 **Option A - Script personnalisé (recommandé pour logique complexe) :**
+
 ```
 Name: Missing ACL
 Code: MISSING_ACL
@@ -287,7 +296,7 @@ Script:
 // Vérifie les ACLs sur les tables sensibles
 if (item.values.acl_count) {
     var aclCount = parseInt(item.values.acl_count) || 0;
-    
+
     if (aclCount === 0) {
         issues.push({
             code: rule.code,
@@ -306,6 +315,7 @@ if (item.values.acl_count) {
 ```
 
 **Option B - field_check (pour vérifications simples) :**
+
 ```
 Name: Missing ACL
 Code: MISSING_ACL
@@ -318,6 +328,7 @@ Script: (empty)
 ### Exemple 3 : BR Density (déjà migré)
 
 **Avant :**
+
 ```
 Name: Too many Business Rules
 Code: BR_TOO_MANY
@@ -328,6 +339,7 @@ Script: (empty)
 ```
 
 **Après (déjà fait dans v2.0) :**
+
 ```
 Name: Too many Business Rules
 Code: BR_TOO_MANY
@@ -348,24 +360,24 @@ Script: (empty)
 
 ```javascript
 // Script pour lister toutes les règles avec handlers legacy
-var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
-gr.addQuery('active', true);
-gr.addQuery('type', 'IN', 'missing_acl,acl_issue,br_heavy,cs_heavy,job_error');
-gr.orderBy('type');
+var gr = new GlideRecord("x_1310794_founda_0_issue_rules");
+gr.addQuery("active", true);
+gr.addQuery("type", "IN", "missing_acl,acl_issue,br_heavy,cs_heavy,job_error");
+gr.orderBy("type");
 gr.query();
 
 var results = [];
 while (gr.next()) {
-    results.push({
-        name: gr.getValue('name'),
-        code: gr.getValue('code'),
-        type: gr.getValue('type'),
-        severity: gr.getValue('severity'),
-        sys_id: gr.getValue('sys_id')
-    });
+  results.push({
+    name: gr.getValue("name"),
+    code: gr.getValue("code"),
+    type: gr.getValue("type"),
+    severity: gr.getValue("severity"),
+    sys_id: gr.getValue("sys_id"),
+  });
 }
 
-gs.info('Found ' + results.length + ' rules to migrate:');
+gs.info("Found " + results.length + " rules to migrate:");
 gs.info(JSON.stringify(results, null, 2));
 ```
 
@@ -373,24 +385,24 @@ gs.info(JSON.stringify(results, null, 2));
 
 ```javascript
 // Script pour sauvegarder les règles actuelles
-var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
+var gr = new GlideRecord("x_1310794_founda_0_issue_rules");
 gr.query();
 
 var backup = [];
 while (gr.next()) {
-    backup.push({
-        sys_id: gr.getValue('sys_id'),
-        name: gr.getValue('name'),
-        code: gr.getValue('code'),
-        type: gr.getValue('type'),
-        params: gr.getValue('params'),
-        script: gr.getValue('script'),
-        severity: gr.getValue('severity')
-    });
+  backup.push({
+    sys_id: gr.getValue("sys_id"),
+    name: gr.getValue("name"),
+    code: gr.getValue("code"),
+    type: gr.getValue("type"),
+    params: gr.getValue("params"),
+    script: gr.getValue("script"),
+    severity: gr.getValue("severity"),
+  });
 }
 
 // Sauvegarder dans un fichier ou une table de backup
-gs.info('Backup created: ' + backup.length + ' rules');
+gs.info("Backup created: " + backup.length + " rules");
 // Copier la sortie et sauvegarder dans un fichier JSON
 ```
 

@@ -22,9 +22,9 @@ Ce document détaille tous les handlers disponibles dans `FHARuleEvaluator`, leu
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Exemple |
-|-------|------|--------|-------------|---------|
-| `threshold` | number | Oui | Seuil maximum | `50` |
+| Param       | Type   | Requis | Description   | Exemple |
+| ----------- | ------ | ------ | ------------- | ------- |
+| `threshold` | number | Oui    | Seuil maximum | `50`    |
 
 #### Exemple de règle
 
@@ -54,9 +54,9 @@ Too many records (81 > 50). Review and clean up unnecessary records.
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Exemple |
-|-------|------|--------|-------------|---------|
-| `threshold` | number | Oui | Seuil maximum de BR | `30` |
+| Param       | Type   | Requis | Description         | Exemple |
+| ----------- | ------ | ------ | ------------------- | ------- |
+| `threshold` | number | Oui    | Seuil maximum de BR | `30`    |
 
 #### Exemple de règle
 
@@ -153,9 +153,9 @@ Record "My Script Include" created by system user. Review ownership and ensure p
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Exemple |
-|-------|------|--------|-------------|---------|
-| `field` ou `fields` | string | Oui | Champ(s) à vérifier (CSV) | `"description,short_description"` |
+| Param               | Type   | Requis | Description               | Exemple                           |
+| ------------------- | ------ | ------ | ------------------------- | --------------------------------- |
+| `field` ou `fields` | string | Oui    | Champ(s) à vérifier (CSV) | `"description,short_description"` |
 
 #### Exemple de règle
 
@@ -185,10 +185,10 @@ Missing required field "description" in "My Record". This may cause issues or in
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Exemple |
-|-------|------|--------|-------------|---------|
-| `field` | string | Oui | Nom du champ | `"script"` |
-| `max_len` | number | Oui | Taille maximale (caractères) | `2000` |
+| Param     | Type   | Requis | Description                  | Exemple    |
+| --------- | ------ | ------ | ---------------------------- | ---------- |
+| `field`   | string | Oui    | Nom du champ                 | `"script"` |
+| `max_len` | number | Oui    | Taille maximale (caractères) | `2000`     |
 
 #### Exemple de règle
 
@@ -225,9 +225,9 @@ Field "script" too long in "My Business Rule": 3450 characters (limit: 2000, 173
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Exemple |
-|-------|------|--------|-------------|---------|
-| `key_fields` | string | Non | Champs pour détecter les doublons (CSV) | `"name,code"` (défaut) |
+| Param        | Type   | Requis | Description                             | Exemple                |
+| ------------ | ------ | ------ | --------------------------------------- | ---------------------- |
+| `key_fields` | string | Non    | Champs pour détecter les doublons (CSV) | `"name,code"` (défaut) |
 
 #### Exemple de règle
 
@@ -257,9 +257,9 @@ Duplicate detected: "My Business Rule" has the same name, collection as another 
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Exemple |
-|-------|------|--------|-------------|---------|
-| `fields` | string | Non | Champs supplémentaires à scanner (CSV) | `"script,condition"` |
+| Param    | Type   | Requis | Description                            | Exemple              |
+| -------- | ------ | ------ | -------------------------------------- | -------------------- |
+| `fields` | string | Non    | Champs supplémentaires à scanner (CSV) | `"script,condition"` |
 
 #### Exemple de règle
 
@@ -297,16 +297,17 @@ Hardcoded sys_id(s) detected in "My Business Rule": 3 occurrence(s) in fields [s
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Valeurs possibles |
-|-------|------|--------|-------------|-------------------|
-| `field` | string | Oui | Nom du champ | `"active"` |
-| `operator` | string | Oui | Opérateur de comparaison | `equals`, `not_equals`, `contains`, `not_contains`, `empty`, `not_empty`, `regex`, `gt`, `lt`, `gte`, `lte` |
-| `expected` | string/number | Selon opérateur | Valeur attendue | `"true"`, `100`, etc. |
-| `message_template` | string | Non | Template de message personnalisé | `"Field {field} is {operator} {expected}"` |
+| Param              | Type          | Requis          | Description                      | Valeurs possibles                                                                                           |
+| ------------------ | ------------- | --------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `field`            | string        | Oui             | Nom du champ                     | `"active"`                                                                                                  |
+| `operator`         | string        | Oui             | Opérateur de comparaison         | `equals`, `not_equals`, `contains`, `not_contains`, `empty`, `not_empty`, `regex`, `gt`, `lt`, `gte`, `lte` |
+| `expected`         | string/number | Selon opérateur | Valeur attendue                  | `"true"`, `100`, etc.                                                                                       |
+| `message_template` | string        | Non             | Template de message personnalisé | `"Field {field} is {operator} {expected}"`                                                                  |
 
 #### Exemples
 
 **Vérifier si un champ est vide :**
+
 ```json
 {
   "name": "Missing priority",
@@ -318,6 +319,7 @@ Hardcoded sys_id(s) detected in "My Business Rule": 3 occurrence(s) in fields [s
 ```
 
 **Vérifier si un nombre dépasse un seuil :**
+
 ```json
 {
   "name": "Order too high",
@@ -329,6 +331,7 @@ Hardcoded sys_id(s) detected in "My Business Rule": 3 occurrence(s) in fields [s
 ```
 
 **Vérifier un pattern regex :**
+
 ```json
 {
   "name": "Invalid email format",
@@ -349,11 +352,11 @@ Hardcoded sys_id(s) detected in "My Business Rule": 3 occurrence(s) in fields [s
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Exemple |
-|-------|------|--------|-------------|---------|
-| `fields` | string | Oui | Champs à scanner (CSV) | `"script,condition,query"` |
-| `pattern` | string | Oui | Regex à chercher | `"eval\\("` |
-| `message_template` | string | Non | Template de message | `"Dangerous pattern found"` |
+| Param              | Type   | Requis | Description            | Exemple                     |
+| ------------------ | ------ | ------ | ---------------------- | --------------------------- |
+| `fields`           | string | Oui    | Champs à scanner (CSV) | `"script,condition,query"`  |
+| `pattern`          | string | Oui    | Regex à chercher       | `"eval\\("`                 |
+| `message_template` | string | Non    | Template de message    | `"Dangerous pattern found"` |
 
 #### Exemple de règle
 
@@ -383,13 +386,13 @@ Dangerous eval() found in script of "My Client Script"
 
 #### Paramètres
 
-| Param | Type | Requis | Description | Valeurs possibles |
-|-------|------|--------|-------------|-------------------|
-| `metric` | string | Oui | Type de métrique | `count`, `sum`, `avg`, `max`, `min` |
-| `field` | string | Pour sum/avg/max/min | Champ à agréger | `"priority"` |
-| `threshold` | number | Oui | Seuil | `100` |
-| `operator` | string | Non | Opérateur de comparaison | `gt` (défaut), `lt`, `gte`, `lte`, `equals` |
-| `message_template` | string | Non | Template de message | - |
+| Param              | Type   | Requis               | Description              | Valeurs possibles                           |
+| ------------------ | ------ | -------------------- | ------------------------ | ------------------------------------------- |
+| `metric`           | string | Oui                  | Type de métrique         | `count`, `sum`, `avg`, `max`, `min`         |
+| `field`            | string | Pour sum/avg/max/min | Champ à agréger          | `"priority"`                                |
+| `threshold`        | number | Oui                  | Seuil                    | `100`                                       |
+| `operator`         | string | Non                  | Opérateur de comparaison | `gt` (défaut), `lt`, `gte`, `lte`, `equals` |
+| `message_template` | string | Non                  | Template de message      | -                                           |
 
 #### Exemple de règle
 
@@ -418,6 +421,7 @@ Ces handlers sont toujours disponibles mais **devraient être remplacés** par d
 **Exemple de remplacement :**
 
 Au lieu de :
+
 ```json
 {
   "type": "missing_acl",
@@ -426,6 +430,7 @@ Au lieu de :
 ```
 
 Utiliser :
+
 ```json
 {
   "type": "field_check",
@@ -434,20 +439,22 @@ Utiliser :
 ```
 
 Ou mieux, un script personnalisé :
+
 ```javascript
-if (item.values.missing_acl === 'true') {
-    issues.push({
-        code: rule.code,
-        message: 'Missing ACL on table "' + item.values.name + '". Add read/write ACLs.',
-        severity: 'high',
-        details: {
-            table_name: item.values.name,
-            record_table: item.table,
-            record_sys_id: item.sys_id,
-            record_name: item.values.name,
-            recommendation: 'Create ACLs for this table'
-        }
-    });
+if (item.values.missing_acl === "true") {
+  issues.push({
+    code: rule.code,
+    message:
+      'Missing ACL on table "' + item.values.name + '". Add read/write ACLs.',
+    severity: "high",
+    details: {
+      table_name: item.values.name,
+      record_table: item.table,
+      record_sys_id: item.sys_id,
+      record_name: item.values.name,
+      recommendation: "Create ACLs for this table",
+    },
+  });
 }
 ```
 
@@ -466,6 +473,7 @@ Ces handlers vérifient simplement des flags booléens. **Remplacez-les par des 
 ### De handler booléen vers script personnalisé
 
 **Avant :**
+
 ```json
 {
   "name": "Heavy Business Rule",
@@ -477,6 +485,7 @@ Ces handlers vérifient simplement des flags booléens. **Remplacez-les par des 
 ```
 
 **Après :**
+
 ```json
 {
   "name": "Heavy Business Rule",
@@ -491,6 +500,7 @@ Ces handlers vérifient simplement des flags booléens. **Remplacez-les par des 
 ### De plusieurs handlers vers field_check
 
 **Avant (3 règles) :**
+
 ```json
 [
   {"type": "missing_acl", ...},
@@ -500,11 +510,21 @@ Ces handlers vérifient simplement des flags booléens. **Remplacez-les par des 
 ```
 
 **Après (3 règles avec field_check) :**
+
 ```json
 [
-  {"type": "field_check", "params": "{\"field\": \"missing_acl\", \"operator\": \"equals\", \"expected\": \"true\"}"},
-  {"type": "field_check", "params": "{\"field\": \"acl_too_wide\", \"operator\": \"equals\", \"expected\": \"true\"}"},
-  {"type": "field_check", "params": "{\"field\": \"risky_field\", \"operator\": \"equals\", \"expected\": \"true\"}"}
+  {
+    "type": "field_check",
+    "params": "{\"field\": \"missing_acl\", \"operator\": \"equals\", \"expected\": \"true\"}"
+  },
+  {
+    "type": "field_check",
+    "params": "{\"field\": \"acl_too_wide\", \"operator\": \"equals\", \"expected\": \"true\"}"
+  },
+  {
+    "type": "field_check",
+    "params": "{\"field\": \"risky_field\", \"operator\": \"equals\", \"expected\": \"true\"}"
+  }
 ]
 ```
 
@@ -512,16 +532,16 @@ Ces handlers vérifient simplement des flags booléens. **Remplacez-les par des 
 
 ## 📊 Matrice de décision : Quel handler utiliser ?
 
-| Besoin | Handler recommandé | Alternative |
-|--------|-------------------|-------------|
-| Compter des enregistrements | `count_threshold` | `aggregate_metric` |
-| Compter des BR sur une table | `br_density` | Script personnalisé |
-| Vérifier un champ vide | `missing_field` | `field_check` |
-| Vérifier une condition sur champ | `field_check` | Script personnalisé |
-| Chercher un pattern | `pattern_scan` | `hardcoded_sys_id` (pour sys_id) |
-| Détecter des doublons | `duplicate` | Script personnalisé |
-| Logique complexe | Script personnalisé | - |
-| Vérifier un flag booléen | `field_check` | Script personnalisé |
+| Besoin                           | Handler recommandé  | Alternative                      |
+| -------------------------------- | ------------------- | -------------------------------- |
+| Compter des enregistrements      | `count_threshold`   | `aggregate_metric`               |
+| Compter des BR sur une table     | `br_density`        | Script personnalisé              |
+| Vérifier un champ vide           | `missing_field`     | `field_check`                    |
+| Vérifier une condition sur champ | `field_check`       | Script personnalisé              |
+| Chercher un pattern              | `pattern_scan`      | `hardcoded_sys_id` (pour sys_id) |
+| Détecter des doublons            | `duplicate`         | Script personnalisé              |
+| Logique complexe                 | Script personnalisé | -                                |
+| Vérifier un flag booléen         | `field_check`       | Script personnalisé              |
 
 ---
 

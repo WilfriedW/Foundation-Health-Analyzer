@@ -9,6 +9,7 @@ L'analyse générait **86 issues identiques** pour "Too many Business Rules" alo
 Les handlers `br_density` et `count_threshold` étaient appelés **pour chaque enregistrement** individuellement (une fois par Business Rule) et retournaient une issue à chaque fois que le seuil était dépassé.
 
 **Exemple :**
+
 - Table avec 81 Business Rules
 - Seuil configuré à 30
 - Résultat : 81 issues identiques au lieu d'une seule ❌
@@ -25,22 +26,24 @@ Les handlers `br_density` et `count_threshold` utilisent maintenant un **systèm
 // Aggregate rule: only fire once per dataset, not per item
 if (!context) context = {};
 if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
-var key = 'br_density_' + rule.code;
+var key = "br_density_" + rule.code;
 if (context._aggregateIssuesFired[key]) return [];
 
 if (threshold && count > threshold) {
-    context._aggregateIssuesFired[key] = true;
-    // ... retourne l'issue une seule fois
+  context._aggregateIssuesFired[key] = true;
+  // ... retourne l'issue une seule fois
 }
 ```
 
 ### 2. Enrichissement des informations
 
 **Message amélioré :**
+
 - Avant : `"Too many Business Rules (81 > 30)"`
 - Après : `"Too many Business Rules (81 > 30) - Table: incident. Click to view all active Business Rules and consider consolidating to improve performance."`
 
 **Détails ajoutés :**
+
 ```javascript
 {
     count: 81,
@@ -60,21 +63,23 @@ Le moteur d'analyse propage maintenant correctement les champs personnalisés de
 
 ```javascript
 aggregatedIssues.push({
-    code: is.code || '',
-    message: is.message || '',
-    severity: is.severity || 'medium',
-    record_table: issueDetails.record_table || item.table || '',
-    record_sys_id: issueDetails.record_sys_id || item.sys_id || '',
-    record_name: issueDetails.record_name || (item.values && item.values.name) || '',
-    record_filter: issueDetails.record_filter || '',  // ✨ NOUVEAU
-    category: item.category || '',
-    details: issueDetails
+  code: is.code || "",
+  message: is.message || "",
+  severity: is.severity || "medium",
+  record_table: issueDetails.record_table || item.table || "",
+  record_sys_id: issueDetails.record_sys_id || item.sys_id || "",
+  record_name:
+    issueDetails.record_name || (item.values && item.values.name) || "",
+  record_filter: issueDetails.record_filter || "", // ✨ NOUVEAU
+  category: item.category || "",
+  details: issueDetails,
 });
 ```
 
 ## 📊 Résultat attendu
 
 ### Avant
+
 ```
 Issues (86)
 --------------------------------------------------------------------
@@ -85,18 +90,21 @@ MEDIUM | automation | BR_TOO_MANY | Too many Business Rules (81 > 30) | sys_scri
 ```
 
 ### Après
+
 ```
 Issues (1)
 --------------------------------------------------------------------
-MEDIUM | automation | BR_TOO_MANY | Too many Business Rules (81 > 30) - Table: incident. 
-                                     Click to view all active Business Rules and 
+MEDIUM | automation | BR_TOO_MANY | Too many Business Rules (81 > 30) - Table: incident.
+                                     Click to view all active Business Rules and
                                      consider consolidating to improve performance. | sys_script | 🔗 View 81 Business Rules
 ```
 
 ## 🔧 Impact technique
 
 ### Fichiers modifiés
+
 1. `d852994c8312321083e1b4a6feaad3e6/update/sys_script_include_cccafeed53163610c7233ee0a0490abc.xml`
+
    - Handler `br_density` : agrégation + enrichissement
    - Handler `count_threshold` : agrégation + enrichissement
 
@@ -104,6 +112,7 @@ MEDIUM | automation | BR_TOO_MANY | Too many Business Rules (81 > 30) - Table: i
    - Méthode `_analyzeResults` : propagation des métadonnées
 
 ### Compatibilité
+
 - ✅ Rétrocompatible : les handlers existants fonctionnent toujours
 - ✅ Pas de changement d'API
 - ✅ Pas de migration de données nécessaire

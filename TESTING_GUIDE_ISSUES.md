@@ -12,11 +12,13 @@
 Dans ServiceNow, naviguer vers :
 
 **Script Include - FHARuleEvaluator**
+
 - Aller dans : `System Definition > Script Includes`
 - Chercher : `FHARuleEvaluator`
 - Vérifier que les handlers `br_density` et `count_threshold` contiennent le code d'agrégation
 
 **Script Include - FHAnalysisEngine**
+
 - Aller dans : `System Definition > Script Includes`
 - Chercher : `FHAnalysisEngine`
 - Vérifier que `_analyzeResults` propage bien `record_filter`
@@ -56,6 +58,7 @@ Dans ServiceNow, naviguer vers :
 #### ✅ Résultat attendu (CORRECT)
 
 Dans l'onglet **Issues** :
+
 - **Une seule ligne** avec le code `BR_TOO_MANY`
 - Message : `"Too many Business Rules (81 > 30) - Table: incident. Click to view all active Business Rules..."`
 - Colonne RECORD : Lien `"View 81 Business Rules"` (ou le nombre réel)
@@ -79,6 +82,7 @@ Dans l'onglet **Issues** :
 ### Test 1 : Handler count_threshold
 
 Créer une règle similaire mais pour un autre type :
+
 - **Type** : `count_threshold`
 - **Params** : `{"threshold": 10}`
 - Appliquer sur une table avec > 10 enregistrements
@@ -87,12 +91,14 @@ Créer une règle similaire mais pour un autre type :
 ### Test 2 : Handlers individuels (non agrégés)
 
 Les autres handlers (ex: `inactive`, `missing_field`) doivent continuer à fonctionner normalement :
+
 - Créer une règle avec type `inactive`
 - Vérifier qu'**une issue par enregistrement inactif** est bien générée
 
 ### Test 3 : Plusieurs tables
 
 Lancer l'analyse sur plusieurs tables différentes :
+
 - Table A avec 50 BR → 1 issue
 - Table B avec 80 BR → 1 issue
 - Table C avec 20 BR → 0 issue (sous le seuil)
@@ -100,6 +106,7 @@ Lancer l'analyse sur plusieurs tables différentes :
 ## 📸 Captures d'écran attendues
 
 ### Avant (bug)
+
 ```
 SEVERITY | CATEGORY   | CODE         | MESSAGE                              | TABLE      | RECORD
 ---------|------------|--------------|--------------------------------------|------------|--------------------
@@ -111,6 +118,7 @@ MEDIUM   | automation | BR_TOO_MANY  | Too many Business Rules (81 > 30)   | sys
 ```
 
 ### Après (corrigé)
+
 ```
 SEVERITY | CATEGORY   | CODE         | MESSAGE                                                          | TABLE      | RECORD
 ---------|------------|--------------|------------------------------------------------------------------|------------|--------------------
@@ -122,6 +130,7 @@ MEDIUM   | automation | BR_TOO_MANY  | Too many Business Rules (81 > 30) - Table
 ### Problème : Toujours plusieurs issues identiques
 
 **Solutions :**
+
 1. Vérifier que les fichiers ont bien été importés/mis à jour
 2. Vider le cache des Script Includes : `system_diagnostics.do` > Flush cache
 3. Relancer une nouvelle analyse (ne pas réutiliser une ancienne)
@@ -129,6 +138,7 @@ MEDIUM   | automation | BR_TOO_MANY  | Too many Business Rules (81 > 30) - Table
 ### Problème : Le lien ne fonctionne pas
 
 **Solutions :**
+
 1. Vérifier que le widget affiche bien le champ `record_filter`
 2. Inspecter l'objet issue dans la console : `console.log(c.result.issues)`
 3. Vérifier que `record_filter` est bien présent dans l'objet
@@ -136,6 +146,7 @@ MEDIUM   | automation | BR_TOO_MANY  | Too many Business Rules (81 > 30) - Table
 ### Problème : Le nom de la table est "unknown"
 
 **Causes possibles :**
+
 1. Le champ `collection` n'est pas remonté dans les données
 2. Ajouter `collection` dans le champ **Fields** du Verification Item
 

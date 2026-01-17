@@ -3,6 +3,7 @@
 ## 📋 Contexte
 
 Certains handlers doivent évaluer un **groupe d'enregistrements** plutôt que des enregistrements individuels. Par exemple :
+
 - Compter le nombre total de Business Rules sur une table
 - Vérifier si le nombre d'enregistrements dépasse un seuil
 - Détecter des problèmes au niveau du dataset complet
@@ -12,6 +13,7 @@ Certains handlers doivent évaluer un **groupe d'enregistrements** plutôt que d
 Par défaut, `FHARuleEvaluator.evaluate()` est appelé **pour chaque enregistrement** du résultat. Si un handler retourne une issue à chaque appel basé sur un comptage global, cela génère des **duplicatas**.
 
 **Exemple :**
+
 ```javascript
 // ❌ MAUVAIS : génère N issues identiques
 br_density: function(item, rule, params, context) {
@@ -36,23 +38,23 @@ aggregate_handler: function(item, rule, params, context) {
     // 1. Récupérer les données nécessaires
     var count = context && context.totalCount;
     var threshold = params.threshold || 0;
-    
+
     // 2. Pattern d'agrégation : une seule issue par dataset
     if (!context) context = {};
     if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
     var key = 'handler_name_' + rule.code;  // Clé unique par handler + rule
-    
+
     // 3. Si déjà déclenché, ne rien retourner
     if (context._aggregateIssuesFired[key]) return [];
-    
+
     // 4. Vérifier la condition
     if (threshold && count > threshold) {
         // 5. Marquer comme déclenché
         context._aggregateIssuesFired[key] = true;
-        
+
         // 6. Construire un message informatif
         var message = '...';
-        
+
         // 7. Ajouter des détails personnalisés
         var details = {
             count: count,
@@ -61,11 +63,11 @@ aggregate_handler: function(item, rule, params, context) {
             record_filter: 'field=value',
             record_name: 'View records'
         };
-        
+
         // 8. Retourner l'issue une seule fois
         return [this._issue(rule, message, details)];
     }
-    
+
     return [];
 }
 ```
@@ -98,15 +100,16 @@ Dans `FHAnalysisEngine._analyzeResults()`, s'assurer que les champs personnalis�
 
 ```javascript
 aggregatedIssues.push({
-    code: is.code || '',
-    message: is.message || '',
-    severity: is.severity || 'medium',
-    record_table: issueDetails.record_table || item.table || '',
-    record_sys_id: issueDetails.record_sys_id || item.sys_id || '',
-    record_name: issueDetails.record_name || (item.values && item.values.name) || '',
-    record_filter: issueDetails.record_filter || '',  // ✅ Important
-    category: item.category || '',
-    details: issueDetails
+  code: is.code || "",
+  message: is.message || "",
+  severity: is.severity || "medium",
+  record_table: issueDetails.record_table || item.table || "",
+  record_sys_id: issueDetails.record_sys_id || item.sys_id || "",
+  record_name:
+    issueDetails.record_name || (item.values && item.values.name) || "",
+  record_filter: issueDetails.record_filter || "", // ✅ Important
+  category: item.category || "",
+  details: issueDetails,
 });
 ```
 
@@ -118,18 +121,18 @@ aggregatedIssues.push({
 br_density: function(item, rule, params, context) {
     var count = context && context.totalCount;
     var threshold = params.threshold || 0;
-    
+
     if (!context) context = {};
     if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
     var key = 'br_density_' + rule.code;
     if (context._aggregateIssuesFired[key]) return [];
-    
+
     if (threshold && count > threshold) {
         context._aggregateIssuesFired[key] = true;
-        
+
         var tableValue = item.values && item.values.collection ? item.values.collection : 'unknown';
         var message = 'Too many Business Rules (' + count + ' > ' + threshold + ') - Table: ' + tableValue;
-        
+
         return [this._issue(rule, message, {
             count: count,
             threshold: threshold,
@@ -149,17 +152,17 @@ br_density: function(item, rule, params, context) {
 count_threshold: function(item, rule, params, context) {
     var threshold = params.threshold || 0;
     var total = (context && context.totalCount) || 0;
-    
+
     if (!context) context = {};
     if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
     var key = 'count_threshold_' + rule.code;
     if (context._aggregateIssuesFired[key]) return [];
-    
+
     if (threshold && total > threshold) {
         context._aggregateIssuesFired[key] = true;
-        
+
         var message = 'Too many records (' + total + ' > ' + threshold + '). Review and clean up unnecessary records.';
-        
+
         return [this._issue(rule, message, {
             count: total,
             threshold: threshold
@@ -175,18 +178,18 @@ count_threshold: function(item, rule, params, context) {
 cs_density: function(item, rule, params, context) {
     var count = context && context.totalCount;
     var threshold = params.threshold || 0;
-    
+
     if (!context) context = {};
     if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
     var key = 'cs_density_' + rule.code;
     if (context._aggregateIssuesFired[key]) return [];
-    
+
     if (threshold && count > threshold) {
         context._aggregateIssuesFired[key] = true;
-        
+
         var tableValue = item.values && item.values.table ? item.values.table : 'unknown';
         var message = 'Too many Client Scripts (' + count + ' > ' + threshold + ') - Table: ' + tableValue;
-        
+
         return [this._issue(rule, message, {
             count: count,
             threshold: threshold,
@@ -207,24 +210,28 @@ cs_density: function(item, rule, params, context) {
 ```javascript
 // Setup
 var context = { totalCount: 81, _aggregateIssuesFired: {} };
-var rule = { code: 'BR_TOO_MANY', severity: 'medium' };
+var rule = { code: "BR_TOO_MANY", severity: "medium" };
 var params = { threshold: 30 };
 
 // Créer 81 items
 var items = [];
 for (var i = 0; i < 81; i++) {
-    items.push({ sys_id: 'test_' + i, table: 'sys_script', values: { collection: 'incident' } });
+  items.push({
+    sys_id: "test_" + i,
+    table: "sys_script",
+    values: { collection: "incident" },
+  });
 }
 
 // Évaluer sur tous les items
 var totalIssues = 0;
-items.forEach(function(item) {
-    var issues = evaluator.br_density(item, rule, params, context);
-    totalIssues += issues.length;
+items.forEach(function (item) {
+  var issues = evaluator.br_density(item, rule, params, context);
+  totalIssues += issues.length;
 });
 
 // Vérification
-gs.info('Total issues: ' + totalIssues);  // Devrait afficher : 1 ✅
+gs.info("Total issues: " + totalIssues); // Devrait afficher : 1 ✅
 ```
 
 ## 🎁 Avantages du pattern
@@ -242,8 +249,8 @@ gs.info('Total issues: ' + totalIssues);  // Devrait afficher : 1 ✅
 ```javascript
 // MAUVAIS
 if (threshold && count > threshold) {
-    // Oubli de : context._aggregateIssuesFired[key] = true;
-    return [this._issue(rule, message, details)];
+  // Oubli de : context._aggregateIssuesFired[key] = true;
+  return [this._issue(rule, message, details)];
 }
 ```
 
@@ -251,10 +258,10 @@ if (threshold && count > threshold) {
 
 ```javascript
 // MAUVAIS : même clé pour toutes les règles
-var key = 'br_density';
+var key = "br_density";
 
 // BON : clé unique par règle
-var key = 'br_density_' + rule.code;
+var key = "br_density_" + rule.code;
 ```
 
 ### ❌ Ne pas initialiser le contexte
