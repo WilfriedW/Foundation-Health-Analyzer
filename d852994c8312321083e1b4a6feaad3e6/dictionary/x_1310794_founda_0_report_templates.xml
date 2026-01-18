@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element db_object_id="c16f9f305326be10c7233ee0a0490efe" label="Report Templates" max_length="40" name="x_1310794_founda_0_report_templates" type="collection">
+        <element label="Filter Categories" max_length="1000" name="filter_categories" type="string"/>
+        <element label="Sections" max_length="4000" name="sections" type="string"/>
+        <element label="Header Logo" max_length="40" name="header_logo" type="user_image"/>
+        <element label="Active" max_length="40" name="active" type="boolean"/>
+        <element choice="1" label="Report Type" max_length="40" name="report_type" type="choice">
+            <choice>
+                <element inactive_on_update="false" label="Detailed" sequence="2" value="detailed"/>
+                <element inactive_on_update="false" label="Technical" sequence="1" value="technical"/>
+                <element inactive_on_update="false" label="Executive" sequence="0" value="executive"/>
+                <element inactive_on_update="false" label="Summary" sequence="3" value="summary"/>
+            </choice>
+        </element>
+        <element label="Footer" max_length="500" name="footer_text" type="string"/>
+        <element choice="1" label="Format" max_length="40" name="format" type="choice">
+            <choice>
+                <element inactive_on_update="false" label="HTML" sequence="2" value="html"/>
+                <element inactive_on_update="false" label="PDF" sequence="0" value="pdf"/>
+                <element inactive_on_update="false" label="JSON" sequence="3" value="json"/>
+                <element inactive_on_update="false" label="Word" sequence="1" value="word"/>
+            </choice>
+        </element>
+        <element label="Description" max_length="40" name="description" type="string"/>
+        <element label="Name" max_length="40" name="name" type="string"/>
+        <element label="Include Charts" max_length="40" name="include_charts" type="boolean"/>
+        <element choice="1" label="Filter Severity" max_length="40" name="filter_severity" type="choice">
+            <choice>
+                <element inactive_on_update="false" label="High" sequence="2" value="high"/>
+                <element inactive_on_update="false" label="Medium" sequence="1" value="medium"/>
+                <element inactive_on_update="false" label="Low" sequence="0" value="low"/>
+            </choice>
+        </element>
+    </element>
+</database>

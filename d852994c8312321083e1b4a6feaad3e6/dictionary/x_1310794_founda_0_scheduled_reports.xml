@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element db_object_id="4d022bb45326be10c7233ee0a0490e71" label="Scheduled reports" max_length="40" name="x_1310794_founda_0_scheduled_reports" type="collection">
+        <element label="Next Run" max_length="40" name="next_run" type="glide_date_time"/>
+        <element label="Send if no issues" max_length="40" name="send_if_no_issues" type="boolean"/>
+        <element label="Report Template" max_length="32" name="report_template" reference="x_1310794_founda_0_report_templates" type="reference"/>
+        <element label="Configuration" max_length="32" name="configuration" reference="x_1310794_founda_0_configurations" type="reference"/>
+        <element label="Schedule Time" max_length="40" name="schedule_time" type="string"/>
+        <element choice="1" label="Schedule Frequency" max_length="40" name="schedule_frequency" type="choice">
+            <choice>
+                <element inactive_on_update="false" label="Weekly" sequence="0" value="weekly"/>
+                <element inactive_on_update="false" label="Daily" sequence="1" value="daily"/>
+                <element inactive_on_update="false" label="Monthly" sequence="2" value="monthly"/>
+            </choice>
+        </element>
+        <element label="Recipients" max_length="40" name="recipients" type="string"/>
+        <element label="Last Run" max_length="40" name="last_run" type="glide_date_time"/>
+        <element label="Attach raw data" max_length="40" name="attach_raw_data" type="boolean"/>
+        <element label="Schedule day" max_length="40" name="schedule_day" type="integer"/>
+        <element label="Active" max_length="40" name="active" type="boolean"/>
+        <element label="Name" max_length="40" name="name" type="string"/>
+        <index name="index">
+            <element name="configuration"/>
+        </index>
+        <index name="index2">
+            <element name="report_template"/>
+        </index>
+    </element>
+</database>
