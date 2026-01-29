@@ -12,123 +12,135 @@
         <script><![CDATA[var FHARuleEvaluator = Class.create();
 FHARuleEvaluator.prototype = {
     initialize: function() {
-        // Handlers are now loaded from x_1310794_founda_0_issue_rules table
-        this._handlersCache = null;
+        // Initialization
     },
 
     /**
-     * Evaluate rules against an item
-     * @param {Object} item - The item to evaluate
-     * @param {Array} rules - Array of rule objects from issue_rules table
-     * @param {Object} context - Evaluation context (totalCount, etc.)
-     * @returns {Array} Array of issues found
+     * Evaluates rules for a given item
+     * @param {Object} item - The record to evaluate
+     * @param {Array} rules - The rules to apply
+     * @param {Object} context - Shared context (for aggregation, etc.)
+     * @returns {Array} - List of detected issues
      */
     evaluate: function(item, rules, context) {
-        var issues = [];
+
+        var allIssues = [];
+
+        if (!rules || !Array.isArray(rules)) {
+            return allIssues;
+        }
+
         var self = this;
 
-        (rules || []).forEach(function(rule) {
-            var params = self._safeParse(rule.params, {});
-            if (!self._isApplicable(item, params)) return;
+        rules.forEach(function(rule) {
+            try {
+                var issues = [];
 
-            // Execute the rule script (all handlers are now in scripts)
-            var scriptIssues = self._runScript(rule.script, item, rule, params, context);
-            if (scriptIssues && scriptIssues.length) {
-                issues = issues.concat(scriptIssues);
+                // Parse JSON params
+                var params = {};
+                try {
+                    if (rule.params) {
+                        params = JSON.parse(rule.params);
+                    }
+                } catch (parseError) {
+                    gs.error("[FHARuleEvaluator] Error parsing params for rule " + rule.code + ": " + parseError.message);
+                }
+
+                // Execute the rule script
+                if (rule.script) {
+                    issues = self._runScriptSafe(rule, item,context);
+                }
+
+                // Add found issues
+                if (issues && Array.isArray(issues)) {
+                    allIssues = allIssues.concat(issues);
+                }
+
+            } catch (error) {
+                gs.error("[FHARuleEvaluator] Error evaluating rule " + rule.code + ": " + error.message);
             }
         });
+        return allIssues;
+    },
 
-        return issues;
+  /**
+ * Executes a rule script safely (Scoped App compatible)
+ * @param {Object} rule - The rule (doit contenir rule.params déjà parsé)
+ * @param {Object} item - The item to evaluate
+ * @param {Object} context - The context
+ * @returns {Array} - Detected issues
+ */
+_runScriptSafe: function(rule, item, context, ) {
+    var issues = [];
+    try {
+        var grX_1310794F_0IR = new GlideRecord('x_1310794_founda_0_issue_rules');
+        if (grX_1310794F_0IR.get(rule.sys_id)) {
+
+            var evaluator = new GlideScopedEvaluator();
+            evaluator.putVariable('params', {});
+			gs.info('Item ' +JSON.stringify(item))
+            evaluator.putVariable('item', item || {});
+            evaluator.putVariable('context', context || {});
+						gs.info('context ' +JSON.stringify(context))
+
+
+            var result = evaluator.evaluateScript(grX_1310794F_0IR, 'script');
+
+            if (result && Array.isArray(result)) {
+                issues = result;
+            } else if (result) {
+                var retrievedIssues = evaluator.getVariable('issues');
+                if (retrievedIssues && Array.isArray(retrievedIssues)) {
+                    issues = retrievedIssues;
+                }
+            }
+        }
+    } catch (error) {
+        gs.error('[FHARuleEvaluator] Error running script for rule ' + rule.code + ': ' + error.message);
+    }
+
+    return issues;
+},
+
+
+
+    /**
+     * Checks if a script is already wrapped in a function
+     * @param {String} script - The script to check
+     * @returns {Boolean} - True if already wrapped
+     */
+    _isScriptWrapped: function(script) {
+
+        if (!script) return false;
+
+        var trimmed = script.trim();
+
+        // Check if starts with (function and ends with })(); or }).call() or }).apply()
+        var startsWithFunction = trimmed.indexOf('(function') === 0;
+        var endsWithExecution =
+            trimmed.lastIndexOf('})();') === trimmed.length - 5 ||
+            trimmed.lastIndexOf('}).call') !== -1 ||
+            trimmed.lastIndexOf('}).apply') !== -1;
+
+        return startsWithFunction && endsWithExecution;
     },
 
     /**
-     * Load handler scripts from the issue_rules table
-     * This method is for reference/debugging only - handlers are executed via rule.script
+     * Wraps a script in a function to allow return statements
+     * @param {String} script - The script to wrap
+     * @param {String} ruleCode - The rule code (for error messages)
+     * @returns {String} - The wrapped script
      */
-    _loadHandlers: function() {
-        if (this._handlersCache) return this._handlersCache;
-
-        var handlers = {};
-        var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
-        gr.addQuery('active', true);
-        gr.query();
-
-        while (gr.next()) {
-            var code = gr.getValue('code');
-            if (code) {
-                handlers[code] = {
-                    name: gr.getValue('name'),
-                    code: code,
-                    type: gr.getValue('type'),
-                    severity: gr.getValue('severity'),
-                    script: gr.getValue('script'),
-                    params: gr.getValue('params'),
-                    description: gr.getValue('description')
-                };
-            }
-        }
-
-        this._handlersCache = handlers;
-        return handlers;
-    },
-
-    _issue: function(rule, message, details) {
-        return {
-            code: rule.code || rule.type || 'ISSUE',
-            message: message,
-            severity: rule.severity || rule.default_severity || 'medium',
-            details: details || {}
-        };
-    },
-
-    _safeParse: function(str, fb) {
-        if (fb === undefined) fb = {};
-        try {
-            if (!str) return fb;
-            return JSON.parse(str);
-        } catch (e) {
-            return fb;
-        }
-    },
-
-    _runScript: function(script, item, rule, params, context) {
-        if (!script || typeof script !== 'string' || !script.trim()) return [];
-        try {
-            var fn = new Function('item', 'rule', 'params', 'context', 'issue', 'issues', script + '\n; return issues;');
-            var res = fn(item, rule, params, context, this._issue.bind(this), []);
-            if (!res) return [];
-            if (Array.isArray(res)) return res;
-            return [res];
-        } catch (e) {
-            gs.error("[FHARuleEvaluator] script error for rule " + (rule && rule.code) + ": " + e.message);
-            return [];
-        }
-    },
-
-    _isApplicable: function(item, params) {
-        // optional filters in params:
-        // allowed_tables: comma list
-        // allowed_categories: comma list
-        var tblOk = true,
-            catOk = true;
-        if (params.allowed_tables) {
-            tblOk = this._matchList(item.table, params.allowed_tables);
-        }
-        if (params.allowed_categories) {
-            catOk = this._matchList(item.category, params.allowed_categories);
-        }
-        return tblOk && catOk;
-    },
-
-    _matchList: function(value, listStr) {
-        if (!listStr) return true;
-        var parts = listStr.split(',').map(function(p) {
-            return (p || '').trim();
-        }).filter(function(p) {
-            return !!p;
-        });
-        if (!parts.length) return true;
-        return parts.indexOf(value) !== -1;
+    _wrapScript: function(script, ruleCode) {
+        return '(function() {\n' +
+            '    try {\n' +
+            '        ' + script.split('\n').join('\n        ') + '\n' +
+            '        return issues;\n' +
+            '    } catch (e) {\n' +
+            '        gs.error("[Rule Script] Error in ' + ruleCode + ': " + e.message);\n' +
+            '        return issues;\n' +
+            '    }\n' +
+            '})();';
     },
 
     type: 'FHARuleEvaluator'
@@ -137,13 +149,13 @@ FHARuleEvaluator.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-13 21:15:00</sys_created_on>
         <sys_id>cccafeed53163610c7233ee0a0490abc</sys_id>
-        <sys_mod_count>1</sys_mod_count>
+        <sys_mod_count>32</sys_mod_count>
         <sys_name>FHARuleEvaluator</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_cccafeed53163610c7233ee0a0490abc</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-17 23:07:55</sys_updated_on>
+        <sys_updated_on>2026-01-21 08:24:08</sys_updated_on>
     </sys_script_include>
 </record_update>

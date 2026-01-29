@@ -12,7 +12,8 @@
         <script><![CDATA[var FHAnalysisEngine = Class.create();
 FHAnalysisEngine.prototype = {
     initialize: function() {
-        // this.utils = new FHScanUtils();
+        // Configuration options cache
+        this.options = {};
     },
 
     /**
@@ -22,11 +23,18 @@ FHAnalysisEngine.prototype = {
      */
     runVerification: function(configRecord) {
         var result = {
-            success: false, // Default to false; set to true if execution completes
-            data: [], // Array to store verified records
-            errors: [], // Array to store execution errors
-            metadata: {}, // Additional info (e.g., execution time)
+            success: false,
+            data: [],
+            errors: [],
+            metadata: {},
         };
+
+        this.options = this._loadConfigurationOptions(configRecord);
+
+        if (!this._validateOptions()) {
+            result.errors.push("Invalid configuration options");
+            return result;
+        }
 
         var rulesMap = this._loadIssueRules(configRecord.verification_items || []);
         var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
@@ -38,19 +46,13 @@ FHAnalysisEngine.prototype = {
                 var queryType = item.query_type.toLowerCase();
                 var queryValue = item.query_value || '';
                 var queryScript = item.query_script || '';
-                var fields = (item.fields && item.fields.split(',')) || [];
-                var defaults = ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'];
-                fields = fields.map(function(f) {
-                    return (f || '').trim();
-                }).filter(function(f) {
-                    return !!f;
-                });
-                defaults.forEach(function(df) {
-                    if (fields.indexOf(df) === -1) fields.push(df);
-                });
+
+                // --- 2. Apply deep_scan option to fields ---
+                var fields = this._determineFields(item);
+
                 var category = item.category;
 
-                // --- 2. Build the query based on type ---
+                // --- 3. Build the query based on type ---
                 var gr = new GlideRecord(tableName);
 
                 if (queryType === 'script') {
@@ -75,8 +77,12 @@ FHAnalysisEngine.prototype = {
                     gr.addEncodedQuery(queryValue.replaceAll("{0}", configRecord.table_name));
                 }
 
-                // --- 3. Execute query and process records ---
+                this._applyConfigurationOptions(gr, tableName);
+
+                // --- 4. Execute query and process records ---
                 gr.query();
+
+                gs.info("[FHAnalysisEngine] Query executed for " + tableName + ": " + gr.getRowCount() + " records");
 
                 while (gr.next()) {
                     var record = this._processRecord(gr, fields, item);
@@ -90,12 +96,255 @@ FHAnalysisEngine.prototype = {
 
             } catch (e) {
                 result.errors.push("Verification error: " + e.message);
-                gs.error("[FHAnalysisEngine] Verification error: " + eScript.message + "\nStack: " + e.stack);
-
+                gs.error("[FHAnalysisEngine] Verification error: " + e.message + "\nStack: " + e.stack);
             }
         });
-        return result;
 
+        return result;
+    },
+
+    /**
+     * Charge les options de configuration
+     * @param {Object} configRecord - Configuration record
+     * @returns {Object} - Options de configuration
+     */
+    _loadConfigurationOptions: function(configRecord) {
+        var options = {
+            ignore_servicenow_records: configRecord.ignore_servicenow_records || false,
+            servicenow_users: 'system,admin,maint,guest,glide.maint',
+            include_children_tables: configRecord.include_children_tables || false,
+            deep_scan: configRecord.deep_scan || false,
+            include_ldap: configRecord.include_ldap || true
+        };
+
+        gs.debug("[FHAnalysisEngine] Configuration options loaded: " + JSON.stringify(options));
+        return options;
+    },
+
+    /**
+     * Validates configuration options
+     * @returns {Boolean} - true if the options are valid
+     */
+    _validateOptions: function() {
+        try {
+            // Validation of servicenow_users
+            if (this.options.ignore_servicenow_records && this.options.servicenow_users) {
+                var users = this.options.servicenow_users.split(',');
+                if (users.length === 0) {
+                    gs.warn("[FHAnalysisEngine] servicenow_users is empty, using default");
+                    this.options.servicenow_users = 'system,admin,maint,guest';
+                }
+            }
+
+            this.options.ignore_servicenow_records = Boolean(this.options.ignore_servicenow_records);
+            this.options.include_children_tables = Boolean(this.options.include_children_tables);
+            this.options.deep_scan = Boolean(this.options.deep_scan);
+            this.options.include_ldap = Boolean(this.options.include_ldap);
+
+            return true;
+        } catch (e) {
+            gs.error("[FHAnalysisEngine] Options validation error: " + e.message);
+            return false;
+        }
+    },
+
+    /**
+     * Applies configuration options to the query
+     * @param {GlideRecord} gr - GlideRecord query
+     * @param {String} tableName - Table name
+     */
+    _applyConfigurationOptions: function(gr, tableName) {
+
+        // Option 1: ignore_servicenow_records
+        if (this.options.ignore_servicenow_records) {
+            this._applyIgnoreServiceNowRecords(gr, tableName);
+        }
+
+        // Option 2: include_children_tables
+        if (this.options.include_children_tables) {
+            this._applyIncludeChildrenTables(gr, tableName);
+        }
+
+        // Option 3: include_ldap
+        if (!this.options.include_ldap) {
+            this._applyExcludeLDAP(gr, tableName);
+        }
+
+    },
+    /**
+     * Option 1: ignore_servicenow_records (Smart Logic)
+     * Excludes pure OOBs, but INCLUDES modified OOBs
+     */
+    _applyIgnoreServiceNowRecords: function(gr, tableName) {
+        try {
+            // Parse the ServiceNow user list
+            var snUsersStr = this.options.servicenow_users || 'system,admin,maint,guest';
+            var snUsers = snUsersStr.split(',').map(function(u) {
+                return u.trim();
+            });
+
+            gs.debug("[FHAnalysisEngine] Applying intelligent ServiceNow filter");
+            gs.debug("[FHAnalysisEngine] ServiceNow users: " + snUsers.join(', '));
+
+            // Check if the table has the necessary fields
+            var testGr = new GlideRecord(tableName);
+            testGr.setLimit(1);
+            testGr.query();
+
+            if (testGr.next()) {
+                var hasCreatedBy = testGr.isValidField('sys_created_by');
+                var hasUpdatedBy = testGr.isValidField('sys_updated_by');
+                var hasPackage = testGr.isValidField('sys_package');
+
+                if (hasCreatedBy && hasUpdatedBy) {
+                    // ============================================
+                    // INTELLIGENT LOGIC
+                    // ============================================
+                    // INCLUDE if:
+                    //   - Created by custom user (sys_created_by NOT IN snUsers)
+                    //   - OR modified by custom user (sys_updated_by NOT IN snUsers)
+                    // EXCLUDE if:
+                    //   - Created AND modified by ServiceNow users
+
+                    var notInCreated = 'sys_created_byNOT IN' + snUsers.join(',');
+                    var notInUpdated = 'sys_updated_byNOT IN' + snUsers.join(',');
+                    var encodedQuery = notInCreated + '^OR' + notInUpdated;
+
+                    gr.addEncodedQuery(encodedQuery);
+
+                    // gs.info("[FHAnalysisEngine] ✅ Applied intelligent ServiceNow filter");
+                    // gs.info("[FHAnalysisEngine] → OOB pure records will be EXCLUDED");
+                    // gs.info("[FHAnalysisEngine] → OOB modified records will be INCLUDED");
+
+                } else if (hasPackage) {
+                    // Fallback: simple filter on sys_package
+                    gr.addEncodedQuery('sys_packageISNOTEMPTY^sys_package!=global');
+                    gs.debug("[FHAnalysisEngine] Applied simple package filter (fallback)");
+
+                } else {
+                    gs.warn("[FHAnalysisEngine] Cannot apply ignore_servicenow_records - required fields not found on table: " + tableName);
+                }
+            }
+        } catch (e) {
+            gs.error("[FHAnalysisEngine] Error applying ignore_servicenow_records: " + e.message);
+        }
+    },
+
+    /**
+     * Option 2: include_children_tables
+     * Includes inherited tables in the analysis
+     */
+    _applyIncludeChildrenTables: function(gr, tableName) {
+        try {
+            // Check if the table has the sys_class_name field
+            var testGr = new GlideRecord(tableName);
+            testGr.setLimit(1);
+            testGr.query();
+
+            if (testGr.next() && testGr.isValidField('sys_class_name')) {
+                // Include the table and all its child tables
+                gr.addQuery('sys_class_name', 'STARTSWITH', tableName);
+
+                gs.info("[FHAnalysisEngine] ✅ Applied include_children_tables filter");
+                gs.info("[FHAnalysisEngine] → Will include records from child tables");
+            } else {
+                gs.debug("[FHAnalysisEngine] Table " + tableName + " does not support inheritance (no sys_class_name)");
+            }
+        } catch (e) {
+            gs.error("[FHAnalysisEngine] Error applying include_children_tables: " + e.message);
+        }
+    },
+
+    /**
+     * Option 3: include_ldap (false = exclude LDAP)
+     * Excludes LDAP configurations from scanning
+     */
+    _applyExcludeLDAP: function(gr, tableName) {
+        try {
+            // List of LDAP tables to exclude
+            var ldapTables = [
+                'ldap_server_config',
+                'ldap_ou_config',
+                'ldap_group_map',
+                'ldap_server'
+            ];
+
+            if (ldapTables.indexOf(tableName) !== -1) {
+                // This table is an LDAP table, do not parse anything
+                gr.addQuery('sys_id', 'NULL');
+                gs.info("[FHAnalysisEngine] ✅ Excluded LDAP table: " + tableName);
+            }
+
+            // If the table has a field linked to LDAP
+            var testGr = new GlideRecord(tableName);
+            testGr.setLimit(1);
+            testGr.query();
+
+            if (testGr.next()) {
+                if (testGr.isValidField('ldap_server')) {
+                    gr.addQuery('ldap_server', 'ISEMPTY');
+                    gs.debug("[FHAnalysisEngine] Excluded LDAP-related records from " + tableName);
+                }
+            }
+        } catch (e) {
+            gs.error("[FHAnalysisEngine] Error applying exclude LDAP: " + e.message);
+        }
+    },
+
+    /**
+     * Option 4: deep_scan
+     * Determines the fields to be analysed based on the deep_scan mode
+     */
+    _determineFields: function(item) {
+        var fields = [];
+
+        if (this.options.deep_scan) {
+            // ============================================
+            // MODE DEEP SCAN
+            // ============================================
+            // Include more fields for in-depth analysis
+            fields = (item.fields && item.fields.split(',')) || [];
+
+            // Add additional fields for deep scan
+            var deepScanFields = [
+                'name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id',
+                'sys_created_on', 'sys_updated_on', 'sys_mod_count',
+                'sys_package', 'sys_scope', 'sys_class_name',
+                'description', 'short_description', 'script', 'condition',
+                'order', 'priority', 'when', 'filter_condition'
+            ];
+
+            deepScanFields.forEach(function(df) {
+                if (fields.indexOf(df) === -1) {
+                    fields.push(df);
+                }
+            });
+
+            gs.debug("[FHAnalysisEngine] Deep scan enabled: " + fields.length + " fields");
+
+        } else {
+            // ============================================
+            // MODE NORMAL
+            // ============================================
+            fields = (item.fields && item.fields.split(',')) || [];
+
+            // Add only essential fields
+            var defaults = ['name', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id'];
+            defaults.forEach(function(df) {
+                if (fields.indexOf(df) === -1) {
+                    fields.push(df);
+                }
+            });
+        }
+
+        // Clean the fields
+        fields = fields.map(function(f) {
+            return (f || '').trim();
+        }).filter(function(f) {
+            return !!f;
+        });
+
+        return fields;
     },
 
     /**
@@ -108,23 +357,24 @@ FHAnalysisEngine.prototype = {
         var record = {
             sys_id: gr.sys_id.toString(),
             table: gr.getTableName(),
-            values: {}, // Stores field values (e.g., { name: 'My Flow', active: 'false' })
-            issues: [], // Populated later by _analyzeResults
+            values: {},
+            issues: [],
             category: item.category
-
         };
 
         // Extract requested fields
         fields.forEach(function(field) {
-            record.values[field] = gr.getValue(field); // use raw value (needed for scripts/sys_id detection)
+            if (gr.isValidField(field)) {
+                record.values[field] = gr.getValue(field);
+            }
         });
+
         return record;
     },
 
     /**
      * Analyzes records to detect issues (e.g., inactive Flows, stale records)
      * @param {Object} result - Current result object
-     * @param {Object} issuesConfig - Issue rules (e.g., { inactivityIssueCode: 'INACTIVE', manyThreshold: 10 })
      * @returns {Object} - Updated result with issues
      */
     _analyzeResults: function(result) {
@@ -132,8 +382,10 @@ FHAnalysisEngine.prototype = {
             // context for aggregate-aware rules
             var context = {
                 totalCount: result.data.length,
-                _dupsSeen: {}
+                _dupsSeen: {},
+                options: this.options // Passer les options au contexte
             };
+
             result.data.forEach(function(it) {
                 var key = (it.values.name || '') + '|' + (it.values.code || '');
                 if (!context._dupsSeen[key]) context._dupsSeen[key] = it.sys_id;
@@ -238,13 +490,13 @@ FHAnalysisEngine.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>87</sys_mod_count>
+        <sys_mod_count>94</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-13 18:52:15</sys_updated_on>
+        <sys_updated_on>2026-01-19 16:19:34</sys_updated_on>
     </sys_script_include>
 </record_update>

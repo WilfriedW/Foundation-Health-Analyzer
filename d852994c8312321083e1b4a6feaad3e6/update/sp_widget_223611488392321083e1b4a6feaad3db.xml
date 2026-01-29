@@ -349,8 +349,7 @@
 }
 ]]></client_script>
         <controller_as>c</controller_as>
-        <css>/* CSS centralisé dans le thème FHA */
-</css>
+        <css/>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -362,7 +361,7 @@
         <link><![CDATA[function link(scope, element, attrs, controller) {
   
 }]]></link>
-        <name>FHA Dashboard</name>
+        <name>Dashboard</name>
         <option_schema/>
         <public>false</public>
         <roles/>
@@ -512,17 +511,17 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 19:41:08</sys_created_on>
         <sys_id>223611488392321083e1b4a6feaad3db</sys_id>
-        <sys_mod_count>28</sys_mod_count>
-        <sys_name>FHA Dashboard</sys_name>
+        <sys_mod_count>31</sys_mod_count>
+        <sys_name>Dashboard</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_223611488392321083e1b4a6feaad3db</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-08 21:28:00</sys_updated_on>
+        <sys_updated_on>2026-01-18 09:32:07</sys_updated_on>
         <template><![CDATA[<div class="fha-dashboard">
   
-  <!-- Page Header -->
+  <!-- Page Header (Modern, Colorful) -->
   <div class="fha-page-header">
     <h2><i class="fa fa-heartbeat"></i> Foundation Health Analyzer</h2>
     <p>${Analyze the health of your ServiceNow tables and get improvement recommendations}</p>
@@ -537,57 +536,52 @@
         </div>
         <div class="fha-card-body">
           
-          <!-- Configuration Selection -->
-          <div class="form-group" style="margin-bottom: 20px`;">
-            <label style="font-weight: 600; margin-bottom: 10px; display: block;">
+          <!-- Configuration Selection (Modern Select) -->
+          <div class="form-group">
+            <label>
               ${Select a configuration to analyze}
             </label>
             <select class="fha-select"
               ng-model="c.selectedConfig"
-                    ng-options="t.config_sys_id as (t.display_name + ' (' + t.table_name + ')') for t in c.tables">
+              ng-options="t.config_sys_id as (t.display_name + ' (' + t.table_name + ')') for t in c.tables">
               <option value="">-- ${Choose a table} --</option>
-      </select>
-    </div>
+            </select>
+          </div>
 
-          <!-- Selected Config Description and Options -->
-          <div ng-if="c.selectedConfig" style="margin-bottom: 20px; padding: 15px; background: var(--fha-primary-light); border-radius: var(--fha-radius);">
+          <!-- Selected Config Description and Options (Elegant Preview) -->
+          <div ng-if="c.selectedConfig" class="fha-config-preview">
             <div ng-repeat="t in c.tables" ng-if="t.config_sys_id === c.selectedConfig">
               <strong>{{t.display_name}}</strong>
-              <p style="margin: 5px 0 15px 0; color: var(--fha-gray-500);">{{t.description || '${No description}'}}</p>
+              <p>{{t.description || '${No description}'}}</p>
               
               <!-- Options Display (Read Only) -->
-              <div style="border-top: 1px solid var(--fha-gray-200); padding-top: 12px; margin-top: 10px;">
-                <div style="font-size: 12px; font-weight: 600; color: var(--fha-primary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+              <div class="fha-options-divider">
+                <div class="fha-options-header">
                   <i class="fa fa-cog"></i> ${Analysis Options}
                 </div>
-                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <div class="fha-options-grid">
                   <!-- Deep Scan -->
-                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--fha-radius-lg); font-size: 12px;"
-                       ng-class="t.deep_scan ? 'fha-option-enabled' : 'fha-option-disabled'">
+                  <div ng-class="t.deep_scan ? 'fha-option-enabled' : 'fha-option-disabled'">
                     <i class="fa" ng-class="t.deep_scan ? 'fa-check-circle' : 'fa-times-circle'"></i>
                     ${Deep Scan}
                   </div>
                   <!-- Include Children Tables -->
-                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--fha-radius-lg); font-size: 12px;"
-                       ng-class="t.include_children_tables ? 'fha-option-enabled' : 'fha-option-disabled'">
+                  <div ng-class="t.include_children_tables ? 'fha-option-enabled' : 'fha-option-disabled'">
                     <i class="fa" ng-class="t.include_children_tables ? 'fa-check-circle' : 'fa-times-circle'"></i>
                     ${Include Children}
                   </div>
                   <!-- Analyze References -->
-                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--fha-radius-lg); font-size: 12px;"
-                       ng-class="t.analyze_references ? 'fha-option-enabled' : 'fha-option-disabled'">
+                  <div ng-class="t.analyze_references ? 'fha-option-enabled' : 'fha-option-disabled'">
                     <i class="fa" ng-class="t.analyze_references ? 'fa-check-circle' : 'fa-times-circle'"></i>
                     ${Analyze References}
                   </div>
                   <!-- Include LDAP -->
-                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--fha-radius-lg); font-size: 12px;"
-                       ng-class="t.include_ldap ? 'fha-option-enabled' : 'fha-option-disabled'">
+                  <div ng-class="t.include_ldap ? 'fha-option-enabled' : 'fha-option-disabled'">
                     <i class="fa" ng-class="t.include_ldap ? 'fa-check-circle' : 'fa-times-circle'"></i>
                     ${Include LDAP}
                   </div>
-                          <!-- Include ServiceNow records -->
-                  <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--fha-radius-lg); font-size: 12px;"
-                       ng-class="t.include_snc_records ? 'fha-option-enabled' : 'fha-option-disabled'">
+                  <!-- Include ServiceNow records -->
+                  <div ng-class="t.include_snc_records ? 'fha-option-enabled' : 'fha-option-disabled'">
                     <i class="fa" ng-class="t.include_snc_records ? 'fa-check-circle' : 'fa-times-circle'"></i>
                     ${Include ServiceNow records}
                   </div>
@@ -602,7 +596,7 @@
             ng-disabled="!c.selectedConfig || c.loading">
             <i class="fa" ng-class="c.loading ? 'fa-spinner fa-spin' : 'fa-search'"></i>
             {{c.loading ? '${Analysis in progress...}' : '${Run Analysis}'}}
-    </button>
+          </button>
 
           <!-- Error Message -->
           <div ng-if="c.error" class="alert alert-danger" style="margin-top: 20px;">
@@ -613,121 +607,55 @@
 
       <!-- Results Panel -->
       <div class="fha-card" ng-if="c.result">
-        <div class="fha-card-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <h4 style="margin:0;"><i class="fa fa-chart-bar"></i> ${Analysis Results}</h4>
+        <div class="fha-card-header">
+          <h4><i class="fa fa-chart-bar"></i> ${Analysis Results}</h4>
           <button class="fha-btn-primary" ng-if="c.analysisId" ng-click="c.viewDetails(c.analysisId)" style="padding:8px 14px;font-size:13px;">
             <i class="fa fa-arrow-right"></i> ${View Full Details}
           </button>
         </div>
         <div class="fha-card-body">
-          
-          <!-- Stats Row -->
-          <div class="fha-stats-row">
-            <div class="fha-stat-box">
-              <div class="fha-stat-value">
-                <span class="fha-score-badge" 
-                      ng-class="'fha-score-' + c.getHealthScoreClass(c.calculateHealthScore())">
-                  {{c.calculateHealthScore()}}/100
-    </span>
+          <div class="row">
+            <div class="col-sm-3">
+              <div style="text-align:center;padding:15px;">
+                <div class="fha-score-circle" ng-class="c.getHealthScoreClass(c.result.health_score)">
+                  {{c.result.health_score}}
+                </div>
+                <div class="fha-score-label">{{c.getHealthScoreLabel(c.result.health_score)}}</div>
               </div>
-              <div class="fha-stat-label">${Health Score}</div>
             </div>
-            <div class="fha-stat-box">
-              <div class="fha-stat-value">{{c.result.issues.length}}</div>
-              <div class="fha-stat-label">${Issues Found}</div>
-            </div>
-            <div class="fha-stat-box">
-              <div class="fha-stat-value">{{c.result.metrics.duration_ms || 0}}ms</div>
-              <div class="fha-stat-label">${Analysis Duration}</div>
-            </div>
-    </div>
-
-          <!-- Severity Summary -->
-          <div class="fha-severity-summary" ng-if="c.result.issues && c.result.issues.length > 0">
-            <div class="fha-severity-badge high" ng-if="c.countBySeverity('high') > 0">
-              <i class="fa fa-exclamation-triangle"></i>
-              {{c.countBySeverity('high')}} ${High}
-            </div>
-            <div class="fha-severity-badge medium" ng-if="c.countBySeverity('medium') > 0">
-              <i class="fa fa-exclamation-circle"></i>
-              {{c.countBySeverity('medium')}} ${Medium}
-            </div>
-            <div class="fha-severity-badge low" ng-if="c.countBySeverity('low') > 0">
-              <i class="fa fa-info-circle"></i>
-              {{c.countBySeverity('low')}} ${Low}
-            </div>
-    </div>
-
-          <!-- No Issues Message -->
-          <div ng-if="c.result.issues && c.result.issues.length === 0" class="fha-no-issues">
-            <i class="fa fa-check-circle"></i>
-            <h4>${Excellent!}</h4>
-            <p>${No issues detected on this table.}</p>
-          </div>
-
-          <!-- ==================== ISSUES LIST BY CATEGORY ==================== -->
-      <div ng-if="c.result.issues && c.result.issues.length > 0">
-            <div class="fha-section" ng-repeat="(category, issues) in c.getGroupedIssues()">
-              <div class="fha-section-header">
-                <div class="fha-section-title">
-                  <i class="fa" ng-class="c.getCategoryIcon(category)"></i>
-                  <h5>{{c.getCategoryLabel(category)}}</h5>
-                  <span class="fha-section-count">{{issues.length}} ${issues}</span>
+            <div class="col-sm-9">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:15px;">
+                <div style="background:var(--fha-gray-50);padding:12px;border-radius:8px;text-align:center;">
+                  <div style="font-size:24px;font-weight:bold;color:var(--fha-danger);">{{c.result.issues_high || 0}}</div>
+                  <div style="font-size:11px;color:var(--fha-gray-500);">High Issues</div>
+                </div>
+                <div style="background:var(--fha-gray-50);padding:12px;border-radius:8px;text-align:center;">
+                  <div style="font-size:24px;font-weight:bold;color:var(--fha-warning);">{{c.result.issues_medium || 0}}</div>
+                  <div style="font-size:11px;color:var(--fha-gray-500);">Medium Issues</div>
+                </div>
+                <div style="background:var(--fha-gray-50);padding:12px;border-radius:8px;text-align:center;">
+                  <div style="font-size:24px;font-weight:bold;color:var(--fha-primary);">{{c.result.issues_low || 0}}</div>
+                  <div style="font-size:11px;color:var(--fha-gray-500);">Low Issues</div>
                 </div>
               </div>
-              <div class="fha-section-issues">
-                <div class="fha-issue-item" ng-repeat="issue in issues"
-                     ng-class="{'clickable': c.hasRecordLink(issue)}"
-                     ng-click="c.hasRecordLink(issue) && c.goToRecord(issue)">
-                  <span class="fha-issue-severity" ng-class="'fha-severity-' + issue.severity">{{issue.severity}}</span>
-                  <div class="fha-issue-content">
-                    <div class="fha-issue-code">{{issue.code}}</div>
-                    <div class="fha-issue-message">{{issue.message}}</div>
-                  </div>
-                  <a class="fha-issue-link" ng-if="c.hasRecordLink(issue)" 
-                     ng-click="$event.stopPropagation(); c.goToRecord(issue)">
-                    <i class="fa fa-external-link-alt"></i> ${View}
-                  </a>
-                </div>
+              <div style="padding:12px;background:var(--fha-gray-50);border-radius:8px;">
+                <strong>${Total Issues}:</strong> {{c.result.issue_count || 0}}<br>
+                <strong>${Records Analyzed}:</strong> {{c.result.record_count || 0}}<br>
+                <strong>${Duration}:</strong> {{c.result.duration || 'N/A'}}
               </div>
             </div>
           </div>
-
         </div>
       </div>
-      </div>
 
-    <!-- Sidebar -->
-    <div class="col-md-4">
-      <!-- Quick Stats (moved to top) -->
+      <!-- Recent Analyses -->
       <div class="fha-card">
         <div class="fha-card-header">
-          <h4><i class="fa fa-info-circle"></i> ${Information}</h4>
-        </div>
-        <div class="fha-card-body">
-          <p><strong>{{c.tables.length}}</strong> ${available configurations}</p>
-          <p style="font-size: 13px; color: var(--fha-gray-500); margin-top: 15px;">
-            ${The analyzer checks:}
-          </p>
-          <ul style="font-size: 13px; color: var(--fha-gray-500); padding-left: 20px;">
-            <li>${Unused custom fields}</li>
-            <li>${Business Rules and Client Scripts}</li>
-            <li>${ACLs and security}</li>
-            <li>${Integrations and imports}</li>
-            <li>${Workflows and Flows}</li>
-            <li>${Notifications}</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Recent Analyses (moved to bottom, limited to 10) -->
-      <div class="fha-card">
-        <div class="fha-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h4 style="margin: 0;"><i class="fa fa-history"></i> ${Recent Analyses}</h4>
+          <h4><i class="fa fa-history"></i> ${Recent Analyses}</h4>
           <a ng-click="c.viewAllAnalyses()" class="fha-view-all-link" title="${View all analyses}">
             ${View All} <i class="fa fa-arrow-right"></i>
-        </a>
-      </div>
+          </a>
+        </div>
         <div class="fha-card-body" style="padding: 0;">
           <div ng-if="c.recentAnalyses.length === 0" style="padding: 30px; text-align: center; color: var(--fha-gray-500);">
             <i class="fa fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
@@ -749,8 +677,7 @@
                 </td>
                 <td>
                   <span class="fha-score-badge" 
-                        ng-class="'fha-score-' + c.getHealthScoreClass(analysis.health_score)"
-                        style="font-size: 14px; padding: 4px 10px;">
+                        ng-class="'fha-score-' + c.getHealthScoreClass(analysis.health_score)">
                     {{analysis.health_score}}/100
                   </span>
                 </td>
@@ -762,6 +689,28 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Information Panel -->
+    <div class="col-md-4">
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h4><i class="fa fa-info-circle"></i> ${Information}</h4>
+        </div>
+        <div class="fha-card-body">
+          <p><strong>{{c.tables.length}}</strong> ${available configurations}</p>
+          
+          <h5 style="margin-top: 20px; margin-bottom: 10px;">${The analyzer checks}:</h5>
+          <ul style="padding-left: 20px; line-height: 1.8;">
+            <li>${Unused custom fields}</li>
+            <li>${Business Rules and Client Scripts}</li>
+            <li>${Access Control}</li>
+            <li>${Integrations and imports}</li>
+            <li>${Workflows and Flows}</li>
+            <li>${Notifications}</li>
+          </ul>
         </div>
       </div>
     </div>
