@@ -2779,7 +2779,7 @@
         <update_guid_history>61a8cfd4f412f21061363bbf11c46aae:-586504138</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
-        <sys_audit_delete display_value="Copy of FHA Analysis results">b5c803188312f21083e1b4a6feaad3fc</sys_audit_delete>
+        <sys_audit_delete display_value="">b5c803188312f21083e1b4a6feaad3fc</sys_audit_delete>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:07</sys_created_on>

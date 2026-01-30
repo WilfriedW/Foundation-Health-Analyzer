@@ -13,7 +13,7 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <service_id>fha</service_id>
-        <short_description>REST API for Foundation Health Analyzer - Analyze ServiceNow table configurations, retrieve health scores, and manage analysis history.</short_description>
+        <short_description>REST API for Foundation Health Analyzer - Analyze ServiceNow table configuration</short_description>
         <sys_class_name>sys_ws_definition</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:20:11</sys_created_on>
