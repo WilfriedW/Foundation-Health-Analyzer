@@ -42,7 +42,7 @@
     c.countIssuesBySeverity = function(severity) {
       if (!c.result || !c.result.issues) return 0;
       return c.result.issues.filter(function(i) { 
-        return i.severity.toLowerCase() === severity.toLowerCase(); 
+        return i.severity && i.severity.toLowerCase() === severity.toLowerCase(); 
       }).length;
     };
     
@@ -60,7 +60,7 @@
         items = items.filter(function(item) {
           if (!item.issues) return false;
           return item.issues.some(function(issue) {
-            return issue.severity.toLowerCase() === c.filters.severity;
+            return issue.severity && issue.severity.toLowerCase() === c.filters.severity;
           });
         });
       }
@@ -119,7 +119,7 @@
       
       if (c.filters.severity !== 'all') {
         issues = issues.filter(function(i) {
-          return i.severity.toLowerCase() === c.filters.severity;
+          return i.severity && i.severity.toLowerCase() === c.filters.severity;
         });
       }
       
@@ -352,6 +352,7 @@
     };
     
     c.toggleFilter = function(type, value) {
+      // Not used in current template, kept for compatibility
       if (type === 'severity') {
         c.filters.severity = c.filters.severity === value ? 'all' : value;
       }
@@ -882,7 +883,7 @@
           
           <!-- Severity Filters -->
           <button ng-repeat="sev in ['critical', 'high', 'medium', 'low']"
-                  ng-click="c.toggleFilter('severity', sev)"
+                  ng-click="c.filters.severity = sev"
                   style="padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; border: 2px solid; cursor: pointer; transition: all 0.2s ease;"
                   ng-class="{
                     'issue-badge critical': sev == 'critical',
@@ -891,8 +892,8 @@
                     'issue-badge low': sev == 'low'
                   }"
                   ng-style="{
-                    'opacity': c.filters.severity.indexOf(sev) > -1 ? '1' : '0.3',
-                    'transform': c.filters.severity.indexOf(sev) > -1 ? 'scale(1.05)' : 'scale(1)'
+                    'opacity': c.filters.severity == sev ? '1' : '0.3',
+                    'transform': c.filters.severity == sev ? 'scale(1.05)' : 'scale(1)'
                   }">
             {{sev | uppercase}} ({{c.getIssuesBySeverity(sev).length}})
           </button>
