@@ -6,6 +6,7 @@
             <sys_class_name>sys_choice_set</sys_class_name>
             <sys_created_by>admin</sys_created_by>
             <sys_created_on>2026-01-17 23:56:08</sys_created_on>
+            <sys_id>dde023345326be10c7233ee0a0490e4c</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_name>format</sys_name>
             <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
@@ -29,6 +30,7 @@
             <sys_created_on>2026-01-17 23:56:08</sys_created_on>
             <sys_domain>global</sys_domain>
             <sys_domain_path>/</sys_domain_path>
+            <sys_id>d5e023345326be10c7233ee0a0490e4c</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_updated_by>admin</sys_updated_by>
             <sys_updated_on>2026-01-17 23:56:08</sys_updated_on>
@@ -48,6 +50,7 @@
             <sys_created_on>2026-01-17 23:56:08</sys_created_on>
             <sys_domain>global</sys_domain>
             <sys_domain_path>/</sys_domain_path>
+            <sys_id>dde023345326be10c7233ee0a0490e4e</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_updated_by>admin</sys_updated_by>
             <sys_updated_on>2026-01-17 23:56:08</sys_updated_on>
@@ -67,6 +70,7 @@
             <sys_created_on>2026-01-17 23:56:08</sys_created_on>
             <sys_domain>global</sys_domain>
             <sys_domain_path>/</sys_domain_path>
+            <sys_id>55e023345326be10c7233ee0a0490e50</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_updated_by>admin</sys_updated_by>
             <sys_updated_on>2026-01-17 23:56:08</sys_updated_on>
@@ -86,6 +90,7 @@
             <sys_created_on>2026-01-17 23:56:08</sys_created_on>
             <sys_domain>global</sys_domain>
             <sys_domain_path>/</sys_domain_path>
+            <sys_id>d9e023345326be10c7233ee0a0490e51</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_updated_by>admin</sys_updated_by>
             <sys_updated_on>2026-01-17 23:56:08</sys_updated_on>
