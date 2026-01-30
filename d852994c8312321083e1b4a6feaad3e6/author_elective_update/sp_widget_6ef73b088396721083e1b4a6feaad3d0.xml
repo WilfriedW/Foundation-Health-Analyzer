@@ -341,7 +341,7 @@
         <update_guid_history>b5b54854051a72107865e25276c0d817:-993913256,7e454cd86ed67210cb645021442907e3:-1078561811,0c154414891a7210975dccc6b17b7320:-1228365617,b07484502f1a72105b222a6463b3e52b:-568339945,c4a34450b41a7210679ac8814792b038:288336588,a9014cd80cd67210bc3f63da0ed0a7f3:-127227167,e88e7b4426d672101abe673ce9f2b7a1:-1250621088,1cfab78cd99672109428622dc8b18883:1971900102,4fba374cc296721037b236c19ae91cbe:810187702,7cf9770cf4967210aa92aa3711c2e194:-150283708,1e197f884f967210bc5ca4618057d242:-468014380,7ce8378826967210547bf5a2c0a0dd34:-69429573,e228bf08869672102769c11602368bdc:-1259605739,02187b08ed967210d92319e7617e9ad1:798149200</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
-        <sys_audit_delete display_value="FHA Custom Fields Viewer">e3cc87108352f21083e1b4a6feaad3e0</sys_audit_delete>
+        <sys_audit_delete display_value="">e3cc87108352f21083e1b4a6feaad3e0</sys_audit_delete>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:55:42</sys_created_on>

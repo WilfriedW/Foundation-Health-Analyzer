@@ -277,7 +277,7 @@ loadTables();
         <update_guid_history>03d33584a8963210f3f4d09571fdf468:969404166,34833944a39632107af0a3487736b7e5:-1512636812,246375444c963210c05d9ea0e315ed37:1307538360</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
-        <sys_audit_delete display_value="FHA Dashb V2">0550af4883d2721083e1b4a6feaad3d3</sys_audit_delete>
+        <sys_audit_delete display_value="">0550af4883d2721083e1b4a6feaad3d3</sys_audit_delete>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 05:42:31</sys_created_on>

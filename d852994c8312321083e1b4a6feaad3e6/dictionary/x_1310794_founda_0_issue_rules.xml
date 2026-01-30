@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?><database>
     <element db_object_id="353a131f531ab210c7233ee0a0490e46" label="Issue rules" max_length="40" name="x_1310794_founda_0_issue_rules" type="collection">
-        <element attributes="edge_encryption_enabled=true" label="Active" max_length="40" name="active" type="boolean"/>
-        <element display="true" label="Name" mandatory="true" max_length="40" name="name" type="string"/>
+        <element label="Script" max_length="4000" name="script" type="script"/>
         <element label="Code" mandatory="true" max_length="40" name="code" type="string"/>
         <element label="Params" max_length="400" name="params" type="string"/>
-        <element label="Type" max_length="40" name="type" type="string"/>
-        <element label="Severity" max_length="40" name="severity" type="string"/>
-        <element label="Script" max_length="4000" name="script" type="script"/>
         <element attributes="edge_encryption_enabled=true" label="Description" max_length="1000" name="description" type="string"/>
+        <element attributes="edge_encryption_enabled=true" label="Active" max_length="40" name="active" type="boolean"/>
+        <element label="Type" max_length="40" name="type" type="string"/>
+        <element display="true" label="Name" mandatory="true" max_length="40" name="name" type="string"/>
+        <element label="Severity" max_length="40" name="severity" type="string"/>
     </element>
 </database>

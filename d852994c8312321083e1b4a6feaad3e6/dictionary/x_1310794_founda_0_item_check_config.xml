@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?><database>
     <element db_object_id="dc2226dd53923610c7233ee0a0490ea9" label="Item check config" max_length="40" name="x_1310794_founda_0_item_check_config" type="collection">
-        <element label="Table" max_length="32" name="table" reference="sys_db_object" type="reference"/>
-        <element label="Active" max_length="40" name="active" type="boolean"/>
-        <element display="true" label="Name" max_length="40" name="name" type="string"/>
         <element label="Query builder" max_length="40" name="query_builder" type="conditions"/>
-        <element label="Metadata" max_length="40" name="metadata" type="string"/>
-        <element label="Script" max_length="40" name="script" type="script"/>
-        <element label="Category" max_length="40" name="category" type="string"/>
         <element label="Description" max_length="40" name="description" type="string"/>
+        <element label="Table" max_length="32" name="table" reference="sys_db_object" type="reference"/>
+        <element label="Metadata" max_length="40" name="metadata" type="string"/>
         <element label="Fields" max_length="40" name="fields" type="string"/>
+        <element label="Active" max_length="40" name="active" type="boolean"/>
+        <element label="Script" max_length="40" name="script" type="script"/>
+        <element display="true" label="Name" max_length="40" name="name" type="string"/>
+        <element label="Category" max_length="40" name="category" type="string"/>
         <index name="index">
             <element name="table"/>
         </index>
