@@ -385,14 +385,22 @@
     c.filters.table = 'all';
     
     // Load data
+    console.log('[FHA Widget] Loading data...');
+    console.log('[FHA Widget] c.data:', c.data);
+    
     if (c.data && c.data.result) {
       c.result = c.data.result;
+      console.log('[FHA Widget] Result loaded:', c.result);
+      console.log('[FHA Widget] Issues count:', c.result.issues ? c.result.issues.length : 0);
+      console.log('[FHA Widget] Has data?', !!c.result.data);
+      console.log('[FHA Widget] Has configuration?', !!c.result.configuration);
       
       // Extract category tabs
       if (c.result.data) {
         c.categoryTabs = Object.keys(c.result.data).filter(function(k) {
           return c.result.data[k] && c.result.data[k].length > 0;
         });
+        console.log('[FHA Widget] Category tabs:', c.categoryTabs);
       }
       
       // Extract issue categories
@@ -402,7 +410,11 @@
           cats[i.category || 'general'] = true;
         });
         c.issueCategories = Object.keys(cats);
+        console.log('[FHA Widget] Issue categories:', c.issueCategories);
       }
+    } else {
+      console.error('[FHA Widget] No data.result available');
+      console.log('[FHA Widget] c.data structure:', JSON.stringify(c.data));
     }
   };
 })();
@@ -716,8 +728,8 @@
         </div>
         <div class="fha-card-body" style="padding: 20px;">
           <div ng-repeat="(table, issues) in c.getTopTables(5)" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--fha-bg-section); margin-bottom: 8px; border-radius: 6px; border-left: 3px solid var(--fha-primary); transition: all 0.2s ease;" 
-               ng-mouseenter=" $ event.currentTarget.style.transform='translateX(4px)'"
-               ng-mouseleave=" $ event.currentTarget.style.transform='translateX(0)'">
+               ng-mouseenter="$event.currentTarget.style.transform='translateX(4px)'"
+               ng-mouseleave="$event.currentTarget.style.transform='translateX(0)'">
             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
               <i class="fa fa-database" style="color: var(--fha-primary); font-size: 16px;"></i>
               <span style="font-weight: 600; color: var(--fha-anthracite); font-size: 13px;">{{table}}</span>
@@ -866,8 +878,8 @@
                      ng-model="c.filters.search" 
                      placeholder="Search issues by message, code, or table..."
                      style="width: 100%; padding: 12px 16px 12px 40px; border: 2px solid var(--fha-border-color); border-radius: 8px; font-size: 14px; transition: all 0.2s ease;"
-                     ng-focus=" $ event.target.style.borderColor='var(--fha-primary)'"
-                     ng-blur=" $ event.target.style.borderColor='var(--fha-border-color)'">
+                     ng-focus="$event.target.style.borderColor='var(--fha-primary)'"
+                     ng-blur="$event.target.style.borderColor='var(--fha-border-color)'">
             </div>
           </div>
           <button class="fha-btn-secondary" ng-click="c.clearFilters()" ng-if="c.hasActiveFilters()">
@@ -977,7 +989,7 @@
         </div>
 
         <!-- Issues Cards -->
-        <div ng-repeat="issue in c.getFilteredIssues() track by  $ index" 
+        <div ng-repeat="issue in c.getFilteredIssues() track by $index" 
              style="background: var(--fha-bg-card); border: 1px solid var(--fha-border-color); border-left: 4px solid; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: var(--fha-shadow-sm); transition: all 0.2s ease;"
              ng-style="{
                'border-left-color': issue.severity == 'critical' ? 'var(--fha-danger)' :
@@ -985,8 +997,8 @@
                                    issue.severity == 'medium' ? 'var(--fha-warning)' :
                                    'var(--fha-info)'
              }"
-             ng-mouseenter=" $ event.currentTarget.style.boxShadow='var(--fha-shadow-lg)';  $ event.currentTarget.style.transform='translateY(-2px)'"
-             ng-mouseleave=" $ event.currentTarget.style.boxShadow='var(--fha-shadow-sm)'; $event.currentTarget.style.transform='translateY(0)'">
+             ng-mouseenter="$event.currentTarget.style.boxShadow='var(--fha-shadow-lg)'; $event.currentTarget.style.transform='translateY(-2px)'"
+             ng-mouseleave="$event.currentTarget.style.boxShadow='var(--fha-shadow-sm)'; $event.currentTarget.style.transform='translateY(0)'">
           
           <!-- Issue Header -->
           <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
