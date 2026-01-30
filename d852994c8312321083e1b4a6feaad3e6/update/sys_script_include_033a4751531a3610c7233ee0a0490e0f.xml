@@ -377,13 +377,23 @@ FHAnalysisEngine.prototype = {
      * @param {Object} result - Current result object
      * @returns {Object} - Updated result with issues
      */
+    /**
+     * Analyzes records to detect issues
+     * @param {Object} result - Current result object
+     * @returns {Object} - Updated result with issues
+     */
     _analyzeResults: function(result) {
         try {
-            // context for aggregate-aware rules
+            gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
+            gs.info('[FHAnalysisEngine] ]]>🔍<![CDATA[ Starting issue analysis');
+            gs.info('[FHAnalysisEngine] Total records to analyze: ' + result.data.length);
+            gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
+
+            // Context for aggregate-aware rules
             var context = {
                 totalCount: result.data.length,
                 _dupsSeen: {},
-                options: this.options // Passer les options au contexte
+                options: this.options
             };
 
             result.data.forEach(function(it) {
@@ -394,34 +404,83 @@ FHAnalysisEngine.prototype = {
             var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
             var aggregatedIssues = [];
 
+            // ✅ CORRECTION CRITIQUE
             result.data.forEach(function(item) {
-                var rules = item._rules || [];
-                item.issues = ruleEval.evaluate(item, rules, context) || [];
 
-                // Aggregate issues at result level for portal/widget
-                (item.issues || []).forEach(function(is) {
-                    var issueDetails = is.details || {};
-                    aggregatedIssues.push({
-                        code: is.code || '',
-                        message: is.message || '',
-                        severity: is.severity || 'medium',
-                        record_table: issueDetails.record_table || item.table || '',
-                        record_sys_id: issueDetails.record_sys_id || item.sys_id || '',
-                        record_name: issueDetails.record_name || (item.values && item.values.name) || '',
-                        record_filter: issueDetails.record_filter || '',
-                        category: item.category || '',
-                        details: issueDetails
+                gs.info('[FHAnalysisEngine] ───────────────────────────────────────');
+                gs.info('[FHAnalysisEngine] ]]>📋<![CDATA[ Analyzing record: ' + item.sys_id);
+                gs.info('[FHAnalysisEngine]    Table: ' + item.table);
+                gs.info('[FHAnalysisEngine]    Rules count: ' + (item._rules ? item._rules.length : 0));
+
+                var rules = item._rules || [];
+
+                if (rules.length === 0) {
+                    gs.info('[FHAnalysisEngine]    ⚠️ No rules to evaluate');
+                    item.issues = [];
+                    return;
+                }
+
+                try {
+                    // ✅ RECHARGER LE GLIDERECORD
+                    var gr = new GlideRecord(item.table);
+
+                    if (!gr.get(item.sys_id)) {
+                        gs.warn('[FHAnalysisEngine]    ⚠️ Record not found: ' + item.sys_id);
+                        item.issues = [];
+                        return;
+                    }
+
+                    gs.info('[FHAnalysisEngine]    ✅ GlideRecord loaded successfully');
+                    gs.info('[FHAnalysisEngine]    Record name: ' + gr.getValue('name'));
+
+                    // ✅ MAINTENANT ON PASSE LE GLIDERECORD
+                    item.issues = ruleEval.evaluate(gr, rules, context) || [];
+
+                    gs.info('[FHAnalysisEngine]    ]]>📊<![CDATA[ Issues found: ' + item.issues.length);
+
+                    // Aggregate issues at result level for portal/widget
+                    (item.issues || []).forEach(function(is) {
+                        var issueDetails = is.details || {};
+
+                        var aggregatedIssue = {
+                            code: is.code || '',
+                            message: is.message || '',
+                            severity: is.severity || 'medium',
+                            record_table: issueDetails.record_table || item.table || '',
+                            record_sys_id: issueDetails.record_sys_id || item.sys_id || '',
+                            record_name: issueDetails.record_name || (item.values && item.values.name) || '',
+                            record_filter: issueDetails.record_filter || '',
+                            category: item.category || '',
+                            details: issueDetails
+                        };
+
+                        aggregatedIssues.push(aggregatedIssue);
+
+                        gs.info('[FHAnalysisEngine]       Issue: ' + aggregatedIssue.code + ' (' + aggregatedIssue.severity + ')');
                     });
-                });
+
+                } catch (recordError) {
+                    gs.error('[FHAnalysisEngine]    ❌ Error analyzing record: ' + recordError.message);
+                    gs.error('[FHAnalysisEngine]    Stack: ' + recordError.stack);
+                    item.issues = [];
+                }
             });
 
             result.issues = aggregatedIssues;
 
+            gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
+            gs.info('[FHAnalysisEngine] ✅ Analysis complete');
+            gs.info('[FHAnalysisEngine] Total issues found: ' + aggregatedIssues.length);
+            gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
+
         } catch (error) {
-            gs.error("[FHAnalysisEngine] _analyzeResults: " + error.message);
+            gs.error('[FHAnalysisEngine] ❌ _analyzeResults error: ' + error.message);
+            gs.error('[FHAnalysisEngine] Stack: ' + error.stack);
         }
+
         return result;
     },
+
 
     _flattenIds: function(list) {
         var ids = [];
@@ -490,13 +549,13 @@ FHAnalysisEngine.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>94</sys_mod_count>
+        <sys_mod_count>95</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-19 16:19:34</sys_updated_on>
+        <sys_updated_on>2026-01-29 08:26:25</sys_updated_on>
     </sys_script_include>
 </record_update>

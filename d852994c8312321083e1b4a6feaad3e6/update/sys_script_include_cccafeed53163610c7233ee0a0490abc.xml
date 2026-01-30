@@ -24,16 +24,39 @@ FHARuleEvaluator.prototype = {
      */
     evaluate: function(item, rules, context) {
 
+        // ✅ VÉRIFICATION CRITIQUE
+        if (!item) {
+            gs.error('[FHARuleEvaluator] ❌ item is NULL or undefined');
+            return [];
+        }
+
+        if (typeof item.getTableName !== 'function') {
+            gs.error('[FHARuleEvaluator] ❌ item is not a GlideRecord');
+            gs.error('[FHARuleEvaluator] item type: ' + typeof item);
+            gs.error('[FHARuleEvaluator] item keys: ' + Object.keys(item).join(', '));
+            return [];
+        }
+
+        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
+        gs.info('[FHARuleEvaluator] ]]>🔍<![CDATA[ Starting evaluation');
+        gs.info('[FHARuleEvaluator] Item: ' + item.getTableName() + ' / ' + item.sys_id.toString());
+        gs.info('[FHARuleEvaluator] Rules to evaluate: ' + (rules ? rules.length : 0));
+        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
+
         var allIssues = [];
 
         if (!rules || !Array.isArray(rules)) {
+            gs.warn('[FHARuleEvaluator] No rules provided or invalid rules array');
             return allIssues;
         }
 
         var self = this;
 
-        rules.forEach(function(rule) {
+        rules.forEach(function(rule, ruleIndex) {
             try {
+                gs.info('[FHARuleEvaluator] ───────────────────────────────────────');
+                gs.info('[FHARuleEvaluator] ]]>📋<![CDATA[ Rule #' + (ruleIndex + 1) + ': ' + rule.code);
+
                 var issues = [];
 
                 // Parse JSON params
@@ -41,68 +64,129 @@ FHARuleEvaluator.prototype = {
                 try {
                     if (rule.params) {
                         params = JSON.parse(rule.params);
+                        gs.info('[FHARuleEvaluator] Params parsed: ' + JSON.stringify(params));
                     }
                 } catch (parseError) {
-                    gs.error("[FHARuleEvaluator] Error parsing params for rule " + rule.code + ": " + parseError.message);
+                    gs.error('[FHARuleEvaluator] Error parsing params for rule ' + rule.code + ': ' + parseError.message);
                 }
 
                 // Execute the rule script
                 if (rule.script) {
-                    issues = self._runScriptSafe(rule, item,context);
+                    gs.info('[FHARuleEvaluator] Executing script for rule: ' + rule.code);
+                    issues = self._runScriptSafe(rule, item, context);
+
+                    gs.info('[FHARuleEvaluator] ✅ Rule ' + rule.code + ' returned ' + issues.length + ' issue(s)');
+
+                    if (issues.length > 0) {
+                        issues.forEach(function(issue, issueIndex) {
+                            gs.info('[FHARuleEvaluator] Issue #' + (issueIndex + 1) + ': ' + issue.code + ' - ' + issue.message);
+                        });
+                    }
+                } else {
+                    gs.warn('[FHARuleEvaluator] Rule ' + rule.code + ' has no script');
                 }
 
                 // Add found issues
-                if (issues && Array.isArray(issues)) {
+                if (issues && Array.isArray(issues) && issues.length > 0) {
+                    gs.info('[FHARuleEvaluator] Adding ' + issues.length + ' issue(s) to allIssues');
                     allIssues = allIssues.concat(issues);
                 }
 
             } catch (error) {
-                gs.error("[FHARuleEvaluator] Error evaluating rule " + rule.code + ": " + error.message);
+                gs.error('[FHARuleEvaluator] Error evaluating rule ' + rule.code + ': ' + error.message);
+                gs.error('[FHARuleEvaluator] Stack: ' + error.stack);
             }
         });
+
+        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
+        gs.info('[FHARuleEvaluator] ]]>📊<![CDATA[ Total issues found: ' + allIssues.length);
+        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
+
         return allIssues;
     },
 
-  /**
- * Executes a rule script safely (Scoped App compatible)
- * @param {Object} rule - The rule (doit contenir rule.params déjà parsé)
- * @param {Object} item - The item to evaluate
- * @param {Object} context - The context
- * @returns {Array} - Detected issues
- */
-_runScriptSafe: function(rule, item, context, ) {
-    var issues = [];
-    try {
-        var grX_1310794F_0IR = new GlideRecord('x_1310794_founda_0_issue_rules');
-        if (grX_1310794F_0IR.get(rule.sys_id)) {
 
-            var evaluator = new GlideScopedEvaluator();
-            evaluator.putVariable('params', {});
-			gs.info('Item ' +JSON.stringify(item))
-            evaluator.putVariable('item', item || {});
-            evaluator.putVariable('context', context || {});
-						gs.info('context ' +JSON.stringify(context))
+    /**
+     * Executes a rule script safely (Scoped App compatible)
+     * @param {Object} rule - The rule (must contain rule.sys_id)
+     * @param {Object} item - The item to evaluate
+     * @param {Object} context - The context
+     * @returns {Array} - Detected issues
+     */
+    _runScriptSafe: function(rule, item, context) {
+        var issues = [];
 
+        try {
+            // ✅ CORRECTION #1 : Charger la règle depuis la DB
+            var grX_1310794F_0IR = new GlideRecord('x_1310794_founda_0_issue_rules');
 
-            var result = evaluator.evaluateScript(grX_1310794F_0IR, 'script');
-
-            if (result && Array.isArray(result)) {
-                issues = result;
-            } else if (result) {
-                var retrievedIssues = evaluator.getVariable('issues');
-                if (retrievedIssues && Array.isArray(retrievedIssues)) {
-                    issues = retrievedIssues;
-                }
+            if (!grX_1310794F_0IR.get(rule.sys_id)) {
+                gs.warn('[FHARuleEvaluator] ⚠️ Rule not found in database: ' + rule.sys_id);
+                return issues;
             }
+
+            gs.info('[FHARuleEvaluator]    ▶️ Executing rule: ' + grX_1310794F_0IR.getValue('name') + ' (' + grX_1310794F_0IR.getValue('code') + ')');
+            gs.info('[FHARuleEvaluator]    Table: ' + grX_1310794F_0IR.getValue('table'));
+            gs.info('[FHARuleEvaluator]    Active: ' + grX_1310794F_0IR.getValue('active'));
+
+            // Create evaluator
+            var evaluator = new GlideScopedEvaluator();
+
+            // Inject variables
+            evaluator.putVariable('params', {});
+            evaluator.putVariable('item', item);
+            evaluator.putVariable('context', context || {});
+            evaluator.putVariable('issues', issues);
+
+            // Execute script
+            gs.info('[FHARuleEvaluator]    Evaluating script...');
+            var scriptResult = evaluator.evaluateScript(grX_1310794F_0IR, 'script');
+            gs.info('[FHARuleEvaluator]    Script execution result: ' + scriptResult);
+
+            // Retrieve issues
+            var retrievedIssues = evaluator.getVariable('issues');
+
+            gs.info('[FHARuleEvaluator]    Retrieved issues: ' + (retrievedIssues ? 'EXISTS' : 'NULL'));
+            gs.info('[FHARuleEvaluator]    Is Array: ' + Array.isArray(retrievedIssues));
+
+            if (retrievedIssues && Array.isArray(retrievedIssues)) {
+                gs.info('[FHARuleEvaluator]    Issues count: ' + retrievedIssues.length);
+
+                if (retrievedIssues.length > 0) {
+                    gs.info('[FHARuleEvaluator]    ✅ Found ' + retrievedIssues.length + ' issue(s)');
+
+                    // Log each issue
+                    retrievedIssues.forEach(function(issue, index) {
+                        gs.info('[FHARuleEvaluator]       ┌─ Issue #' + (index + 1));
+                        gs.info('[FHARuleEvaluator]       │  Code: ' + issue.code);
+                        gs.info('[FHARuleEvaluator]       │  Message: ' + issue.message);
+                        gs.info('[FHARuleEvaluator]       │  Severity: ' + issue.severity);
+                        gs.info('[FHARuleEvaluator]       │  Record: ' + issue.record);
+
+                        if (issue.details) {
+                            gs.info('[FHARuleEvaluator]       │  Details:');
+                            for (var key in issue.details) {
+                                gs.info('[FHARuleEvaluator]       │     • ' + key + ': ' + issue.details[key]);
+                            }
+                        }
+                        gs.info('[FHARuleEvaluator]       └─');
+                    });
+
+                    issues = retrievedIssues;
+                } else {
+                    gs.info('[FHARuleEvaluator]    ℹ️ No issues found for this item');
+                }
+            } else {
+                gs.warn('[FHARuleEvaluator]    ⚠️ retrievedIssues is NULL or not an array');
+            }
+
+        } catch (error) {
+            gs.error('[FHARuleEvaluator] ❌ Error running script for rule ' + rule.code + ': ' + error.message);
+            gs.error('[FHARuleEvaluator] Stack: ' + error.stack);
         }
-    } catch (error) {
-        gs.error('[FHARuleEvaluator] Error running script for rule ' + rule.code + ': ' + error.message);
-    }
 
-    return issues;
-},
-
-
+        return issues;
+    },
 
     /**
      * Checks if a script is already wrapped in a function
@@ -110,7 +194,6 @@ _runScriptSafe: function(rule, item, context, ) {
      * @returns {Boolean} - True if already wrapped
      */
     _isScriptWrapped: function(script) {
-
         if (!script) return false;
 
         var trimmed = script.trim();
@@ -149,13 +232,13 @@ _runScriptSafe: function(rule, item, context, ) {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-13 21:15:00</sys_created_on>
         <sys_id>cccafeed53163610c7233ee0a0490abc</sys_id>
-        <sys_mod_count>32</sys_mod_count>
+        <sys_mod_count>40</sys_mod_count>
         <sys_name>FHARuleEvaluator</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_cccafeed53163610c7233ee0a0490abc</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-21 08:24:08</sys_updated_on>
+        <sys_updated_on>2026-01-29 08:26:49</sys_updated_on>
     </sys_script_include>
 </record_update>
