@@ -1,423 +1,380 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[(function() {
-  api.controller = function($scope, spModal) {
+        <client_script><![CDATA[function($scope, $location, spModal) {
     var c = this;
-    
-    // Init
-    c.activeTab = 'overview';
+
+    // ============================================================
+    // INITIALISATION
+    // ============================================================
+    c.activeTab = 'dashboard';
     c.result = null;
-    c.categoryTabs = [];
-    c.filters = { search: '', severity: 'all', type: 'all', issueCategory: 'all' };
-    c.issueCategories = ['all'];
-    c.sort = { field: 'name', dir: 'asc' };
     
-    // Tab management
-    c.isTab = function(tab) { return c.activeTab === tab; };
-    c.setTab = function(tab) { c.activeTab = tab; };
-    
-    // Data accessors
-    c.getConfigInfo = function() {
-      return c.result && c.result.configuration ? c.result.configuration : {};
+    c.filters = {
+      search: '',
+      severity: 'all',
+      table: 'all'
     };
     
-    c.getResultMeta = function() {
-      if (!c.result) return {};
-      return {
-        number: c.result.number,
-        state: c.result.state,
-        created_on: c.result.sys_created_on,
-        created_by: c.result.sys_created_by
-      };
+    c.tableStatsSort = 'total';
+    c.tableStatsSortDir = 'desc';
+    
+    // ============================================================
+    // NAVIGATION - ONGLETS
+    // ============================================================
+    
+    c.setActiveTab = function(tab) {
+      c.activeTab = tab;
+      console.log('Active tab:', tab);
     };
     
-    c.countItems = function() {
-      if (!c.result || !c.result.data) return 0;
-      return Object.keys(c.result.data).reduce(function(sum, cat) {
-        return sum + (c.result.data[cat] ? c.result.data[cat].length : 0);
-      }, 0);
-    };
+    // ============================================================
+    // MÉTHODES - FILTRAGE DES ISSUES
+    // ============================================================
     
-    c.countIssuesBySeverity = function(severity) {
-      if (!c.result || !c.result.issues) return 0;
-      return c.result.issues.filter(function(i) { 
-        return i.severity && i.severity.toLowerCase() === severity.toLowerCase(); 
-      }).length;
-    };
-    
-    c.getIssues = function() {
-      return c.result && c.result.issues ? c.result.issues : [];
-    };
-    
-    // Category data filtering
-    c.filteredData = function(category) {
-      if (!c.result || !c.result.data || !c.result.data[category]) return [];
-      var items = c.result.data[category];
+    c.getFilteredIssues = function() {
+      if (!c.result || !c.result.issues) return [];
       
-      // Apply filters
+      var filtered = c.result.issues;
+      
       if (c.filters.severity !== 'all') {
-        items = items.filter(function(item) {
-          if (!item.issues) return false;
-          return item.issues.some(function(issue) {
-            return issue.severity && issue.severity.toLowerCase() === c.filters.severity;
-          });
+        filtered = filtered.filter(function(issue) {
+          return issue.severity === c.filters.severity;
         });
       }
       
-      if (c.filters.type !== 'all') {
-        items = items.filter(function(item) {
-          return item.type === c.filters.type;
+      if (c.filters.table !== 'all') {
+        filtered = filtered.filter(function(issue) {
+          var issueTable = issue.parent_table || issue.table;
+          return issueTable === c.filters.table;
         });
       }
       
       if (c.filters.search) {
-        var search = c.filters.search.toLowerCase();
-        items = items.filter(function(item) {
-          var name = c.val(item.values, 'name') || '';
-          var user = c.val(item.values, 'sys_created_by') || '';
-          return name.toLowerCase().indexOf(search) !== -1 || 
-                 user.toLowerCase().indexOf(search) !== -1;
+        var searchLower = c.filters.search.toLowerCase();
+        filtered = filtered.filter(function(issue) {
+          var searchableText = [
+            issue.message,
+            issue.code,
+            issue.table,
+            issue.parent_table,
+            issue.record,
+            issue.field
+          ].join(' ').toLowerCase();
+          return searchableText.indexOf(searchLower) !== -1;
         });
       }
       
-      // Apply sorting
-      items = items.slice().sort(function(a, b) {
-        var aVal, bVal;
-        if (c.sort.field === 'name') {
-          aVal = c.val(a.values, 'name') || '';
-          bVal = c.val(b.values, 'name') || '';
-        } else if (c.sort.field === 'type') {
-          aVal = a.type || '';
-          bVal = b.type || '';
-        } else if (c.sort.field === 'table') {
-          aVal = a.table || '';
-          bVal = b.table || '';
-        } else if (c.sort.field === 'active') {
-          aVal = c.val(a.values, 'active') ? 1 : 0;
-          bVal = c.val(b.values, 'active') ? 1 : 0;
-        } else if (c.sort.field === 'created_by') {
-          aVal = c.val(a.values, 'sys_created_by') || '';
-          bVal = c.val(b.values, 'sys_created_by') || '';
-        } else if (c.sort.field === 'updated_by') {
-          aVal = c.val(a.values, 'sys_updated_by') || '';
-          bVal = c.val(b.values, 'sys_updated_by') || '';
-        }
-        
-        if (c.sort.dir === 'asc') {
-          return aVal > bVal ? 1 : -1;
-        } else {
-          return aVal < bVal ? 1 : -1;
-        }
-      });
-      
-      return items;
+      return filtered;
     };
     
-    c.filteredIssues = function() {
-      var issues = c.getIssues();
-      
-      if (c.filters.severity !== 'all') {
-        issues = issues.filter(function(i) {
-          return i.severity && i.severity.toLowerCase() === c.filters.severity;
-        });
-      }
-      
-      if (c.filters.issueCategory !== 'all') {
-        issues = issues.filter(function(i) {
-          return (i.category || 'general') === c.filters.issueCategory;
-        });
-      }
-      
-      if (c.filters.search) {
-        var search = c.filters.search.toLowerCase();
-        issues = issues.filter(function(i) {
-          return (i.code || '').toLowerCase().indexOf(search) !== -1 ||
-                 (i.message || '').toLowerCase().indexOf(search) !== -1 ||
-                 (i.record_table || '').toLowerCase().indexOf(search) !== -1;
-        });
-      }
-      
-      return issues;
-    };
-    
-    // Sorting
-    c.sortBy = function(field) {
-      if (c.sort.field === field) {
-        c.sort.dir = c.sort.dir === 'asc' ? 'desc' : 'asc';
-      } else {
-        c.sort.field = field;
-        c.sort.dir = 'asc';
-      }
-    };
-    
-    c.getTypesForActiveTab = function() {
-      if (!c.result || !c.result.data || !c.result.data[c.activeTab]) return [];
-      var types = {};
-      c.result.data[c.activeTab].forEach(function(item) {
-        if (item.type) types[item.type] = true;
-      });
-      return Object.keys(types).sort();
-    };
-    
-    // Item metadata
-    c.getMeta = function(item) {
-      var meta = {
-        icon: 'fa-file-code-o',
-        color: '#6c757d'
+    c.resetFilters = function() {
+      c.filters = {
+        search: '',
+        severity: 'all',
+        table: 'all'
       };
-      
-      var type = (item.type || '').toLowerCase();
-      if (type.indexOf('business_rule') !== -1) {
-        meta.icon = 'fa-cogs';
-        meta.color = '#3498db';
-      } else if (type.indexOf('script_include') !== -1) {
-        meta.icon = 'fa-code';
-        meta.color = '#9b59b6';
-      } else if (type.indexOf('client_script') !== -1) {
-        meta.icon = 'fa-desktop';
-        meta.color = '#e67e22';
-      } else if (type.indexOf('ui') !== -1) {
-        meta.icon = 'fa-window-maximize';
-        meta.color = '#1abc9c';
-      } else if (type.indexOf('acl') !== -1) {
-        meta.icon = 'fa-shield-alt';
-        meta.color = '#e74c3c';
-      }
-      
-      return meta;
     };
     
-    c.getTypeLabel = function(item) {
-      if (!item.type) return 'Unknown';
-      return item.type.replace(/_/g, ' ').toUpperCase();
-    };
+    // ============================================================
+    // MÉTHODES - STATISTIQUES PAR SEVERITY
+    // ============================================================
     
-    // Utilities
-    c.val = function(obj, key) {
-      return obj && obj[key] !== undefined ? obj[key] : null;
-    };
-    
-    c.isActive = function(val) {
-      return val === true || val === 'true' || val === '1' || val === 1;
-    };
-    
-    c.booleanText = function(val) {
-      return c.isActive(val) ? 'Yes' : 'No';
-    };
-    
-    c.openRecord = function(table, sysId) {
-      if (!table || !sysId) return;
-      window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
-    };
-    
-    // Export
-    c.exportJSON = function() {
-      if (!c.result) return;
-      var dataStr = JSON.stringify(c.result, null, 2);
-      var dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-      var link = document.createElement('a');
-      link.setAttribute('href', dataUri);
-      link.setAttribute('download', 'fha_analysis_' + (c.result.number || 'export') + '.json');
-      link.click();
-    };
-    
-    c.exportPDF = function() {
-      spModal.alert('PDF export will be implemented soon.');
-    };
-    
-    // Analytics functions for old dashboard template
     c.getIssuesBySeverity = function(severity) {
       if (!c.result || !c.result.issues) return [];
-      return c.result.issues.filter(function(i) {
-        return i.severity && i.severity.toLowerCase() === severity.toLowerCase();
+      return c.result.issues.filter(function(issue) {
+        return issue.severity === severity;
       });
     };
     
+    c.countBySeverity = function(severity) {
+      return c.getIssuesBySeverity(severity).length;
+    };
+    
+    c.getPercentageBySeverity = function(severity) {
+      var total = c.getTotalIssues();
+      if (total === 0) return 0;
+      return Math.round((c.countBySeverity(severity) / total) * 100);
+    };
+    
+
     c.getIssuesByTable = function() {
       if (!c.result || !c.result.issues) return {};
+      
       var grouped = {};
       c.result.issues.forEach(function(issue) {
-        var table = issue.parent_table || issue.record_table || issue.table || 'unknown';
-        if (!grouped[table]) grouped[table] = [];
+        var table = issue.parent_table || issue.table;
+        if (!grouped[table]) {
+          grouped[table] = [];
+        }
         grouped[table].push(issue);
       });
+      
       return grouped;
-    };
-    
-    c.getIssuesBySeverityForTable = function(table, severity) {
-      var byTable = c.getIssuesByTable();
-      if (!byTable[table]) return [];
-      return byTable[table].filter(function(i) {
-        return i.severity && i.severity.toLowerCase() === severity.toLowerCase();
-      });
     };
     
     c.getTopTables = function(limit) {
       var byTable = c.getIssuesByTable();
-      var result = [];
-      for (var table in byTable) {
-        result.push({ name: table, issues: byTable[table] });
+      var tables = [];
+      
+      for (var tableName in byTable) {
+        var issues = byTable[tableName];
+        var stats = {
+          name: tableName,
+          total: issues.length,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0
+        };
+        
+        issues.forEach(function(issue) {
+          if (issue.severity === 'CRITICAL') stats.critical++;
+          else if (issue.severity === 'HIGH') stats.high++;
+          else if (issue.severity === 'MEDIUM') stats.medium++;
+          else if (issue.severity === 'LOW') stats.low++;
+        });
+        
+        tables.push(stats);
       }
-      result.sort(function(a, b) { return b.issues.length - a.issues.length; });
-      return limit ? result.slice(0, limit) : result;
+      
+      tables.sort(function(a, b) {
+        return b.total - a.total;
+      });
+      
+      return limit ? tables.slice(0, limit) : tables;
     };
+    
+    c.getUniqueTablesList = function() {
+      if (!c.result || !c.result.issues) return [];
+      
+      var tables = {};
+      c.result.issues.forEach(function(issue) {
+        var table = issue.parent_table || issue.table;
+        tables[table] = true;
+      });
+      
+      return Object.keys(tables).sort();
+    };
+    
+    c.getSortedTableStats = function() {
+      var stats = c.getTopTables();
+      var field = c.tableStatsSort;
+      var dir = c.tableStatsSortDir;
+      
+      stats.sort(function(a, b) {
+        var valA = a[field];
+        var valB = b[field];
+        
+        if (dir === 'asc') {
+          return valA > valB ? 1 : -1;
+        } else {
+          return valA < valB ? 1 : -1;
+        }
+      });
+      
+      return stats;
+    };
+    
+    c.sortTableStats = function(field) {
+      if (c.tableStatsSort === field) {
+        c.tableStatsSortDir = c.tableStatsSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        c.tableStatsSort = field;
+        c.tableStatsSortDir = 'desc';
+      }
+    };
+    
+    c.getAvgIssuesPerTable = function() {
+      var totalTables = c.getTotalTables();
+      if (totalTables === 0) return 0;
+      return Math.round(c.getTotalIssues() / totalTables * 10) / 10;
+    };
+    
+    c.getMostAffectedTable = function() {
+      var topTables = c.getTopTables(1);
+      return topTables.length > 0 ? topTables[0] : null;
+    };
+    
+    // ============================================================
+    // MÉTHODES - STATISTIQUES PAR CATÉGORIE
+    // ============================================================
     
     c.getIssuesByCategory = function() {
       if (!c.result || !c.result.issues) return {};
+      
       var grouped = {};
       c.result.issues.forEach(function(issue) {
-        var cat = issue.category || 'general';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(issue);
+        var category = issue.category || 'Uncategorized';
+        if (!grouped[category]) {
+          grouped[category] = [];
+        }
+        grouped[category].push(issue);
       });
+      
       return grouped;
     };
     
-    c.getFilteredIssues = function() {
-      var issues = c.getIssues();
-      if (c.filters.severity !== 'all') {
-        issues = issues.filter(function(i) {
-          return i.severity && i.severity.toLowerCase() === c.filters.severity;
+    c.getCategoryStats = function() {
+      var byCategory = c.getIssuesByCategory();
+      var stats = [];
+      var total = c.getTotalIssues();
+      
+      for (var catName in byCategory) {
+        var issues = byCategory[catName];
+        stats.push({
+          name: catName,
+          count: issues.length,
+          percentage: total > 0 ? Math.round((issues.length / total) * 100) : 0
         });
       }
-      if (c.filters.table && c.filters.table !== 'all') {
-        issues = issues.filter(function(i) {
-          return (i.parent_table || i.record_table || i.table) === c.filters.table;
-        });
-      }
-      if (c.filters.search) {
-        var search = c.filters.search.toLowerCase();
-        issues = issues.filter(function(i) {
-          return (i.message || '').toLowerCase().indexOf(search) !== -1 ||
-                 (i.code || '').toLowerCase().indexOf(search) !== -1;
-        });
-      }
-      return issues;
+      
+      stats.sort(function(a, b) {
+        return b.count - a.count;
+      });
+      
+      return stats;
     };
     
+    // ============================================================
+    // MÉTHODES - HEALTH SCORE
+    // ============================================================
+    
     c.getHealthLabel = function() {
-      if (!c.result || !c.result.health_score) return 'N/A';
+      if (!c.result) return 'N/A';
       var score = c.result.health_score;
+      
       if (score >= 90) return 'Excellent';
       if (score >= 70) return 'Good';
       if (score >= 50) return 'Fair';
       return 'Poor';
     };
     
-    c.getHealthDescription = function() {
-      if (!c.result || !c.result.health_score) return '';
+    c.getHealthClass = function() {
+      if (!c.result) return '';
       var score = c.result.health_score;
+      
+      if (score >= 90) return 'health-excellent';
+      if (score >= 70) return 'health-good';
+      if (score >= 50) return 'health-fair';
+      return 'health-poor';
+    };
+    
+    c.getHealthDescription = function() {
+      if (!c.result) return '';
+      var score = c.result.health_score;
+      
       if (score >= 90) return 'Your system is in excellent condition with minimal issues.';
       if (score >= 70) return 'Your system is in good condition with some minor issues to address.';
       if (score >= 50) return 'Your system has several issues that should be addressed soon.';
       return 'Your system has critical issues that require immediate attention.';
     };
     
+    // ============================================================
+    // MÉTHODES - DURÉE ET DATES
+    // ============================================================
+    
     c.getAnalysisDuration = function() {
       if (!c.result || !c.result.sys_created_on || !c.result.sys_updated_on) return 'N/A';
+      
       var start = new Date(c.result.sys_created_on);
       var end = new Date(c.result.sys_updated_on);
       var diff = end - start;
+      
       var seconds = Math.floor(diff / 1000);
       var minutes = Math.floor(seconds / 60);
       var hours = Math.floor(minutes / 60);
+      
       if (hours > 0) return hours + 'h ' + (minutes % 60) + 'm';
       if (minutes > 0) return minutes + 'm ' + (seconds % 60) + 's';
       return seconds + 's';
     };
     
-    c.getAvgIssuesPerTable = function() {
-      var tables = Object.keys(c.getIssuesByTable());
-      if (tables.length === 0) return 0;
-      return (c.getIssues().length / tables.length).toFixed(1);
+    c.formatDate = function(dateString) {
+      if (!dateString) return 'N/A';
+      var date = new Date(dateString);
+      return date.toLocaleString();
     };
     
-    c.getMostAffectedTable = function() {
-      var topTables = c.getTopTables(1);
-      return topTables.length > 0 ? topTables[0].name : 'N/A';
+    // ============================================================
+    // MÉTHODES - EXPORT
+    // ============================================================
+    
+    c.exportJSON = function() {
+      if (!c.result) return;
+      
+      var dataStr = JSON.stringify(c.result, null, 2);
+      var dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+      
+      var exportFileDefaultName = 'fha_analysis_' + c.result.number + '.json';
+      
+      var linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
     };
     
-    c.sortTableStats = function(field) {
-      c.tableStatsSort = field;
-      c.tableStatsSortDir = c.tableStatsSortDir === 'asc' ? 'desc' : 'asc';
-    };
-    
-    c.clearFilters = function() {
-      c.filters = { search: '', severity: 'all', type: 'all', issueCategory: 'all', table: 'all' };
-    };
-    
-    c.hasActiveFilters = function() {
-      return c.filters.search || c.filters.severity !== 'all' || c.filters.type !== 'all' || c.filters.issueCategory !== 'all' || c.filters.table !== 'all';
-    };
-    
-    c.toggleFilter = function(type, value) {
-      // Not used in current template, kept for compatibility
-      if (type === 'severity') {
-        c.filters.severity = c.filters.severity === value ? 'all' : value;
-      }
-    };
-    
-    c.expandAll = function() {
-      if (c.result && c.result.issues) {
-        c.result.issues.forEach(function(issue) { issue.showDetails = true; });
-      }
-    };
-    
-    c.collapseAll = function() {
-      if (c.result && c.result.issues) {
-        c.result.issues.forEach(function(issue) { issue.showDetails = false; });
-      }
+    c.exportPDF = function() {
+      spModal.alert('PDF export will be implemented soon.');
     };
     
     c.viewRecord = function(issue) {
-      if (!issue) return;
-      var table = issue.parent_table || issue.record_table || issue.table;
-      var sysId = issue.record_sys_id || issue.sys_id;
-      if (table && sysId) {
-        window.open('/' + table + '.do?sys_id=' + sysId, '_blank');
-      }
+      if (!issue || !issue.sys_id) return;
+      
+      var table = issue.parent_table || issue.table;
+      var url = '/' + table + '.do?sys_id=' + issue.sys_id;
+      window.open(url, '_blank');
     };
     
-    // Init filters
-    c.tableStatsSort = 'total';
-    c.tableStatsSortDir = 'desc';
-    c.filters.table = 'all';
+    // ============================================================
+    // MÉTHODES - UTILITAIRES
+    // ============================================================
     
-    // Load data
-    console.log('[FHA Widget] Loading data...');
-    console.log('[FHA Widget] c.data:', c.data);
+    c.getTotalIssues = function() {
+      return c.result && c.result.issues ? c.result.issues.length : 0;
+    };
     
-    if (c.data && c.data.result) {
+    c.getTotalTables = function() {
+      return c.getUniqueTablesList().length;
+    };
+    
+    c.getTotalCategories = function() {
+      return Object.keys(c.getIssuesByCategory()).length;
+    };
+    
+    c.hasData = function() {
+      return c.result && c.result.issues && c.result.issues.length > 0;
+    };
+    
+    c.getSeverityIcon = function(severity) {
+      var icons = {
+        'CRITICAL': 'exclamation-circle',
+        'HIGH': 'exclamation-triangle',
+        'MEDIUM': 'info-circle',
+        'LOW': 'check-circle'
+      };
+      return icons[severity] || 'question-circle';
+    };
+    
+    c.getSeverityColor = function(severity) {
+      var colors = {
+        'CRITICAL': '#d9534f',
+        'HIGH': '#f0ad4e',
+        'MEDIUM': '#5bc0de',
+        'LOW': '#5cb85c'
+      };
+      return colors[severity] || '#777';
+    };
+    
+    // ============================================================
+    // INITIALISATION DES DONNÉES
+    // ============================================================
+    
+    // Charger les données depuis le server
+    if (c.data && c.data.result) 
       c.result = c.data.result;
-      console.log('[FHA Widget] Result loaded:', c.result);
-      console.log('[FHA Widget] Issues count:', c.result.issues ? c.result.issues.length : 0);
-      console.log('[FHA Widget] Has data?', !!c.result.data);
-      console.log('[FHA Widget] Has configuration?', !!c.result.configuration);
-      
-      // Extract category tabs
-      if (c.result.data) {
-        c.categoryTabs = Object.keys(c.result.data).filter(function(k) {
-          return c.result.data[k] && c.result.data[k].length > 0;
-        });
-        console.log('[FHA Widget] Category tabs:', c.categoryTabs);
-      }
-      
-      // Extract issue categories
-      if (c.result.issues) {
-        var cats = { 'all': true };
-        c.result.issues.forEach(function(i) {
-          cats[i.category || 'general'] = true;
-        });
-        c.issueCategories = Object.keys(cats);
-        console.log('[FHA Widget] Issue categories:', c.issueCategories);
-      }
-    } else {
-      console.error('[FHA Widget] No data.result available');
-      console.log('[FHA Widget] c.data structure:', JSON.stringify(c.data));
-    }
-  };
-})();
+    
+};
 ]]></client_script>
         <controller_as>c</controller_as>
         <css/>
@@ -437,106 +394,39 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function() {
-  // Récupérer le sys_id depuis l'URL
   var sysId = $sp.getParameter('sys_id');
   
-  console.log('=== FHA SERVER SCRIPT DEBUG ===');
-  console.log('sys_id from URL:', sysId);
-  
-  if (!sysId) {
-    console.error('ERROR: No sys_id parameter found in URL');
-    data.error = 'No analysis ID provided';
-    data.result = null;
-    return;
-  }
-  
-  // Requête GlideRecord
   var gr = new GlideRecord('x_1310794_founda_0_results');
   
   if (gr.get(sysId)) {
-    console.log('Record found:', gr.getValue('number'));
-    console.log('State:', gr.getValue('state'));
-    console.log('Issues field type:', typeof gr.getValue('issues'));
-    console.log('Issues field raw value:', gr.getValue('issues'));
-    
-    // Parse result_json field (contains full analysis data)
-    var resultJson = gr.getValue('result_json');
-    var fullResult = null;
-    
-    if (resultJson) {
-      try {
-        fullResult = JSON.parse(resultJson);
-        console.log('Parsed result_json successfully');
-      } catch (e) {
-        console.error('ERROR parsing result_json:', e.message);
-      }
-    }
-    
-    // Construction de l'objet result
     data.result = {
       sys_id: gr.getUniqueValue(),
       number: gr.getValue('number'),
       state: gr.getValue('state'),
-      health_score: parseFloat(gr.getValue('health_score')) || 0,
-      configuration_name: gr.getValue('configuration_name'),
-      configuration_description: gr.getValue('configuration_description'),
-      scope: gr.getValue('scope'),
       sys_created_on: gr.getValue('sys_created_on'),
       sys_updated_on: gr.getValue('sys_updated_on'),
       sys_created_by: gr.getValue('sys_created_by'),
-      issues: [],
-      data: {},
-      configuration: {}
+      issues: []
     };
-    
-    // If full result exists, use it
-    if (fullResult) {
-      if (fullResult.issues) data.result.issues = fullResult.issues;
-      if (fullResult.data) data.result.data = fullResult.data;
-      if (fullResult.configuration) data.result.configuration = fullResult.configuration;
-      console.log('Loaded full result from result_json');
-    } else {
-      // Fallback: Parse du champ JSON issues
-      var issuesJson = gr.getValue('issues');
-      console.log('Issues JSON length:', issuesJson ? issuesJson.length : 0);
-      
-      if (issuesJson) {
-        try {
-          var parsedIssues = JSON.parse(issuesJson);
-          console.log('Parsed issues type:', typeof parsedIssues);
-          console.log('Is array?', Array.isArray(parsedIssues));
-          
-          if (Array.isArray(parsedIssues)) {
-            data.result.issues = parsedIssues;
-            console.log('SUCCESS: Loaded ' + parsedIssues.length + ' issues');
-          } else if (parsedIssues && parsedIssues.issues && Array.isArray(parsedIssues.issues)) {
-            // Si la structure est {issues: [...]}
-            data.result.issues = parsedIssues.issues;
-            console.log('SUCCESS: Loaded ' + parsedIssues.issues.length + ' issues from nested structure');
-          } else {
-            console.warn('WARNING: Parsed JSON is not an array');
-            console.log('Parsed structure:', JSON.stringify(parsedIssues).substring(0, 200));
-          }
-        } catch (e) {
-          console.error('ERROR parsing issues JSON:', e.message);
-          console.error('JSON content preview:', issuesJson.substring(0, 500));
-          data.result.issues = [];
-        }
-      } else {
-        console.warn('WARNING: Issues field is empty');
+	
+	var issuesJson = gr.getValue('details');    
+		console.log("Sisi : " +issuesJson)
+    if (issuesJson) {
+      try {
+    /*    var parsedIssues = JSON.parse(issuesJson);        
+        if (Array.isArray(parsedIssues)) {
+          data.result.issues = parsedIssues;
+        } else if (parsedIssues && parsedIssues.issues && Array.isArray(parsedIssues.issues)) {*/
+          data.result.issues = parsedIssues.result.issues;
+     //   }
+      } catch (e) {
+        data.result.issues = [];
       }
-    }
-    
-    console.log('FINAL: data.result.issues.length =', data.result.issues.length);
-    
+    }     
   } else {
-    console.error('ERROR: No record found with sys_id:', sysId);
     data.error = 'Analysis not found';
     data.result = null;
-  }
-  
-  console.log('=== END SERVER SCRIPT ===');
-  
+  }  
 })();
 ]]></script>
         <servicenow>false</servicenow>
@@ -544,14 +434,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>107</sys_mod_count>
+        <sys_mod_count>111</sys_mod_count>
         <sys_name>Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-30 07:59:16</sys_updated_on>
+        <sys_updated_on>2026-01-30 16:21:38</sys_updated_on>
         <template><![CDATA[<div class="fha-detail">
   <!-- Header Section -->
   <div class="fha-detail-header">
