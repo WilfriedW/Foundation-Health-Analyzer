@@ -58,7 +58,6 @@ FHTemplateManager.prototype = {
         config.table = template.table;
         config.template = templateId;
         config.use_template = true;
-        config.base_query = template.base_query;
         config.active = true;
         
         // Apply options
