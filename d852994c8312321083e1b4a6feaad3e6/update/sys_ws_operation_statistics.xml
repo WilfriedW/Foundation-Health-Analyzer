@@ -74,7 +74,7 @@
         <produces>application/json</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/statistics</relative_path>
-        <request_example><![CDATA[// GET /api/x_1310794_founda_0/fha/statistics
+        <request_example>// GET /api/x_1310794_founda_0/fha/statistics
 // 
 // Query Parameters (optional):
 // - type: Type of statistics to retrieve
@@ -91,10 +91,10 @@
 // GET /api/x_1310794_founda_0/fha/statistics?type=global
 //
 // 3. Get trending data for last 60 days:
-// GET /api/x_1310794_founda_0/fha/statistics?type=trending&days=60
+// GET /api/x_1310794_founda_0/fha/statistics?type=trending&amp;days=60
 //
 // 4. Get top 5 problematic tables:
-// GET /api/x_1310794_founda_0/fha/statistics?type=top_tables&limit=5
+// GET /api/x_1310794_founda_0/fha/statistics?type=top_tables&amp;limit=5
 //
 // Success Response (200):
 // {
@@ -167,11 +167,11 @@
 //     ]
 //   },
 //   "timestamp": "2026-01-17 10:30:00"
-// }]]></request_example>
+// }</request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>false</requires_snc_internal_role>
-        <short_description>Get comprehensive statistics and metrics for Foundation Health Analyzer dashboard</short_description>
+        <short_description>Get comprehensive statistics and metrics for Foundation Health Analyzer dashboar</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-17 00:00:00</sys_created_on>

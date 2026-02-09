@@ -52,7 +52,7 @@
         <update_guid_history>d148554c37923210eec7876518e32d7f:825912079</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
-        <sys_audit_delete display_value="FHA Homepage - Container 1">ab1b55c083d2321083e1b4a6feaad366</sys_audit_delete>
+        <sys_audit_delete display_value="">ab1b55c083d2321083e1b4a6feaad366</sys_audit_delete>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:00:31</sys_created_on>

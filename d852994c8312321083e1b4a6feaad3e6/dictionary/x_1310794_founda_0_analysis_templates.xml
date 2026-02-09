@@ -9,12 +9,12 @@
         <element display="true" label="Name" mandatory="true" max_length="100" name="name" type="string"/>
         <element choice="1" label="Category" max_length="40" name="category" type="choice">
             <choice>
-                <element inactive_on_update="false" label="Automation" sequence="0" value="automation"/>
+                <element inactive_on_update="false" label="Integration" sequence="2" value="integration"/>
                 <element inactive_on_update="false" label="Security" sequence="1" value="security"/>
                 <element inactive_on_update="false" label="All" sequence="5" value="all"/>
-                <element inactive_on_update="false" label="Performance" sequence="3" value="performance"/>
                 <element inactive_on_update="false" label="Quality" sequence="4" value="quality"/>
-                <element inactive_on_update="false" label="Integration" sequence="2" value="integration"/>
+                <element inactive_on_update="false" label="Automation" sequence="0" value="automation"/>
+                <element inactive_on_update="false" label="Performance" sequence="3" value="performance"/>
             </choice>
         </element>
         <index name="index">

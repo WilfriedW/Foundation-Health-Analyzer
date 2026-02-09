@@ -33,7 +33,7 @@
         <short_description/>
         <size>md</size>
         <sp_column display_value="1">3a7d1bd083d2f21083e1b4a6feaad3cd</sp_column>
-        <sp_widget display_value="FHA Documentation">5ada939c8392f21083e1b4a6feaad360</sp_widget>
+        <sp_widget display_value="">5ada939c8392f21083e1b4a6feaad360</sp_widget>
         <sys_class_name>sp_instance</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-04 00:08:40</sys_created_on>

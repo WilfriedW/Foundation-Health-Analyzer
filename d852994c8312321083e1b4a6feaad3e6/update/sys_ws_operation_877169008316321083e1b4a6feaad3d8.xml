@@ -59,7 +59,7 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/analysis/{analysis_id}</relative_path>
-        <request_example><![CDATA[// Path Parameter: analysis_id (required) - The sys_id of the analysis result
+        <request_example>// Path Parameter: analysis_id (required) - The sys_id of the analysis result
 // Example: /api/x_1310794_founda_0/fha/analysis/abc123def456
 
 // Success Response (200):
@@ -92,7 +92,7 @@
 {
   "success": false,
   "error": "Analysis not found"
-}]]></request_example>
+}</request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
