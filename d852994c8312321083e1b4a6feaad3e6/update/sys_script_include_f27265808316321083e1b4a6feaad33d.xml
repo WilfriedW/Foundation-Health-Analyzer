@@ -152,10 +152,46 @@ FHAnalyzer.prototype = {
         var gr = new GlideRecord(this.resultsTable);
         gr.initialize();
         gr.setValue('state', 'Completed');
+
+        // Build structured JSON
         var detailObj = {
-            configuration: config,
-            result: result
+            configuration: {
+                sys_id: config.sys_id,
+                name: config.name,
+                table_name: config.table_name,
+                table_label: config.table_label,
+                description: config.description,
+                options: {
+                    deep_scan: config.deep_scan,
+                    include_children_tables: config.include_children_tables,
+                    ignore_servicenow_records: config.ignore_servicenow_records,
+                    include_ldap: config.include_ldap
+                },
+                verification_items: (config.verification_items || []).map(function(vi) {
+                    return {
+                        sys_id: vi.sys_id,
+                        name: vi.name,
+                        category: vi.category,
+                        table_name: vi.tableName,
+                        query_type: vi.query_type,
+                        query_value: vi.query_value,
+                        issue_rules: vi.issue_rules
+                    };
+                })
+            },
+            result: {
+                success: result.success,
+                health_score: result.health_score || 0,
+                issues_high: result.issues_high || 0,
+                issues_medium: result.issues_medium || 0,
+                issues_low: result.issues_low || 0,
+                issue_count: result.issue_count || 0,
+                record_count: result.record_count || 0,
+                issues: result.issues || [],
+                errors: result.errors || []
+            }
         };
+
         gr.setValue('details', JSON.stringify(detailObj));
         return gr.insert();
     },
