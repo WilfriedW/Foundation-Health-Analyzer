@@ -468,15 +468,61 @@ FHAnalysisEngine.prototype = {
 
             result.issues = aggregatedIssues;
 
+            // Calculate widget metrics
+            result = this._calculateMetrics(result);
+
             gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
             gs.info('[FHAnalysisEngine] ✅ Analysis complete');
             gs.info('[FHAnalysisEngine] Total issues found: ' + aggregatedIssues.length);
+            gs.info('[FHAnalysisEngine] Health score: ' + result.health_score);
             gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
 
         } catch (error) {
             gs.error('[FHAnalysisEngine] ❌ _analyzeResults error: ' + error.message);
             gs.error('[FHAnalysisEngine] Stack: ' + error.stack);
         }
+
+        return result;
+    },
+
+    /**
+     * Calculate metrics for widget display
+     * @param {Object} result - Analysis result
+     * @returns {Object} - Result with calculated metrics
+     */
+    _calculateMetrics: function(result) {
+        var issues = result.issues || [];
+        var data = result.data || [];
+
+        // Count issues by severity
+        var high = 0, medium = 0, low = 0;
+        issues.forEach(function(issue) {
+            switch(issue.severity) {
+                case 'critical':
+                case 'high':
+                    high++;
+                    break;
+                case 'medium':
+                    medium++;
+                    break;
+                case 'low':
+                    low++;
+                    break;
+            }
+        });
+
+        result.issues_high = high;
+        result.issues_medium = medium;
+        result.issues_low = low;
+        result.issue_count = issues.length;
+        result.record_count = data.length;
+
+        // Calculate health score (0-100)
+        var score = 100;
+        score -= (high * 20);      // -20 per high/critical
+        score -= (medium * 5);     // -5 per medium
+        score -= (low * 2);        // -2 per low
+        result.health_score = Math.max(0, score);
 
         return result;
     },

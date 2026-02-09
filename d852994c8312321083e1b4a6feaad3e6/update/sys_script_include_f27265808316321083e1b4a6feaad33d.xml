@@ -42,8 +42,22 @@ FHAnalyzer.prototype = {
         if (!gr.get(configSysId)) return null;
 
         var out = [];
+        var viIds = '';
+
+        // Load VIs from template or direct selection
+        if (gr.use_template && gr.getValue('template')) {
+            var template = new GlideRecord('x_1310794_founda_0_analysis_templates');
+            if (template.get(gr.getValue('template'))) {
+                viIds = template.getValue('verification_items') || '';
+            }
+        } else {
+            viIds = gr.getValue('verification_items') || '';
+        }
+
+        if (!viIds) return this._buildEmptyConfig(gr);
+
         var verificationItems = new GlideRecord('x_1310794_founda_0_verification_items');
-        verificationItems.addQuery('sys_id', 'IN', gr.getValue('verification_items'));
+        verificationItems.addQuery('sys_id', 'IN', viIds);
         verificationItems.addQuery('active', true);
         verificationItems.query();
 
@@ -80,6 +94,23 @@ FHAnalyzer.prototype = {
             ignore_servicenow_records: gr.ignore_servicenow_records,
             include_ldap: gr.include_ldap,
             verification_items: out
+        };
+    },
+
+    _buildEmptyConfig: function(gr) {
+        return {
+            sys_id: gr.sys_id.toString(),
+            name: gr.name.toString(),
+            active: Boolean(gr.active),
+            table_name: gr.table.name || '',
+            table_label: gr.table.label || '',
+            table_sys_id: gr.table.sys_id || '',
+            description: gr.description || '',
+            include_children_tables: gr.include_children_tables,
+            deep_scan: gr.deep_scan,
+            ignore_servicenow_records: gr.ignore_servicenow_records,
+            include_ldap: gr.include_ldap,
+            verification_items: []
         };
     },
 
