@@ -5,58 +5,68 @@
     
     var templates = [
         {
-            name: 'Standard Business Rules Analysis',
-            description: 'Complete analysis of Business Rules: performance, security, quality',
+            name: 'Business Rules Check',
+            description: 'Analyze Business Rules on target table: performance, security, quality',
             table: 'sys_script',
             category: 'automation',
-            base_query: 'active=true^sys_packageISNOTEMPTY',
+            base_query: 'collection={0}^active=true^sys_packageISNOTEMPTY',
             icon: 'script',
             estimated_duration: 30,
             rules: ['BR_HEAVY', 'HARDCODED_SYSID', 'BR_DENSITY', 'MISSING_FIELD', 'SYSTEM_CREATED']
         },
         {
-            name: 'Quick Business Rules Check',
-            description: 'Fast check for critical issues only',
+            name: 'Business Rules Quick Check',
+            description: 'Fast check for critical BR issues on target table',
             table: 'sys_script',
             category: 'automation',
-            base_query: 'active=true^sys_packageISNOTEMPTY',
+            base_query: 'collection={0}^active=true^sys_packageISNOTEMPTY',
             icon: 'flash',
             estimated_duration: 15,
             rules: ['BR_HEAVY', 'HARDCODED_SYSID']
         },
         {
-            name: 'Security ACLs Audit',
-            description: 'Complete security audit of Access Control Lists',
+            name: 'Security ACLs Check',
+            description: 'Security audit of ACLs on target table',
             table: 'sys_security_acl',
             category: 'security',
-            base_query: 'active=true',
+            base_query: 'name={0}^ORname=*.{0}^ORname={0}.*^active=true',
             icon: 'lock',
             estimated_duration: 45,
             rules: ['ACL_PERMISSIVE', 'HARDCODED_SYSID', 'MISSING_FIELD', 'SYSTEM_CREATED']
         },
         {
-            name: 'Client Scripts Performance',
-            description: 'Analyze Client Scripts for performance issues',
+            name: 'Client Scripts Check',
+            description: 'Analyze Client Scripts on target table for performance issues',
             table: 'sys_script_client',
             category: 'performance',
-            base_query: 'active=true^sys_packageISNOTEMPTY',
+            base_query: 'table={0}^active=true^sys_packageISNOTEMPTY',
             icon: 'user',
             estimated_duration: 25,
             rules: ['CS_HEAVY', 'HARDCODED_SYSID', 'MISSING_FIELD']
         },
         {
-            name: 'UI Actions Quality Check',
-            description: 'Check UI Actions configuration and quality',
+            name: 'UI Actions Check',
+            description: 'Check UI Actions on target table',
             table: 'sys_ui_action',
             category: 'quality',
-            base_query: 'active=true^sys_packageISNOTEMPTY',
+            base_query: 'table={0}^active=true^sys_packageISNOTEMPTY',
             icon: 'button',
             estimated_duration: 20,
             rules: ['HARDCODED_SYSID', 'MISSING_FIELD', 'INACTIVE_RECORD']
         },
         {
+            name: 'Table Records Direct Check',
+            description: 'Direct analysis of records in target table',
+            table: '{0}',
+            category: 'quality',
+            base_query: 'active=true',
+            icon: 'table',
+            estimated_duration: 20,
+            rules: ['MISSING_FIELD', 'DUPLICATE', 'INACTIVE_RECORD', 'SYSTEM_CREATED']
+        },
+        {
             name: 'Scheduled Jobs Analysis',
-            description: 'Analyze Scheduled Jobs for issues',
+            description: 'Analyze all Scheduled Jobs (instance-wide)',
             table: 'sysauto_script',
             category: 'automation',
             base_query: 'active=true',
@@ -66,7 +76,7 @@
         },
         {
             name: 'Script Includes Review',
-            description: 'Review Script Includes for quality and security',
+            description: 'Review all Script Includes (instance-wide)',
             table: 'sys_script_include',
             category: 'quality',
             base_query: 'active=true^sys_packageISNOTEMPTY',
@@ -76,7 +86,7 @@
         },
         {
             name: 'Email Notifications Audit',
-            description: 'Audit Email Notifications configuration',
+            description: 'Audit all Email Notifications (instance-wide)',
             table: 'sysevent_email_action',
             category: 'integration',
             base_query: 'active=true',
@@ -86,7 +96,7 @@
         },
         {
             name: 'REST Messages Security',
-            description: 'Security review of REST Messages',
+            description: 'Security review of all REST Messages (instance-wide)',
             table: 'sys_rest_message',
             category: 'security',
             base_query: 'active=true',
@@ -96,7 +106,7 @@
         },
         {
             name: 'Service Portal Widgets',
-            description: 'Analyze Service Portal Widgets',
+            description: 'Analyze all Service Portal Widgets (instance-wide)',
             table: 'sp_widget',
             category: 'quality',
             base_query: 'active=true^sys_packageISNOTEMPTY',

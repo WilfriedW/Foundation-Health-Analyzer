@@ -47,15 +47,37 @@ FHTemplateManager.prototype = {
     },
 
     // Create configuration from template (complete implementation)
-    createFromTemplate: function(templateId, configName, options) {
+    // @param templateId - sys_id of template
+    // @param configName - Name for the configuration
+    // @param targetTable - (Optional) sys_id or name of target table (overrides template.table)
+    // @param options - (Optional) Configuration options
+    createFromTemplate: function(templateId, configName, targetTable, options) {
+        // Handle old signature (no targetTable parameter)
+        if (typeof targetTable === 'object' && targetTable !== null) {
+            options = targetTable;
+            targetTable = null;
+        }
+        
         var template = this._getTemplate(templateId);
         if (!template) throw 'Template not found: ' + templateId;
+        
+        // Determine target table (from parameter or template)
+        var tableValue = template.table;
+        if (targetTable) {
+            // Check if it's a sys_id or table name
+            var dbObject = new GlideRecord('sys_db_object');
+            if (dbObject.get(targetTable)) {
+                tableValue = dbObject.sys_id.toString();
+            } else if (dbObject.get('name', targetTable)) {
+                tableValue = dbObject.sys_id.toString();
+            }
+        }
         
         // Create configuration
         var config = new GlideRecord('x_1310794_founda_0_configurations');
         config.initialize();
         config.name = configName || template.name;
-        config.table = template.table;
+        config.table = tableValue;
         config.template = templateId;
         config.use_template = true;
         config.active = true;
@@ -84,14 +106,27 @@ FHTemplateManager.prototype = {
         var rules = this._getTemplateRules(templateId);
         if (rules.length === 0) return;
         
+        // Get target table name from configuration
+        var config = new GlideRecord('x_1310794_founda_0_configurations');
+        config.get(configId);
+        var targetTable = config.table.getDisplayValue();
+        
+        // Replace {0} placeholder with target table name
+        var query = template.base_query || 'active=true';
+        query = query.replace(/{0}/g, targetTable);
+        
+        // Determine VI table (use template.table or target table)
+        var viTable = template.table;
+        if (viTable === '{0}') viTable = config.table.toString();
+        
         // Create one verification item with all rules
         var vi = new GlideRecord('x_1310794_founda_0_verification_items');
         vi.initialize();
-        vi.name = template.name + ' - Rules';
+        vi.name = template.name + ' - ' + targetTable;
         vi.category = template.category;
-        vi.table = template.table;
+        vi.table = viTable;
         vi.query_type = 'encoded';
-        vi.query_value = template.base_query || 'active=true';
+        vi.query_value = query;
         vi.fields = 'name,active,script,sys_created_by,sys_updated_by,sys_updated_on';
         vi.active = true;
         
