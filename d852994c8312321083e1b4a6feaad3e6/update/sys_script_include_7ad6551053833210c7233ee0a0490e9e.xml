@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHTemplateManager</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHTemplateManager</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[// FHTemplateManager - Template management for Foundation Health Analyzer
+// Script Include - API Name: x_1310794_founda_0.FHTemplateManager
+
+var FHTemplateManager = Class.create();
+FHTemplateManager.prototype = {
+    initialize: function() {},
+
+    // Get all active templates
+    getTemplates: function(filters) {
+        var templates = [];
+        var gr = new GlideRecord('x_1310794_founda_0_analysis_templates');
+        gr.addQuery('active', true);
+        
+        if (filters) {
+            if (filters.table) gr.addQuery('table', filters.table);
+            if (filters.category) gr.addQuery('category', filters.category);
+        }
+        
+        gr.orderBy('category');
+        gr.orderBy('name');
+        gr.query();
+        
+        while (gr.next()) {
+            templates.push({
+                sys_id: gr.getValue('sys_id'),
+                name: gr.getValue('name'),
+                description: gr.getValue('description'),
+                table: gr.getValue('table'),
+                table_name: gr.table.getDisplayValue(),
+                category: gr.getValue('category'),
+                icon: gr.getValue('icon'),
+                estimated_duration: gr.getValue('estimated_duration'),
+                base_query: gr.getValue('base_query')
+            });
+        }
+        
+        return templates;
+    },
+
+    // Get template details with rules
+    getTemplateDetails: function(templateId) {
+        var template = this._getTemplate(templateId);
+        if (!template) return null;
+        
+        template.rules = this._getTemplateRules(templateId);
+        return template;
+    },
+
+    // Create configuration from template
+    createFromTemplate: function(templateId, configName, options) {
+        var template = this._getTemplate(templateId);
+        if (!template) throw 'Template not found: ' + templateId;
+        
+        var config = new GlideRecord('x_1310794_founda_0_configurations');
+        config.initialize();
+        config.name = configName || template.name;
+        config.table = template.table;
+        config.template = templateId;
+        config.use_template = true;
+        config.base_query = template.base_query;
+        config.active = true;
+        
+        // Apply options if provided
+        if (options) {
+            if (options.deep_scan !== undefined) config.deep_scan = options.deep_scan;
+            if (options.ignore_servicenow_records !== undefined) 
+                config.ignore_servicenow_records = options.ignore_servicenow_records;
+            if (options.include_children_tables !== undefined) 
+                config.include_children_tables = options.include_children_tables;
+            if (options.include_ldap !== undefined) config.include_ldap = options.include_ldap;
+        }
+        
+        var configId = config.insert();
+        if (!configId) throw 'Failed to create configuration';
+        
+        // Link rules from template
+        this._linkTemplateRules(templateId, configId);
+        
+        return configId;
+    },
+
+    // Get template rules
+    _getTemplateRules: function(templateId) {
+        var rules = [];
+        var gr = new GlideRecord('x_1310794_founda_0_template_rules');
+        gr.addQuery('template', templateId);
+        gr.addQuery('enabled', true);
+        gr.orderBy('order');
+        gr.query();
+        
+        while (gr.next()) {
+            rules.push({
+                rule_id: gr.getValue('rule'),
+                rule_code: gr.rule.code.toString(),
+                rule_name: gr.rule.name.toString(),
+                params_override: gr.getValue('params_override')
+            });
+        }
+        
+        return rules;
+    },
+
+    // Get single template
+    _getTemplate: function(templateId) {
+        var gr = new GlideRecord('x_1310794_founda_0_analysis_templates');
+        if (!gr.get(templateId)) return null;
+        
+        return {
+            sys_id: gr.getValue('sys_id'),
+            name: gr.getValue('name'),
+            description: gr.getValue('description'),
+            table: gr.getValue('table'),
+            table_name: gr.table.getDisplayValue(),
+            category: gr.getValue('category'),
+            icon: gr.getValue('icon'),
+            estimated_duration: gr.getValue('estimated_duration'),
+            base_query: gr.getValue('base_query')
+        };
+    },
+
+    // Link template rules to configuration
+    _linkTemplateRules: function(templateId, configId) {
+        var templateRules = new GlideRecord('x_1310794_founda_0_template_rules');
+        templateRules.addQuery('template', templateId);
+        templateRules.addQuery('enabled', true);
+        templateRules.query();
+        
+        // Note: This assumes you'll create verification items from these rules
+        // Implementation depends on your exact data model for config -> rules link
+        // You may need to adjust this based on your verification items structure
+        
+        return true;
+    },
+
+    type: 'FHTemplateManager'
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-09 21:07:55</sys_created_on>
+        <sys_id>7ad6551053833210c7233ee0a0490e9e</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHTemplateManager</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_7ad6551053833210c7233ee0a0490e9e</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-09 21:07:55</sys_updated_on>
+    </sys_script_include>
+</record_update>

@@ -28,6 +28,20 @@
             <sys_updated_by>admin</sys_updated_by>
             <sys_updated_on>2026-01-06 22:50:33</sys_updated_on>
         </sys_ui_form_section>
+        <sys_ui_form_section action="INSERT_OR_UPDATE">
+            <position>2</position>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-02-09 21:09:44</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>c067d55053833210c7233ee0a0490e7a</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_overrides/>
+            <sys_ui_form display_value="x_1310794_founda_0_configurations" name="x_1310794_founda_0_configurations" sys_domain="global" view="Default view">5d68ee5d53d23610c7233ee0a0490e98</sys_ui_form>
+            <sys_ui_section caption="Template" display_value="Template" name="x_1310794_founda_0_configurations" sys_domain="global" view="Default view">0c67d55053833210c7233ee0a0490e75</sys_ui_section>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-02-09 21:09:44</sys_updated_on>
+        </sys_ui_form_section>
         <sys_ui_form action="INSERT_OR_UPDATE">
             <name>x_1310794_founda_0_configurations</name>
             <roles/>
