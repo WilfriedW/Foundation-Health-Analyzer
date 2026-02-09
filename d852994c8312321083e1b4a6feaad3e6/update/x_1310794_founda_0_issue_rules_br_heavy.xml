@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="x_1310794_founda_0_issue_rules">
+    <x_1310794_founda_0_issue_rules action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <code>BR_HEAVY</code>
+        <default_severity>medium</default_severity>
+        <description>Vérifie si le script de la Business Rule est trop long. Utilisez params {"max_lines": 100, "max_chars": 2000} pour définir les limites.</description>
+        <name>Heavy Business Rule</name>
+        <params>{"max_lines":100,"max_chars":2000}</params>
+        <script><![CDATA[if (item.values.script) {
+    var script = item.values.script.toString();
+    var lineCount = (script.match(/\n/g) || []).length + 1;
+    var charCount = script.length;
+    var maxLines = params.max_lines || 100;
+    var maxChars = params.max_chars || 2000;
+
+    if (lineCount > maxLines || charCount > maxChars) {
+        var recordName = item.values.name || 'Business Rule';
+        var message = 'Business Rule "' + recordName + '" trop complexe: ' + lineCount + ' lignes, ' + charCount + ' caractères. Envisagez de refactoriser dans un Script Include.';
+        
+        issues.push({
+            code: rule.code,
+            message: message,
+            severity: lineCount > 200 ? 'high' : (rule.severity || 'medium'),
+            details: {
+                line_count: lineCount,
+                char_count: charCount,
+                max_lines: maxLines,
+                max_chars: maxChars,
+                record_table: item.table,
+                record_sys_id: item.sys_id,
+                record_name: recordName,
+                recommendation: 'Décomposer en fonctions plus petites dans un Script Include'
+            }
+        });
+    }
+}]]></script>
+        <severity>medium</severity>
+        <sys_class_name>x_1310794_founda_0_issue_rules</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-18 12:00:00</sys_created_on>
+        <sys_id>aaaa0003feed53163610c7233ee0a049</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Heavy Business Rule</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>x_1310794_founda_0_issue_rules_aaaa0003feed53163610c7233ee0a049</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-18 12:00:00</sys_updated_on>
+        <type>br_heavy</type>
+    </x_1310794_founda_0_issue_rules>
+</record_update>

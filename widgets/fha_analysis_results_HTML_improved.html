@@ -1,0 +1,191 @@
+<div class="fha-analysis-list">
+  
+  <!-- Page Header with Stats (Compact Design) -->
+  <div class="fha-page-header" style="margin-bottom: var(--fha-spacing-xl);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--fha-spacing-lg);">
+      <div>
+        <h2><i class="fa fa-chart-bar"></i> Analysis History</h2>
+        <p>View and manage all your table health analyses</p>
+      </div>
+      <div style="display: flex; gap: var(--fha-spacing-md);">
+        <!-- Compact Stats -->
+        <div class="fha-stat-card-compact">
+          <div class="fha-stat-value-compact">{{c.totalCount}}</div>
+          <div class="fha-stat-label-compact">Total Analyses</div>
+        </div>
+        <div class="fha-stat-card-compact fha-stat-info">
+          <div class="fha-stat-value-compact">{{c.data.stats.avgScore || 0}}%</div>
+          <div class="fha-stat-label-compact">Avg. Score</div>
+        </div>
+        <div class="fha-stat-card-compact fha-stat-success">
+          <div class="fha-stat-value-compact">{{c.data.stats.goodCount || 0}}</div>
+          <div class="fha-stat-label-compact">Good Health</div>
+        </div>
+        <div class="fha-stat-card-compact fha-stat-danger">
+          <div class="fha-stat-value-compact">{{c.data.stats.criticalCount || 0}}</div>
+          <div class="fha-stat-label-compact">Critical</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Bar (Professional Design) -->
+  <div class="fha-card" style="margin-bottom: var(--fha-spacing-xl);">
+    <div class="fha-filter-bar">
+      
+      <!-- Search Input -->
+      <div class="fha-filter-group fha-filter-search" style="flex: 2; min-width: 250px;">
+        <label>&nbsp;</label>
+        <input type="text" 
+               class="fha-filter-input" 
+               placeholder="Search by number or table..."
+               ng-model="c.filters.search"
+               ng-keyup="$event.keyCode === 13 && c.applyFilters()">
+      </div>
+      
+      <!-- Status Filter -->
+      <div class="fha-filter-group">
+        <label>Status:</label>
+        <select class="fha-filter-input" ng-model="c.filters.status" ng-change="c.applyFilters()">
+          <option value="all">All</option>
+          <option value="completed">Completed</option>
+          <option value="in_progress">In Progress</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+      
+      <!-- Score Filter -->
+      <div class="fha-filter-group">
+        <label>Score:</label>
+        <select class="fha-filter-input" ng-model="c.filters.scoreRange" ng-change="c.applyFilters()">
+          <option value="all">All Scores</option>
+          <option value="good">Good (70+)</option>
+          <option value="medium">Needs Attention (40-69)</option>
+          <option value="poor">Critical (&lt;40)</option>
+        </select>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div class="fha-filter-actions">
+        <button class="fha-btn fha-btn-secondary fha-btn-icon" ng-click="c.resetFilters()" title="Reset filters">
+          <i class="fa fa-times"></i> Reset
+        </button>
+        <button class="fha-btn fha-btn-primary fha-btn-icon" ng-click="c.applyFilters()" title="Apply filters">
+          <i class="fa fa-search"></i> Search
+        </button>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="fha-loading" ng-if="c.loading" style="text-align: center; padding: var(--fha-spacing-xxl);">
+    <i class="fa fa-spinner fa-spin fa-3x" style="color: var(--fha-primary);"></i>
+    <p style="margin-top: var(--fha-spacing-md); color: var(--fha-text-muted);">Loading analyses...</p>
+  </div>
+  
+  <!-- Empty State -->
+  <div class="fha-empty-state" ng-if="!c.loading && c.analyses.length === 0" 
+       style="text-align: center; padding: var(--fha-spacing-xxl); background: var(--fha-card-bg); border-radius: var(--fha-radius-lg); box-shadow: var(--fha-shadow-sm);">
+    <i class="fa fa-inbox" style="font-size: 64px; color: var(--fha-text-muted); margin-bottom: var(--fha-spacing-lg);"></i>
+    <h3 style="color: var(--fha-text-color); margin-bottom: var(--fha-spacing-sm);">No analyses found</h3>
+    <p style="color: var(--fha-text-muted); margin-bottom: var(--fha-spacing-lg);">Run your first analysis from the dashboard to see results here.</p>
+    <button class="fha-btn fha-btn-primary fha-btn-icon" ng-click="c.goToDashboard()">
+      <i class="fa fa-play"></i> Go to Dashboard
+    </button>
+  </div>
+
+  <!-- Analysis Cards Grid (Compact Tiles) -->
+  <div class="fha-analysis-grid-compact" ng-if="!c.loading && c.analyses.length > 0">
+    
+    <!-- Single Analysis Tile -->
+    <div class="fha-card fha-analysis-tile" 
+         ng-repeat="analysis in c.analyses" 
+         ng-click="c.viewDetail(analysis)">
+      
+      <div class="fha-card-body" style="padding: var(--fha-spacing-md); text-align: center;">
+        
+        <!-- Analysis Number & Status Badge -->
+        <div style="margin-bottom: var(--fha-spacing-sm);">
+          <h4 style="margin: 0 0 var(--fha-spacing-xs) 0; color: var(--fha-primary); font-weight: 700; font-size: 18px;">
+            {{analysis.number}}
+          </h4>
+          <span class="fha-status-badge-compact" 
+                ng-class="{'badge-completed': analysis.status === 'completed', 'badge-in-progress': analysis.status === 'in_progress', 'badge-failed': analysis.status === 'failed'}">
+            {{analysis.status}}
+          </span>
+        </div>
+        
+        <!-- Table Name -->
+        <div style="margin-bottom: var(--fha-spacing-md); padding: 0 var(--fha-spacing-xs);">
+          <div style="font-size: 12px; color: var(--fha-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{analysis.table_label || 'N/A'}}">
+            <i class="fa fa-table" style="margin-right: 4px;"></i>
+            <strong>{{analysis.table_label || 'N/A'}}</strong>
+          </div>
+        </div>
+        
+        <!-- Score Circle (Medium Size) -->
+        <div style="margin: var(--fha-spacing-md) auto;">
+          <div class="fha-score-circle-medium" 
+               ng-class="'fha-score-' + c.getHealthScoreClass(analysis.health_score)">
+            <div style="font-size: 28px; font-weight: 800; line-height: 1;">
+              {{analysis.health_score}}
+            </div>
+            <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">
+              /100
+            </div>
+          </div>
+          <div style="margin-top: var(--fha-spacing-xs); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;"
+               ng-class="{'fha-text-success': analysis.health_score >= 70, 'fha-text-warning': analysis.health_score >= 40 && analysis.health_score < 70, 'fha-text-danger': analysis.health_score < 40}">
+            {{c.getHealthScoreLabel(analysis.health_score)}}
+          </div>
+        </div>
+        
+        <!-- Issue Stats (Compact) -->
+        <div style="display: flex; justify-content: center; gap: var(--fha-spacing-sm); margin-bottom: var(--fha-spacing-sm);">
+          <div class="fha-issue-stat-compact">
+            <div class="fha-severity-badge fha-severity-high" style="width: 24px; height: 24px; font-size: 11px;">
+              {{analysis.high_count}}
+            </div>
+          </div>
+          <div class="fha-issue-stat-compact">
+            <div class="fha-severity-badge fha-severity-medium" style="width: 24px; height: 24px; font-size: 11px;">
+              {{analysis.medium_count}}
+            </div>
+          </div>
+          <div class="fha-issue-stat-compact">
+            <div class="fha-severity-badge fha-severity-low" style="width: 24px; height: 24px; font-size: 11px;">
+              {{analysis.low_count}}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Metadata (Compact) -->
+        <div style="padding-top: var(--fha-spacing-sm); border-top: 1px solid var(--fha-border-color); font-size: 10px; color: var(--fha-text-muted);">
+          <div style="margin-bottom: 2px;">
+            <i class="fa fa-calendar" style="margin-right: 4px;"></i> {{c.formatDate(analysis.created_on)}}
+          </div>
+          <div>
+            <i class="fa fa-user" style="margin-right: 4px;"></i> {{analysis.created_by}}
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+    
+  </div>
+
+  <!-- Load More Button -->
+  <div class="fha-load-more" 
+       ng-if="!c.loading && c.analyses.length > 0 && c.currentPage < c.totalPages"
+       style="text-align: center; margin-top: var(--fha-spacing-xl); padding: var(--fha-spacing-lg); background: var(--fha-card-bg); border-radius: var(--fha-radius-lg); box-shadow: var(--fha-shadow-sm);">
+    <div style="font-size: 13px; color: var(--fha-text-muted); margin-bottom: var(--fha-spacing-md);">
+      Showing <strong>{{c.analyses.length}}</strong> of <strong>{{c.totalCount}}</strong> analyses
+    </div>
+    <button class="fha-btn fha-btn-secondary fha-btn-icon" ng-click="c.loadMore()">
+      <i class="fa fa-plus"></i> Load More
+    </button>
+  </div>
+
+</div>

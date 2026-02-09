@@ -1,0 +1,1430 @@
+/**
+ * =============================================================================
+ * Foundation Health Analyzer - Complete Widgets CSS
+ * =============================================================================
+ * Unified stylesheet for ALL FHA Service Portal widgets
+ * Version: 2.0.0
+ * Date: 2026-01-17
+ * =============================================================================
+ * 
+ * Includes styles for:
+ * - FHA Dashboard
+ * - FHA Analysis Results
+ * - FHA Analysis Detail  
+ * - FHA Executive Dashboard
+ * - FHA Category Metrics
+ * - Future widgets (Trending, Report Manager)
+ * =============================================================================
+ */
+
+/* =============================================================================
+ * 1. CSS VARIABLES - Color palette & design tokens
+ * ============================================================================= */
+
+:root {
+  /* Primary Colors */
+  --fha-primary: #0c63d4;
+  --fha-primary-dark: #0a4ca8;
+  --fha-primary-light: #5d9ef5;
+  
+  /* Status Colors */
+  --fha-success: #16a34a;
+  --fha-success-light: #4ade80;
+  --fha-warning: #d97706;
+  --fha-warning-light: #fbbf24;
+  --fha-danger: #dc2626;
+  --fha-danger-light: #f87171;
+  --fha-info: #2563eb;
+  
+  /* Severity Colors */
+  --fha-critical: #dc2626;
+  --fha-high: #ea580c;
+  --fha-medium: #d97706;
+  --fha-low: #4338ca;
+  
+  /* Severity Backgrounds */
+  --fha-critical-bg: #fee2e2;
+  --fha-high-bg: #fed7aa;
+  --fha-medium-bg: #fef3c7;
+  --fha-low-bg: #e0e7ff;
+  
+  /* Gray Scale */
+  --fha-gray-50: #f9fafb;
+  --fha-gray-100: #f5f5f5;
+  --fha-gray-200: #e5e7eb;
+  --fha-gray-300: #d1d5db;
+  --fha-gray-400: #9ca3af;
+  --fha-gray-500: #6b7280;
+  --fha-gray-600: #4b5563;
+  --fha-gray-700: #374151;
+  --fha-gray-800: #1f2937;
+  --fha-gray-900: #111827;
+  
+  /* Spacing */
+  --fha-spacing-xs: 4px;
+  --fha-spacing-sm: 8px;
+  --fha-spacing-md: 16px;
+  --fha-spacing-lg: 24px;
+  --fha-spacing-xl: 32px;
+  
+  /* Border Radius */
+  --fha-radius-sm: 4px;
+  --fha-radius-md: 6px;
+  --fha-radius-lg: 8px;
+  --fha-radius-xl: 12px;
+  --fha-radius-full: 50%;
+  
+  /* Shadows */
+  --fha-shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --fha-shadow-md: 0 2px 4px rgba(0,0,0,0.1);
+  --fha-shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+  --fha-shadow-xl: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+/* =============================================================================
+ * 2. GLOBAL STYLES - Common to all widgets
+ * ============================================================================= */
+
+.loading-container,
+.fha-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--fha-gray-500);
+}
+
+.loading-container i,
+.fha-loading i {
+  display: block;
+  margin-bottom: 15px;
+}
+
+.empty-state,
+.fha-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--fha-gray-400);
+}
+
+.empty-state i,
+.fha-empty-state i {
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: var(--fha-gray-300);
+}
+
+.empty-state h3,
+.fha-empty-state h3 {
+  margin: 10px 0;
+  color: var(--fha-gray-600);
+}
+
+.empty-state p,
+.fha-empty-state p {
+  margin: 5px 0 20px;
+  color: var(--fha-gray-500);
+}
+
+/* =============================================================================
+ * 3. CARDS & CONTAINERS
+ * ============================================================================= */
+
+.fha-card {
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-md);
+  padding-bottom: var(--fha-spacing-md);
+  border-bottom: 2px solid var(--fha-gray-200);
+}
+
+.fha-card-header h4 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--fha-gray-800);
+  font-weight: 600;
+}
+
+.fha-card-body {
+  padding: 0;
+}
+
+.fha-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-md);
+  padding-bottom: var(--fha-spacing-md);
+  border-bottom: 1px solid var(--fha-gray-200);
+}
+
+.fha-card__head h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--fha-gray-800);
+  font-weight: 600;
+}
+
+.fha-card__body {
+  padding: var(--fha-spacing-md) 0;
+}
+
+/* =============================================================================
+ * 4. BUTTONS
+ * ============================================================================= */
+
+.fha-btn,
+.fha-btn-primary,
+.fha-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--fha-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-btn-primary {
+  background: var(--fha-primary);
+  color: white;
+}
+
+.fha-btn-primary:hover {
+  background: var(--fha-primary-dark);
+}
+
+.fha-btn-primary:disabled {
+  background: var(--fha-gray-300);
+  cursor: not-allowed;
+}
+
+.fha-btn-secondary,
+.fha-btn {
+  background: white;
+  color: var(--fha-gray-700);
+  border: 1px solid var(--fha-gray-300);
+}
+
+.fha-btn-secondary:hover,
+.fha-btn:hover {
+  background: var(--fha-gray-50);
+  border-color: var(--fha-gray-400);
+}
+
+/* =============================================================================
+ * 5. BADGES & PILLS
+ * ============================================================================= */
+
+.fha-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--fha-radius-xl);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--fha-gray-100);
+  color: var(--fha-gray-700);
+}
+
+.fha-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--fha-radius-full);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.fha-pill-gray {
+  background: var(--fha-gray-100);
+  color: var(--fha-gray-600);
+}
+
+.fha-pill-primary {
+  background: var(--fha-primary-light);
+  color: white;
+}
+
+.fha-pill-success {
+  background: var(--fha-success-light);
+  color: white;
+}
+
+.fha-pill-warning {
+  background: var(--fha-warning-light);
+  color: white;
+}
+
+.fha-pill-danger {
+  background: var(--fha-danger-light);
+  color: white;
+}
+
+/* =============================================================================
+ * 6. SEVERITY INDICATORS (Critical, High, Medium, Low)
+ * ============================================================================= */
+
+.issue-badge,
+.fha-issue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--fha-radius-xl);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.issue-badge.critical,
+.fha-issue-badge.fha-sev-critical,
+.severity-badge.critical {
+  background: var(--fha-critical-bg);
+  color: var(--fha-critical);
+}
+
+.issue-badge.high,
+.fha-issue-badge.fha-sev-high,
+.severity-badge.high {
+  background: var(--fha-high-bg);
+  color: var(--fha-high);
+}
+
+.issue-badge.medium,
+.fha-issue-badge.fha-sev-medium,
+.severity-badge.medium {
+  background: var(--fha-medium-bg);
+  color: var(--fha-medium);
+}
+
+.issue-badge.low,
+.fha-issue-badge.fha-sev-low,
+.severity-badge.low {
+  background: var(--fha-low-bg);
+  color: var(--fha-low);
+}
+
+.issue-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--fha-radius-xl);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.issue-count.critical {
+  background: var(--fha-critical-bg);
+  color: var(--fha-critical);
+}
+
+.issue-count.high {
+  background: var(--fha-high-bg);
+  color: var(--fha-high);
+}
+
+.issue-count.medium {
+  background: var(--fha-medium-bg);
+  color: var(--fha-medium);
+}
+
+.issue-count.low {
+  background: var(--fha-low-bg);
+  color: var(--fha-low);
+}
+
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--fha-radius-md);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.severity-label {
+  font-size: 11px;
+  color: var(--fha-gray-500);
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* =============================================================================
+ * 7. HEALTH SCORE INDICATORS
+ * ============================================================================= */
+
+/* Score Badges */
+.fha-score-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--fha-radius-md);
+  font-weight: 600;
+}
+
+.fha-score-excellent,
+.fha-score-badge.fha-score-excellent {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.fha-score-good,
+.fha-score-badge.fha-score-good {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.fha-score-medium,
+.fha-score-badge.fha-score-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.fha-score-poor,
+.fha-score-badge.fha-score-poor {
+  background: #fed7aa;
+  color: #9a3412;
+}
+
+/* Score Circle */
+.fha-score-circle {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--fha-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: var(--fha-spacing-sm);
+}
+
+.fha-score-circle.excellent {
+  background: linear-gradient(135deg, var(--fha-success) 0%, var(--fha-success-light) 100%);
+}
+
+.fha-score-circle.good {
+  background: linear-gradient(135deg, var(--fha-info) 0%, #60a5fa 100%);
+}
+
+.fha-score-circle.medium {
+  background: linear-gradient(135deg, var(--fha-warning) 0%, var(--fha-warning-light) 100%);
+}
+
+.fha-score-circle.poor {
+  background: linear-gradient(135deg, var(--fha-danger) 0%, var(--fha-danger-light) 100%);
+}
+
+.fha-score-label {
+  font-size: 11px;
+  color: var(--fha-gray-500);
+  text-align: center;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* KPI Cards */
+.kpi-primary { border-left-color: var(--fha-primary); }
+.kpi-success { border-left-color: var(--fha-success); }
+.kpi-warning { border-left-color: var(--fha-warning); }
+.kpi-danger { border-left-color: var(--fha-danger); }
+.kpi-info { border-left-color: var(--fha-info); }
+.kpi-excellent { border-left-color: var(--fha-success); }
+.kpi-good { border-left-color: var(--fha-success-light); }
+.kpi-fair { border-left-color: var(--fha-warning-light); }
+.kpi-poor { border-left-color: var(--fha-warning); }
+
+/* Progress bars */
+.progress-bar-excellent { background-color: var(--fha-success); }
+.progress-bar-good { background-color: var(--fha-success-light); }
+.progress-bar-fair { background-color: var(--fha-warning-light); }
+.progress-bar-poor { background-color: var(--fha-warning); }
+.progress-bar-critical { background-color: var(--fha-danger); }
+
+/* Table scores */
+.table-score.kpi-excellent { background: #d1fae5; color: #065f46; }
+.table-score.kpi-good { background: #dbeafe; color: #1e40af; }
+.table-score.kpi-fair { background: #fef3c7; color: #92400e; }
+.table-score.kpi-poor { background: #fed7aa; color: #9a3412; }
+.table-score.kpi-danger { background: #fee2e2; color: #991b1b; }
+
+/* =============================================================================
+ * 8. FHA DASHBOARD WIDGET
+ * ============================================================================= */
+
+.fha-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--fha-spacing-lg);
+}
+
+.fha-config-selector {
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-table-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--fha-spacing-md);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-table-item {
+  background: white;
+  border: 2px solid var(--fha-gray-200);
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-table-item:hover {
+  border-color: var(--fha-primary);
+  box-shadow: var(--fha-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.fha-table-item.selected {
+  border-color: var(--fha-primary);
+  background: #e0f2fe;
+}
+
+.fha-table-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--fha-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+  margin-bottom: var(--fha-spacing-md);
+}
+
+.fha-table-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fha-gray-800);
+  margin-bottom: var(--fha-spacing-xs);
+}
+
+.fha-table-label {
+  font-size: 13px;
+  color: var(--fha-gray-500);
+  margin-bottom: var(--fha-spacing-md);
+}
+
+.fha-table-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fha-spacing-sm);
+}
+
+.fha-option-enabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--fha-success);
+}
+
+.fha-option-disabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--fha-gray-400);
+}
+
+.fha-recent-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fha-recent-table thead {
+  background: var(--fha-gray-50);
+  border-bottom: 2px solid var(--fha-gray-200);
+}
+
+.fha-recent-table th {
+  padding: 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fha-gray-600);
+  text-transform: uppercase;
+}
+
+.fha-recent-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--fha-gray-100);
+}
+
+.fha-recent-table tbody tr:hover {
+  background: var(--fha-gray-50);
+}
+
+.fha-view-all-link {
+  font-size: 14px;
+  color: var(--fha-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.fha-view-all-link:hover {
+  color: var(--fha-primary-dark);
+}
+
+/* =============================================================================
+ * 9. FHA ANALYSIS RESULTS WIDGET
+ * ============================================================================= */
+
+.fha-analysis-list {
+  padding: var(--fha-spacing-lg);
+  background: var(--fha-gray-100);
+  min-height: 100vh;
+}
+
+.fha-list-header {
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+}
+
+.fha-header-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-header-stat {
+  text-align: center;
+}
+
+.fha-header-stat-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--fha-gray-800);
+  line-height: 1;
+}
+
+.fha-header-stat-label {
+  font-size: 13px;
+  color: var(--fha-gray-500);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.fha-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fha-spacing-md);
+  align-items: center;
+}
+
+.fha-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fha-filter-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fha-gray-600);
+}
+
+.fha-filter-input {
+  padding: 8px 12px;
+  border: 1px solid var(--fha-gray-300);
+  border-radius: var(--fha-radius-md);
+  font-size: 14px;
+  color: var(--fha-gray-700);
+  min-width: 180px;
+}
+
+.fha-filter-input:focus {
+  outline: none;
+  border-color: var(--fha-primary);
+  box-shadow: 0 0 0 3px rgba(12, 99, 212, 0.1);
+}
+
+.fha-filter-actions {
+  display: flex;
+  gap: var(--fha-spacing-sm);
+  margin-left: auto;
+}
+
+.fha-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--fha-spacing-lg);
+}
+
+.fha-analysis-card {
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--fha-shadow-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fha-analysis-card:hover {
+  box-shadow: var(--fha-shadow-xl);
+  transform: translateY(-4px);
+}
+
+.fha-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--fha-spacing-lg);
+  background: var(--fha-gray-50);
+  border-bottom: 1px solid var(--fha-gray-200);
+}
+
+.fha-card-info {
+  flex: 1;
+}
+
+.fha-card-number {
+  font-size: 14px;
+  color: var(--fha-gray-600);
+  margin-bottom: 4px;
+}
+
+.fha-card-table {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fha-gray-800);
+}
+
+.fha-card-score {
+  text-align: center;
+}
+
+.fha-card-body {
+  padding: var(--fha-spacing-lg);
+}
+
+.fha-card-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--fha-spacing-sm);
+  margin-bottom: var(--fha-spacing-md);
+}
+
+.fha-card-stat {
+  text-align: center;
+}
+
+.fha-card-stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--fha-gray-800);
+}
+
+.fha-card-stat-label {
+  font-size: 11px;
+  color: var(--fha-gray-500);
+  margin-top: 2px;
+}
+
+.fha-card-meta {
+  padding-top: var(--fha-spacing-md);
+  border-top: 1px solid var(--fha-gray-200);
+  font-size: 12px;
+  color: var(--fha-gray-500);
+}
+
+.fha-load-more {
+  text-align: center;
+  padding: var(--fha-spacing-lg);
+}
+
+.fha-results-count {
+  color: var(--fha-gray-500);
+  font-size: 14px;
+  margin-bottom: var(--fha-spacing-md);
+}
+
+/* =============================================================================
+ * 10. FHA ANALYSIS DETAIL WIDGET
+ * ============================================================================= */
+
+.fha-detail {
+  padding: var(--fha-spacing-lg);
+  background: var(--fha-gray-100);
+  min-height: 100vh;
+}
+
+.fha-header {
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-xl);
+  margin-bottom: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+}
+
+.fha-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fha-spacing-sm);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-stat-card {
+  background: var(--fha-gray-50);
+  padding: var(--fha-spacing-lg);
+  border-radius: var(--fha-radius-lg);
+  text-align: center;
+}
+
+.fha-stat-value {
+  font-size: 36px;
+  font-weight: bold;
+  color: var(--fha-gray-800);
+  line-height: 1;
+}
+
+.fha-stat-label {
+  font-size: 13px;
+  color: var(--fha-gray-500);
+  margin-top: 8px;
+}
+
+.fha-actions {
+  display: flex;
+  gap: var(--fha-spacing-md);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-tabs {
+  display: flex;
+  gap: var(--fha-spacing-xs);
+  border-bottom: 2px solid var(--fha-gray-200);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-tab-btn {
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fha-gray-600);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  top: 2px;
+}
+
+.fha-tab-btn:hover {
+  color: var(--fha-primary);
+  background: var(--fha-gray-50);
+}
+
+.fha-tab-btn.active {
+  color: var(--fha-primary);
+  border-bottom-color: var(--fha-primary);
+}
+
+.fha-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.fha-data-table thead {
+  background: var(--fha-gray-50);
+  border-bottom: 2px solid var(--fha-gray-200);
+}
+
+.fha-data-table th {
+  padding: 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fha-gray-600);
+  text-transform: uppercase;
+}
+
+.fha-data-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--fha-gray-100);
+  color: var(--fha-gray-700);
+}
+
+.fha-data-table tbody tr:hover {
+  background: var(--fha-gray-50);
+}
+
+/* =============================================================================
+ * 11. EXECUTIVE DASHBOARD WIDGET (from previous work)
+ * ============================================================================= */
+
+.fha-executive-dashboard {
+  padding: var(--fha-spacing-lg);
+  background: var(--fha-gray-100);
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-xl);
+  padding: var(--fha-spacing-lg);
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  box-shadow: var(--fha-shadow-md);
+}
+
+.dashboard-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--fha-gray-800);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.last-update {
+  font-size: 12px;
+  color: var(--fha-gray-500);
+}
+
+/* KPI Cards */
+.kpi-cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-xl);
+}
+
+.kpi-card {
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+  display: flex;
+  gap: 15px;
+  border-left: 4px solid var(--fha-gray-300);
+  transition: transform 0.2s;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--fha-shadow-lg);
+}
+
+.kpi-icon {
+  font-size: 40px;
+  color: var(--fha-gray-500);
+  display: flex;
+  align-items: center;
+}
+
+.kpi-content {
+  flex: 1;
+}
+
+.kpi-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--fha-gray-800);
+  line-height: 1;
+}
+
+.kpi-label {
+  font-size: 14px;
+  color: var(--fha-gray-500);
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+.kpi-sublabel {
+  margin-top: 8px;
+}
+
+.kpi-breakdown {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-progress {
+  margin-top: 8px;
+}
+
+.kpi-progress .progress {
+  height: 6px;
+  margin: 0;
+}
+
+/* Charts Section */
+.charts-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-xl);
+}
+
+.chart-card {
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-lg);
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--fha-gray-200);
+}
+
+.chart-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--fha-gray-800);
+}
+
+.chart-controls {
+  display: flex;
+  gap: 5px;
+}
+
+.chart-body {
+  position: relative;
+  min-height: 250px;
+}
+
+/* Tables Section */
+.tables-section {
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-lg);
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--fha-gray-200);
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--fha-gray-800);
+}
+
+.view-all-link {
+  font-size: 14px;
+  color: var(--fha-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.view-all-link:hover {
+  color: var(--fha-primary-dark);
+}
+
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.table-card {
+  border: 1px solid var(--fha-gray-200);
+  border-radius: var(--fha-radius-md);
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.table-card:hover {
+  box-shadow: var(--fha-shadow-lg);
+  border-color: var(--fha-gray-300);
+}
+
+.table-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: var(--fha-gray-50);
+  border-bottom: 1px solid var(--fha-gray-200);
+}
+
+.table-info h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--fha-gray-800);
+}
+
+.table-info small {
+  font-size: 12px;
+}
+
+.table-score {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+.table-card-body {
+  padding: 15px;
+}
+
+.issue-summary {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.total-issues {
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--fha-gray-600);
+}
+
+.last-analysis {
+  font-size: 12px;
+  color: var(--fha-gray-400);
+}
+
+.table-card-footer {
+  padding: 10px 15px;
+  border-top: 1px solid var(--fha-gray-200);
+  background: var(--fha-gray-50);
+}
+
+/* =============================================================================
+ * 12. CATEGORY METRICS WIDGET (from previous work)
+ * ============================================================================= */
+
+.fha-category-metrics {
+  padding: var(--fha-spacing-lg);
+  background: white;
+  border-radius: var(--fha-radius-lg);
+  box-shadow: var(--fha-shadow-md);
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--fha-gray-200);
+}
+
+.widget-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--fha-gray-800);
+  font-weight: 600;
+}
+
+.categories-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-xl);
+}
+
+.category-card {
+  border: 2px solid var(--fha-gray-200);
+  border-radius: var(--fha-radius-lg);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  background: white;
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--fha-shadow-xl);
+  border-color: var(--fha-primary);
+}
+
+.category-card.selected {
+  border-color: var(--fha-primary);
+  border-width: 3px;
+  box-shadow: 0 4px 12px rgba(12,99,212,0.2);
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: var(--fha-spacing-lg);
+  background: var(--fha-gray-50);
+  border-bottom: 1px solid var(--fha-gray-200);
+}
+
+.category-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--fha-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.category-info h4 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--fha-gray-800);
+  font-weight: 600;
+}
+
+.category-info small {
+  font-size: 12px;
+  color: var(--fha-gray-500);
+}
+
+.category-body {
+  padding: var(--fha-spacing-lg);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.stat-row.main-stat {
+  padding: 12px 0 15px;
+  border-bottom: 1px solid var(--fha-gray-200);
+  margin-bottom: 15px;
+}
+
+.stat-row.main-stat .stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--fha-primary);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--fha-gray-500);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 16px;
+  color: var(--fha-gray-800);
+  font-weight: 600;
+}
+
+.severity-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 15px 0;
+}
+
+.severity-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.percentage-bar {
+  height: 8px;
+  background: var(--fha-gray-200);
+  border-radius: var(--fha-radius-sm);
+  overflow: hidden;
+  margin-top: 15px;
+  margin-bottom: 5px;
+}
+
+.percentage-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.percentage-text {
+  font-size: 12px;
+  color: var(--fha-gray-500);
+  text-align: right;
+  font-weight: 500;
+}
+
+.chart-section {
+  background: var(--fha-gray-50);
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  border: 1px solid var(--fha-gray-200);
+}
+
+.chart-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--fha-gray-800);
+  font-weight: 600;
+}
+
+.chart-type-selector {
+  display: flex;
+  gap: 5px;
+}
+
+.chart-section .chart-body {
+  min-height: 300px;
+}
+
+/* =============================================================================
+ * 13. RESPONSIVE DESIGN
+ * ============================================================================= */
+
+@media (max-width: 768px) {
+  /* Executive Dashboard */
+  .kpi-cards-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .charts-section {
+    grid-template-columns: 1fr;
+  }
+  
+  .tables-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+  
+  /* Category Metrics */
+  .categories-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .severity-breakdown {
+    grid-template-columns: 1fr;
+  }
+  
+  .widget-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  /* Analysis Results */
+  .fha-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .fha-header-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  /* Analysis Detail */
+  .fha-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .fha-tabs {
+    overflow-x: auto;
+  }
+  
+  /* Dashboard */
+  .fha-table-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =============================================================================
+ * 14. UTILITY CLASSES
+ * ============================================================================= */
+
+.text-muted {
+  color: var(--fha-gray-500);
+}
+
+.text-primary {
+  color: var(--fha-primary);
+}
+
+.text-success {
+  color: var(--fha-success);
+}
+
+.text-warning {
+  color: var(--fha-warning);
+}
+
+.text-danger {
+  color: var(--fha-danger);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mb-0 { margin-bottom: 0; }
+.mb-sm { margin-bottom: var(--fha-spacing-sm); }
+.mb-md { margin-bottom: var(--fha-spacing-md); }
+.mb-lg { margin-bottom: var(--fha-spacing-lg); }
+.mb-xl { margin-bottom: var(--fha-spacing-xl); }
+
+.mt-0 { margin-top: 0; }
+.mt-sm { margin-top: var(--fha-spacing-sm); }
+.mt-md { margin-top: var(--fha-spacing-md); }
+.mt-lg { margin-top: var(--fha-spacing-lg); }
+.mt-xl { margin-top: var(--fha-spacing-xl); }
+
+/* =============================================================================
+ * END OF STYLESHEET
+ * ============================================================================= */

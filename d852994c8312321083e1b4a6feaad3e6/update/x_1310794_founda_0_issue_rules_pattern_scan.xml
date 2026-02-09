@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="x_1310794_founda_0_issue_rules">
+    <x_1310794_founda_0_issue_rules action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <code>PATTERN_SCAN</code>
+        <default_severity>high</default_severity>
+        <description>Scanne les champs spécifiés pour des patterns regex. Utilisez params {"fields": "script,comments", "pattern": "eval\\(", "message_template": "eval() dangereux détecté"}.</description>
+        <name>Pattern Scan (Regex)</name>
+        <params>{"fields":"script","pattern":"eval\\("}</params>
+        <script><![CDATA[if (!params.pattern) return issues;
+
+var pattern = params.pattern;
+var fields = (params.fields || '').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
+var recordName = item.values.name || item.values.title || 'Record';
+
+try {
+    var regex = new RegExp(pattern, 'i');
+    
+    for (var i = 0; i < fields.length; i++) {
+        var field = fields[i];
+        var value = item.values && item.values[field];
+        if (!value || typeof value !== 'string') continue;
+        
+        var match = value.match(regex);
+        if (match) {
+            var message = params.message_template || 
+                'Pattern "' + pattern + '" trouvé dans le champ "' + field + '" de "' + recordName + '"';
+            
+            issues.push({
+                code: rule.code,
+                message: message,
+                severity: rule.severity || 'high',
+                details: {
+                    field: field,
+                    pattern: pattern,
+                    match: match[0],
+                    record_table: item.table,
+                    record_sys_id: item.sys_id,
+                    record_name: recordName
+                }
+            });
+            return issues;
+        }
+    }
+} catch(e) {
+    gs.warn('[pattern_scan] Invalid regex: ' + pattern + ' - ' + e.message);
+}]]></script>
+        <severity>high</severity>
+        <sys_class_name>x_1310794_founda_0_issue_rules</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-18 12:00:00</sys_created_on>
+        <sys_id>aaaa0008feed53163610c7233ee0a049</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Pattern Scan (Regex)</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>x_1310794_founda_0_issue_rules_aaaa0008feed53163610c7233ee0a049</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-18 12:00:00</sys_updated_on>
+        <type>pattern_scan</type>
+    </x_1310794_founda_0_issue_rules>
+</record_update>

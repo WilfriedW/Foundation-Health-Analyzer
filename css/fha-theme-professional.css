@@ -1,0 +1,1982 @@
+/**
+ * =============================================================================
+ * Foundation Health Analyzer - Professional Corporate Theme
+ * =============================================================================
+ * Clean, professional and business-ready stylesheet
+ * Version: 4.0.0 (Professional Edition)
+ * Date: 2026-01-17
+ * 
+ * Design Philosophy:
+ * - Clean and minimalist
+ * - Professional gray palette
+ * - Blue as primary accent
+ * - Subtle shadows and borders
+ * - Maximum readability
+ * - Corporate-friendly
+ * 
+ * Inspired by: Atlassian, Salesforce, Material Design
+ * =============================================================================
+ */
+
+/* =============================================================================
+ * 1. CSS VARIABLES - Professional Palette
+ * ============================================================================= */
+
+:root {
+  /* ===== Primary Blue (Current Blue) ===== */
+  --fha-primary: #3b82f6;
+  --fha-primary-dark: #2563eb;
+  --fha-primary-light: #60a5fa;
+  --fha-primary-hover: #2563eb;
+  
+  /* ===== Anthracite Grays (Base) ===== */
+  --fha-anthracite: #2C3E50;
+  --fha-anthracite-light: #34495E;
+  --fha-anthracite-lighter: #455a74;
+  
+  /* ===== Light Grays (Backgrounds & Borders) ===== */
+  --fha-gray-lightest: #ECF0F1;
+  --fha-gray-light: #BDC3C7;
+  --fha-gray-medium: #95A5A6;
+  --fha-gray-dark: #7F8C8D;
+  
+  /* ===== Neutral Grays (Text & Accents) ===== */
+  --fha-gray-50: #F8F9FA;
+  --fha-gray-100: #E9ECEF;
+  --fha-gray-200: #DEE2E6;
+  --fha-gray-300: #CED4DA;
+  --fha-gray-400: #ADB5BD;
+  --fha-gray-500: #6C757D;
+  --fha-gray-600: #495057;
+  --fha-gray-700: #343A40;
+  --fha-gray-800: #212529;
+  
+  /* ===== Status Colors (Subtle) ===== */
+  --fha-success: #27AE60;
+  --fha-success-light: #52C47B;
+  --fha-success-bg: #D5F4E6;
+  
+  --fha-warning: #F39C12;
+  --fha-warning-light: #F5B041;
+  --fha-warning-bg: #FCF3CF;
+  
+  --fha-danger: #E74C3C;
+  --fha-danger-light: #EC7063;
+  --fha-danger-bg: #FADBD8;
+  
+  --fha-info: #5DADE2;
+  --fha-info-light: #85C1E9;
+  --fha-info-bg: #D6EAF8;
+  
+  /* ===== Secondary Accent (Info Blue) ===== */
+  --fha-accent: #5DADE2;
+  --fha-accent-light: #85C1E9;
+  
+  /* ===== Backgrounds ===== */
+  --fha-bg-main: #F5F7FA;
+  --fha-bg-card: #FFFFFF;
+  --fha-bg-section: #FAFBFC;
+  --fha-bg-hover: #F8F9FA;
+  
+  /* ===== Text Colors ===== */
+  --fha-text-primary: #2C3E50;
+  --fha-text-secondary: #6C757D;
+  --fha-text-muted: #95A5A6;
+  --fha-text-on-dark: #FFFFFF;
+  --fha-text-on-primary: #FFFFFF;
+  
+  /* ===== Borders ===== */
+  --fha-border-color: #E1E4E8;
+  --fha-border-color-dark: #BDC3C7;
+  --fha-border-color-light: #ECF0F1;
+  
+  /* ===== Shadows (Subtle) ===== */
+  --fha-shadow-sm: 0 1px 3px rgba(44, 62, 80, 0.08);
+  --fha-shadow-md: 0 2px 8px rgba(44, 62, 80, 0.1);
+  --fha-shadow-lg: 0 4px 16px rgba(44, 62, 80, 0.12);
+  --fha-shadow-xl: 0 8px 24px rgba(44, 62, 80, 0.15);
+  
+  /* ===== Spacing ===== */
+  --fha-spacing-xs: 4px;
+  --fha-spacing-sm: 8px;
+  --fha-spacing-md: 16px;
+  --fha-spacing-lg: 24px;
+  --fha-spacing-xl: 32px;
+  --fha-spacing-2xl: 48px;
+  
+  /* ===== Border Radius (Slightly Rounded) ===== */
+  --fha-radius-sm: 4px;
+  --fha-radius-md: 6px;
+  --fha-radius-lg: 8px;
+  --fha-radius-xl: 12px;
+  --fha-radius-full: 50%;
+  
+  /* ===== Transitions ===== */
+  --fha-transition-fast: 0.15s ease;
+  --fha-transition-base: 0.2s ease;
+  --fha-transition-slow: 0.3s ease;
+}
+
+/* =============================================================================
+ * 2. GLOBAL STYLES & RESET
+ * ============================================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  color: var(--fha-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle texture background */
+.fha-dashboard,
+.fha-analysis-list,
+.fha-detail,
+.fha-executive-dashboard {
+  min-height: 100vh;
+  background: var(--fha-bg-main);
+  padding: var(--fha-spacing-xl);
+}
+
+/* Loading & Empty States */
+.loading-container,
+.fha-loading,
+.empty-state,
+.fha-empty-state {
+  text-align: center;
+  padding: var(--fha-spacing-2xl);
+  color: var(--fha-text-secondary);
+}
+
+.loading-container i,
+.fha-loading i {
+  color: var(--fha-primary);
+  margin-bottom: var(--fha-spacing-md);
+}
+
+.empty-state i,
+.fha-empty-state i {
+  font-size: 48px;
+  color: var(--fha-gray-300);
+  margin-bottom: var(--fha-spacing-md);
+}
+
+/* =============================================================================
+ * 3. FHA HEADER (Professional Navigation)
+ * ============================================================================= */
+
+.fha-header {
+  background: var(--fha-anthracite);
+  box-shadow: var(--fha-shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-bottom: 2px solid var(--fha-primary);
+}
+
+.fha-header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--fha-spacing-lg);
+  height: 64px;
+}
+
+/* Logo */
+.fha-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: opacity var(--fha-transition-base);
+}
+
+.fha-logo:hover {
+  opacity: 0.9;
+}
+
+.fha-logo-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--fha-primary);
+  border-radius: var(--fha-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.fha-logo-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fha-text-on-dark);
+  letter-spacing: 0.3px;
+}
+
+.fha-logo-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Navigation */
+.fha-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fha-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--fha-radius-md);
+  transition: all var(--fha-transition-base);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.fha-nav-item:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fha-nav-item.active {
+  color: white;
+  background: var(--fha-primary);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* User Section */
+.fha-user-section {
+  display: flex;
+  align-items: center;
+  gap: var(--fha-spacing-md);
+}
+
+.fha-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fha-user-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--fha-primary);
+  border-radius: var(--fha-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fha-user-name {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Mobile Menu Toggle (Hidden by default on desktop) */
+.fha-mobile-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: var(--fha-spacing-sm);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-mobile-toggle:hover {
+  color: var(--fha-primary);
+}
+
+/* =============================================================================
+ * 4. PAGE HEADER (Dashboard Title)
+ * ============================================================================= */
+
+.fha-page-header {
+  text-align: center;
+  margin-bottom: var(--fha-spacing-2xl);
+  padding: var(--fha-spacing-xl);
+  background: var(--fha-bg-card);
+  border-radius: var(--fha-radius-lg);
+  box-shadow: var(--fha-shadow-sm);
+  border: 1px solid var(--fha-border-color);
+}
+
+.fha-page-header h2 {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--fha-anthracite);
+  margin: 0 0 var(--fha-spacing-sm) 0;
+}
+
+.fha-page-header h2 i {
+  color: var(--fha-primary);
+  margin-right: var(--fha-spacing-sm);
+}
+
+.fha-page-header p {
+  font-size: 15px;
+  color: var(--fha-text-secondary);
+  margin: 0;
+}
+
+/* =============================================================================
+ * 5. CARDS & CONTAINERS
+ * ============================================================================= */
+
+.fha-card,
+.chart-card,
+.kpi-card {
+  background: var(--fha-bg-card);
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+  margin-bottom: var(--fha-spacing-lg);
+  border: 1px solid var(--fha-border-color);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-card:hover,
+.chart-card:hover {
+  box-shadow: var(--fha-shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Card Header */
+.fha-card-header,
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-lg);
+  padding-bottom: var(--fha-spacing-md);
+  border-bottom: 2px solid var(--fha-border-color);
+}
+
+.fha-card-header h4,
+.chart-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fha-anthracite);
+}
+
+.fha-card-header h4 i,
+.chart-header h3 i {
+  color: var(--fha-primary);
+  margin-right: var(--fha-spacing-sm);
+}
+
+/* Card Body */
+.fha-card-body {
+  padding: 0;
+}
+
+/* Section Header */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-lg);
+  padding-bottom: var(--fha-spacing-md);
+  border-bottom: 2px solid var(--fha-border-color);
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--fha-anthracite);
+}
+
+/* =============================================================================
+ * 6. BUTTONS (Professional & Interactive)
+ * ============================================================================= */
+
+.fha-btn,
+.fha-btn-primary,
+.fha-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fha-spacing-sm);
+  padding: 12px 24px;
+  border: none;
+  border-radius: var(--fha-radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--fha-transition-base);
+  text-decoration: none;
+}
+
+/* Primary Button */
+.fha-btn-primary {
+  background: var(--fha-primary);
+  color: var(--fha-text-on-primary);
+  box-shadow: var(--fha-shadow-sm);
+  border: 1px solid var(--fha-primary-dark);
+}
+
+.fha-btn-primary:hover {
+  background: var(--fha-primary-hover);
+  box-shadow: var(--fha-shadow-md);
+  transform: translateY(-1px);
+}
+
+.fha-btn-primary:active {
+  background: var(--fha-primary-dark);
+  transform: translateY(0);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+.fha-btn-primary:disabled {
+  background: var(--fha-gray-300);
+  border-color: var(--fha-gray-300);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Secondary Button */
+.fha-btn-secondary,
+.fha-btn {
+  background: var(--fha-bg-card);
+  color: var(--fha-text-primary);
+  border: 1px solid var(--fha-border-color-dark);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+.fha-btn-secondary:hover,
+.fha-btn:hover {
+  background: var(--fha-bg-hover);
+  border-color: var(--fha-primary);
+  color: var(--fha-primary);
+  box-shadow: var(--fha-shadow-md);
+  transform: translateY(-1px);
+}
+
+.fha-btn-secondary:active,
+.fha-btn:active {
+  transform: translateY(0);
+}
+
+/* =============================================================================
+ * 7. FORMS & INPUTS
+ * ============================================================================= */
+
+/* Form Group */
+.form-group {
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--fha-text-primary);
+  margin-bottom: var(--fha-spacing-sm);
+}
+
+/* Modern Select */
+.fha-select,
+select.form-control,
+.fha-filter-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--fha-border-color-dark);
+  border-radius: var(--fha-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fha-text-primary);
+  background: var(--fha-bg-card);
+  cursor: pointer;
+  transition: all var(--fha-transition-base);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+.fha-select:hover,
+.fha-filter-input:hover {
+  border-color: var(--fha-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.fha-select:focus,
+.fha-filter-input:focus {
+  outline: none;
+  border-color: var(--fha-primary);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+/* Input */
+input[type="text"],
+input[type="search"],
+.fha-filter-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--fha-border-color-dark);
+  border-radius: var(--fha-radius-md);
+  font-size: 14px;
+  color: var(--fha-text-primary);
+  background: var(--fha-bg-card);
+  transition: all var(--fha-transition-base);
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus {
+  outline: none;
+  border-color: var(--fha-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* =============================================================================
+ * 8. CONFIG PREVIEW ZONE (Elegant)
+ * ============================================================================= */
+
+.fha-config-preview {
+  margin-bottom: var(--fha-spacing-lg);
+  padding: var(--fha-spacing-xl);
+  background: var(--fha-bg-section);
+  border-radius: var(--fha-radius-lg);
+  border: 1px solid var(--fha-border-color);
+  box-shadow: var(--fha-shadow-sm);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-config-preview:hover {
+  border-color: var(--fha-primary);
+  box-shadow: var(--fha-shadow-md);
+}
+
+.fha-config-preview strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fha-anthracite);
+  display: block;
+  margin-bottom: var(--fha-spacing-sm);
+}
+
+.fha-config-preview p {
+  margin: 0 0 var(--fha-spacing-md) 0;
+  color: var(--fha-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Options Section */
+.fha-options-divider {
+  border-top: 1px solid var(--fha-border-color);
+  padding-top: var(--fha-spacing-md);
+  margin-top: var(--fha-spacing-md);
+}
+
+.fha-options-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fha-primary);
+  margin-bottom: var(--fha-spacing-md);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: var(--fha-spacing-sm);
+}
+
+.fha-options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fha-spacing-sm);
+}
+
+/* Option Badges */
+.fha-option-enabled {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fha-spacing-sm);
+  padding: 8px 14px;
+  border-radius: var(--fha-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--fha-success-bg);
+  color: var(--fha-success);
+  border: 1px solid var(--fha-success-light);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-option-enabled:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+.fha-option-disabled {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fha-spacing-sm);
+  padding: 8px 14px;
+  border-radius: var(--fha-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--fha-gray-100);
+  color: var(--fha-gray-500);
+  border: 1px solid var(--fha-gray-300);
+  opacity: 0.7;
+}
+
+/* =============================================================================
+ * 9. BADGES & PILLS
+ * ============================================================================= */
+
+.fha-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--fha-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--fha-gray-200);
+  color: var(--fha-text-primary);
+  border: 1px solid var(--fha-border-color);
+}
+
+/* =============================================================================
+ * 10. SEVERITY INDICATORS (Professional)
+ * ============================================================================= */
+
+.issue-badge,
+.fha-issue-badge,
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--fha-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid;
+  transition: all var(--fha-transition-base);
+}
+
+.issue-badge.critical,
+.fha-issue-badge.fha-sev-critical,
+.severity-badge.critical {
+  background: var(--fha-danger-bg);
+  color: var(--fha-danger);
+  border-color: var(--fha-danger-light);
+}
+
+.issue-badge.high,
+.fha-issue-badge.fha-sev-high,
+.severity-badge.high {
+  background: #FADBD8;
+  color: #C0392B;
+  border-color: #E74C3C;
+}
+
+.issue-badge.medium,
+.fha-issue-badge.fha-sev-medium,
+.severity-badge.medium {
+  background: var(--fha-warning-bg);
+  color: var(--fha-warning);
+  border-color: var(--fha-warning-light);
+}
+
+.issue-badge.low,
+.fha-issue-badge.fha-sev-low,
+.severity-badge.low {
+  background: var(--fha-info-bg);
+  color: #2E86C1;
+  border-color: var(--fha-info);
+}
+
+.issue-badge:hover,
+.fha-issue-badge:hover,
+.severity-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+/* Issue Count */
+.issue-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--fha-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.issue-count.critical { background: var(--fha-danger-bg); color: var(--fha-danger); border-color: var(--fha-danger-light); }
+.issue-count.high { background: #FADBD8; color: #C0392B; border-color: #E74C3C; }
+.issue-count.medium { background: var(--fha-warning-bg); color: var(--fha-warning); border-color: var(--fha-warning-light); }
+.issue-count.low { background: var(--fha-info-bg); color: #2E86C1; border-color: var(--fha-info); }
+
+/* =============================================================================
+ * 11. HEALTH SCORE INDICATORS
+ * ============================================================================= */
+
+/* Score Circle */
+.fha-score-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--fha-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: var(--fha-spacing-sm);
+  box-shadow: var(--fha-shadow-md);
+  border: 3px solid white;
+}
+
+.fha-score-circle.excellent {
+  background: var(--fha-success);
+}
+
+.fha-score-circle.good {
+  background: var(--fha-accent);
+}
+
+.fha-score-circle.medium {
+  background: var(--fha-warning);
+}
+
+.fha-score-circle.poor {
+  background: var(--fha-danger);
+}
+
+.fha-score-label {
+  font-size: 12px;
+  color: var(--fha-text-secondary);
+  text-align: center;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Score Badge */
+.fha-score-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--fha-radius-md);
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid;
+}
+
+.fha-score-badge.fha-score-excellent {
+  background: var(--fha-success-bg);
+  color: var(--fha-success);
+  border-color: var(--fha-success-light);
+}
+
+.fha-score-badge.fha-score-good {
+  background: var(--fha-info-bg);
+  color: #2E86C1;
+  border-color: var(--fha-info);
+}
+
+.fha-score-badge.fha-score-medium {
+  background: var(--fha-warning-bg);
+  color: var(--fha-warning);
+  border-color: var(--fha-warning-light);
+}
+
+.fha-score-badge.fha-score-poor {
+  background: var(--fha-danger-bg);
+  color: var(--fha-danger);
+  border-color: var(--fha-danger-light);
+}
+
+/* =============================================================================
+ * 12. KPI CARDS (Professional)
+ * ============================================================================= */
+
+.kpi-card {
+  background: var(--fha-bg-card);
+  border-radius: var(--fha-radius-lg);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-md);
+  display: flex;
+  gap: var(--fha-spacing-md);
+  border-left: 4px solid;
+  transition: all var(--fha-transition-base);
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--fha-shadow-lg);
+}
+
+.kpi-card.kpi-primary { border-left-color: var(--fha-primary); }
+.kpi-card.kpi-success { border-left-color: var(--fha-success); }
+.kpi-card.kpi-warning { border-left-color: var(--fha-warning); }
+.kpi-card.kpi-danger { border-left-color: var(--fha-danger); }
+.kpi-card.kpi-info { border-left-color: var(--fha-accent); }
+
+.kpi-icon {
+  font-size: 40px;
+  color: var(--fha-primary);
+  display: flex;
+  align-items: center;
+}
+
+.kpi-content {
+  flex: 1;
+}
+
+.kpi-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--fha-anthracite);
+  line-height: 1;
+}
+
+.kpi-label {
+  font-size: 14px;
+  color: var(--fha-text-secondary);
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* =============================================================================
+ * 13. TABLES (Professional Styling)
+ * ============================================================================= */
+
+.fha-data-table,
+.fha-recent-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.fha-data-table thead,
+.fha-recent-table thead {
+  background: var(--fha-bg-section);
+}
+
+.fha-data-table th,
+.fha-recent-table th {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fha-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--fha-border-color);
+}
+
+.fha-data-table tbody tr,
+.fha-recent-table tbody tr {
+  transition: all var(--fha-transition-fast);
+  border-bottom: 1px solid var(--fha-border-color-light);
+}
+
+.fha-data-table tbody tr:hover,
+.fha-recent-table tbody tr:hover {
+  background: var(--fha-bg-hover);
+}
+
+.fha-data-table td,
+.fha-recent-table td {
+  padding: 14px 16px;
+  color: var(--fha-text-primary);
+}
+
+/* =============================================================================
+ * 14. ANALYSIS CARDS (Grid Items)
+ * ============================================================================= */
+
+.fha-analysis-card,
+.fha-table-item,
+.category-card,
+.table-card {
+  background: var(--fha-bg-card);
+  border-radius: var(--fha-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--fha-shadow-md);
+  cursor: pointer;
+  transition: all var(--fha-transition-base);
+  border: 1px solid var(--fha-border-color);
+}
+
+.fha-analysis-card:hover,
+.fha-table-item:hover,
+.category-card:hover,
+.table-card:hover {
+  box-shadow: var(--fha-shadow-xl);
+  transform: translateY(-4px);
+  border-color: var(--fha-primary);
+}
+
+.category-card.selected {
+  border-color: var(--fha-primary);
+  border-width: 2px;
+  box-shadow: var(--fha-shadow-lg);
+}
+
+/* Card Header */
+.fha-card-header,
+.category-header,
+.table-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--fha-spacing-md) var(--fha-spacing-lg);
+  background: var(--fha-bg-section);
+  border-bottom: 1px solid var(--fha-border-color);
+}
+
+/* =============================================================================
+ * 15. FILTER BAR
+ * ============================================================================= */
+
+.fha-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fha-spacing-md);
+  align-items: center;
+  padding: var(--fha-spacing-lg);
+  background: var(--fha-bg-section);
+  border-radius: var(--fha-radius-lg);
+  margin-bottom: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-sm);
+  border: 1px solid var(--fha-border-color);
+}
+
+/* Full width filter bar (no wrap) */
+.fha-filter-bar-full {
+  flex-wrap: nowrap;
+}
+
+.fha-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Flexible filter group (takes equal space) */
+.fha-filter-group-flex {
+  flex: 1;
+  min-width: 200px;
+}
+
+.fha-filter-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fha-text-secondary);
+}
+
+/* Search Filter with Icon */
+.fha-filter-search {
+  position: relative;
+}
+
+.fha-filter-search::before {
+  content: '\f002'; /* FontAwesome search icon */
+  font-family: 'FontAwesome', sans-serif;
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fha-text-muted);
+  pointer-events: none;
+  font-size: 14px;
+  z-index: 1;
+}
+
+.fha-filter-search .fha-filter-input {
+  padding-left: 40px;
+  width: 100%;
+}
+
+.fha-filter-actions {
+  display: flex;
+  gap: var(--fha-spacing-sm);
+  margin-left: auto;
+}
+
+/* =============================================================================
+ * 16. TABS (Professional)
+ * ============================================================================= */
+
+.fha-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--fha-border-color);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+.fha-tab-btn {
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fha-text-secondary);
+  cursor: pointer;
+  transition: all var(--fha-transition-base);
+  position: relative;
+  top: 2px;
+}
+
+.fha-tab-btn:hover {
+  color: var(--fha-primary);
+  background: var(--fha-bg-hover);
+}
+
+.fha-tab-btn.active {
+  color: var(--fha-primary);
+  border-bottom-color: var(--fha-primary);
+}
+
+/* =============================================================================
+ * 17. LINKS
+ * ============================================================================= */
+
+a,
+.fha-view-all-link,
+.view-all-link {
+  color: var(--fha-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--fha-transition-base);
+  font-weight: 500;
+}
+
+a:hover,
+.fha-view-all-link:hover,
+.view-all-link:hover {
+  color: var(--fha-primary-dark);
+  text-decoration: underline;
+}
+
+/* =============================================================================
+ * 18. DASHBOARD HEADER
+ * ============================================================================= */
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-2xl);
+  padding: var(--fha-spacing-xl);
+  background: var(--fha-bg-card);
+  border-radius: var(--fha-radius-lg);
+  box-shadow: var(--fha-shadow-md);
+  border: 1px solid var(--fha-border-color);
+}
+
+.dashboard-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--fha-anthracite);
+}
+
+/* =============================================================================
+ * 19. RESPONSIVE DESIGN
+ * ============================================================================= */
+
+@media (max-width: 768px) {
+  .fha-header-container {
+    padding: 0 var(--fha-spacing-md);
+    height: 60px;
+  }
+  
+  .fha-nav {
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: var(--fha-anthracite);
+    flex-direction: column;
+    padding: var(--fha-spacing-md);
+    gap: 4px;
+    display: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--fha-shadow-lg);
+  }
+  
+  .fha-nav.mobile-open {
+    display: flex;
+  }
+  
+  .fha-nav-item {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .fha-mobile-toggle {
+    display: block;
+  }
+  
+  .fha-user-section {
+    display: none;
+  }
+  
+  .dashboard-header {
+    flex-direction: column;
+    gap: var(--fha-spacing-md);
+    align-items: flex-start;
+  }
+}
+
+/* =============================================================================
+ * 19.5. FHA ANALYSIS DETAIL (Specific Styles)
+ * ============================================================================= */
+
+/* Detail Container */
+.fha-detail {
+  padding: var(--fha-spacing-xl);
+  background: var(--fha-bg-main);
+  min-height: 100vh;
+}
+
+/* Detail Header */
+.fha-detail-header {
+  background: var(--fha-anthracite);
+  padding: var(--fha-spacing-xl);
+  border-radius: var(--fha-radius-lg);
+  margin-bottom: var(--fha-spacing-xl);
+  box-shadow: var(--fha-shadow-lg);
+  border: 1px solid var(--fha-anthracite-light);
+}
+
+.fha-detail-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fha-spacing-sm);
+}
+
+.fha-detail-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--fha-text-on-dark);
+  margin: 0;
+}
+
+.fha-detail-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.fha-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fha-spacing-sm);
+  margin-top: var(--fha-spacing-sm);
+}
+
+.fha-detail-meta .fha-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Stats Grid */
+.fha-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-xl);
+}
+
+/* Stat Card - Professional Tiles */
+.fha-stat-card {
+  background: var(--fha-bg-card);
+  padding: var(--fha-spacing-xl) var(--fha-spacing-lg);
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: var(--fha-shadow-lg);
+  border: 2px solid var(--fha-border-color);
+  transition: all var(--fha-transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background subtle gradient */
+.fha-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(44, 62, 80, 0.02) 0%, transparent 100%);
+  z-index: 0;
+}
+
+.fha-stat-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.fha-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--fha-shadow-xl);
+  border-color: var(--fha-primary);
+}
+
+/* Default Stat Card (Records scanned) */
+.fha-stat-card {
+  border-top: 4px solid var(--fha-primary);
+}
+
+.fha-stat-card .fha-stat-value {
+  color: var(--fha-primary);
+}
+
+/* Danger Stat Card (High issues) */
+.fha-stat-card.fha-stat-danger {
+  border-top: 4px solid var(--fha-danger);
+  background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+}
+
+.fha-stat-card.fha-stat-danger .fha-stat-value {
+  color: var(--fha-danger);
+}
+
+.fha-stat-card.fha-stat-danger:hover {
+  border-color: var(--fha-danger);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.2);
+}
+
+/* Warning Stat Card (Medium issues) */
+.fha-stat-card.fha-stat-warning {
+  border-top: 4px solid var(--fha-warning);
+  background: linear-gradient(135deg, #ffffff 0%, #fffbf0 100%);
+}
+
+.fha-stat-card.fha-stat-warning .fha-stat-value {
+  color: var(--fha-warning);
+}
+
+.fha-stat-card.fha-stat-warning:hover {
+  border-color: var(--fha-warning);
+  box-shadow: 0 8px 24px rgba(243, 156, 18, 0.2);
+}
+
+/* Info Stat Card (Low issues) */
+.fha-stat-card.fha-stat-info {
+  border-top: 4px solid var(--fha-accent);
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+}
+
+.fha-stat-card.fha-stat-info .fha-stat-value {
+  color: var(--fha-accent);
+}
+
+.fha-stat-card.fha-stat-info:hover {
+  border-color: var(--fha-accent);
+  box-shadow: 0 8px 24px rgba(93, 173, 226, 0.2);
+}
+
+/* Stat Value (Number) */
+.fha-stat-value {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: var(--fha-spacing-md);
+  letter-spacing: -1px;
+}
+
+/* Stat Label (Title below) */
+.fha-stat-label {
+  font-size: 12px;
+  color: var(--fha-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+}
+
+/* Actions Bar */
+.fha-actions-bar {
+  display: flex;
+  gap: var(--fha-spacing-md);
+  margin-bottom: var(--fha-spacing-xl);
+}
+
+/* Type Badge (for Flow, Business Rule, etc.) - Professional Tags */
+.fha-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-type-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.fha-type-badge i {
+  font-size: 13px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* Status Badge (Active/Inactive) */
+.fha-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: var(--fha-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.fha-status-badge.fha-status-active {
+  background: var(--fha-success-bg);
+  color: var(--fha-success);
+  border-color: var(--fha-success-light);
+}
+
+.fha-status-badge.fha-status-inactive {
+  background: var(--fha-gray-100);
+  color: var(--fha-gray-500);
+  border-color: var(--fha-gray-300);
+}
+
+/* Link */
+.fha-link {
+  color: var(--fha-primary);
+  text-decoration: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--fha-transition-base);
+}
+
+.fha-link:hover {
+  color: var(--fha-primary-dark);
+  text-decoration: underline;
+}
+
+/* JSON Viewer */
+.fha-json-viewer {
+  background: var(--fha-bg-section);
+  padding: var(--fha-spacing-lg);
+  border-radius: var(--fha-radius-md);
+  border: 1px solid var(--fha-border-color);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fha-text-primary);
+  max-height: 600px;
+  overflow: auto;
+}
+
+/* Overview Grid (Result left + Configuration right) */
+.fha-overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-lg);
+}
+
+/* Equal height cards in grid */
+.fha-overview-grid > .fha-card {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+/* Card Header Alternative (without flex) */
+.fha-card-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fha-anthracite);
+  margin: 0;
+}
+
+/* Responsive for Detail Page */
+@media (max-width: 768px) {
+  .fha-detail {
+    padding: var(--fha-spacing-md);
+  }
+  
+  .fha-detail-header {
+    padding: var(--fha-spacing-lg);
+  }
+  
+  .fha-detail-title {
+    font-size: 22px;
+  }
+  
+  .fha-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .fha-actions-bar {
+    flex-direction: column;
+  }
+  
+  .fha-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .fha-filter-group {
+    width: 100%;
+  }
+  
+  .fha-filter-input {
+    width: 100%;
+  }
+  
+  .fha-data-table {
+    font-size: 12px;
+  }
+  
+  .fha-data-table th,
+  .fha-data-table td {
+    padding: 10px 8px;
+  }
+  
+  /* Overview grid: Stack on mobile */
+  .fha-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =============================================================================
+ * 19.9. TYPE COLUMN BADGES (Professional Tags for TABLE column)
+ * ============================================================================= */
+
+/* Generic Type Tag Styles (used in TYPE column) */
+span[style*="background"] {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px !important;
+  border-radius: 16px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: white !important;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  transition: all 0.2s ease !important;
+}
+
+span[style*="background"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Specific colors for common types */
+/* Flows (Magenta/Pink) */
+.fha-data-table td span[style*="#E91E63"],
+.fha-data-table td span[style*="#C2185B"],
+.fha-data-table td span[style*="#D81B60"] {
+  background: linear-gradient(135deg, #E91E63 0%, #C2185B 100%) !important;
+}
+
+/* Business Rules (Blue) */
+.fha-data-table td span[style*="#2196F3"],
+.fha-data-table td span[style*="#1976D2"],
+.fha-data-table td span[style*="#1E88E5"] {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
+}
+
+/* Scripts (Indigo) */
+.fha-data-table td span[style*="#3F51B5"],
+.fha-data-table td span[style*="#303F9F"] {
+  background: linear-gradient(135deg, #3F51B5 0%, #303F9F 100%) !important;
+}
+
+/* UI Policies (Teal) */
+.fha-data-table td span[style*="#009688"],
+.fha-data-table td span[style*="#00796B"] {
+  background: linear-gradient(135deg, #009688 0%, #00796B 100%) !important;
+}
+
+/* Client Scripts (Purple) */
+.fha-data-table td span[style*="#9C27B0"],
+.fha-data-table td span[style*="#7B1FA2"] {
+  background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%) !important;
+}
+
+/* ACLs (Red) */
+.fha-data-table td span[style*="#F44336"],
+.fha-data-table td span[style*="#D32F2F"] {
+  background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%) !important;
+}
+
+/* Workflows (Amber) */
+.fha-data-table td span[style*="#FF9800"],
+.fha-data-table td span[style*="#F57C00"] {
+  background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%) !important;
+}
+
+/* =============================================================================
+ * 20. FHA ANALYSIS HISTORY (Analysis Results List)
+ * ============================================================================= */
+
+/* 20.1. Compact Stats (Header) */
+.fha-stat-card-compact {
+  background-color: var(--fha-card-bg);
+  border-radius: var(--fha-radius-md);
+  padding: var(--fha-spacing-sm) var(--fha-spacing-md);
+  text-align: center;
+  box-shadow: var(--fha-shadow-xs);
+  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--fha-border-color);
+  border-top: 3px solid var(--fha-primary);
+  min-width: 100px;
+}
+
+.fha-stat-card-compact:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+.fha-stat-card-compact.fha-stat-info {
+  border-top-color: var(--fha-info);
+}
+
+.fha-stat-card-compact.fha-stat-success {
+  border-top-color: var(--fha-success);
+}
+
+.fha-stat-card-compact.fha-stat-danger {
+  border-top-color: var(--fha-danger);
+}
+
+.fha-stat-value-compact {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--fha-primary);
+  line-height: 1;
+  margin-bottom: var(--fha-spacing-xs);
+}
+
+.fha-stat-card-compact.fha-stat-info .fha-stat-value-compact {
+  color: var(--fha-info);
+}
+
+.fha-stat-card-compact.fha-stat-success .fha-stat-value-compact {
+  color: var(--fha-success);
+}
+
+.fha-stat-card-compact.fha-stat-danger .fha-stat-value-compact {
+  color: var(--fha-danger);
+}
+
+.fha-stat-label-compact {
+  font-size: 10px;
+  color: var(--fha-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+/* 20.2. Analysis Grid (3-4 columns) */
+.fha-analysis-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--fha-spacing-lg);
+  margin-bottom: var(--fha-spacing-xl);
+}
+
+@media (max-width: 1400px) {
+  .fha-analysis-grid-compact {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .fha-analysis-grid-compact {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .fha-analysis-grid-compact {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 20.3. Analysis Tile */
+.fha-analysis-tile {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--fha-border-color);
+  cursor: pointer;
+  height: 100%;
+}
+
+.fha-analysis-tile:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--fha-shadow-lg) !important;
+  border-color: var(--fha-primary);
+}
+
+/* 20.4. Analysis Card Modern (Legacy - for backwards compatibility) */
+.fha-analysis-card-modern {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--fha-border-color);
+}
+
+.fha-analysis-card-modern:hover {
+  cursor: pointer;
+  transform: translateY(-2px);
+  box-shadow: var(--fha-shadow-lg) !important;
+  border-color: var(--fha-primary);
+}
+
+/* 20.5. Status Badges */
+.fha-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease-in-out;
+}
+
+.fha-status-badge.badge-completed {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.15));
+  color: var(--fha-success);
+  border: 1px solid var(--fha-success);
+}
+
+.fha-status-badge.badge-in-progress {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.15));
+  color: var(--fha-primary);
+  border: 1px solid var(--fha-primary);
+}
+
+.fha-status-badge.badge-failed {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.15));
+  color: var(--fha-danger);
+  border: 1px solid var(--fha-danger);
+}
+
+/* 20.6. Status Badge Compact (for tiles) */
+.fha-status-badge-compact {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease-in-out;
+}
+
+.fha-status-badge-compact.badge-completed {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.15));
+  color: var(--fha-success);
+  border: 1px solid var(--fha-success);
+}
+
+.fha-status-badge-compact.badge-in-progress {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.15));
+  color: var(--fha-primary);
+  border: 1px solid var(--fha-primary);
+}
+
+.fha-status-badge-compact.badge-failed {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.15));
+  color: var(--fha-danger);
+  border: 1px solid var(--fha-danger);
+}
+
+/* 20.7. Medium Score Circle (70x70 - for tiles) */
+.fha-score-circle-medium {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  box-shadow: var(--fha-shadow-sm);
+  position: relative;
+  transition: all 0.3s ease-in-out;
+  border: 3px solid transparent;
+  margin: 0 auto;
+}
+
+.fha-score-circle-medium::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  padding: 3px;
+  z-index: -1;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Good Score (70+) */
+.fha-score-circle-medium.fha-score-good {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.2));
+  color: var(--fha-success);
+  border-color: var(--fha-success);
+}
+
+.fha-score-circle-medium.fha-score-good::before {
+  background: linear-gradient(135deg, var(--fha-success), #059669);
+  opacity: 0.2;
+}
+
+.fha-analysis-tile:hover .fha-score-circle-medium.fha-score-good {
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+  transform: scale(1.08);
+}
+
+/* Medium Score (40-69) */
+.fha-score-circle-medium.fha-score-medium {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.2));
+  color: var(--fha-warning);
+  border-color: var(--fha-warning);
+}
+
+.fha-score-circle-medium.fha-score-medium::before {
+  background: linear-gradient(135deg, var(--fha-warning), #d97706);
+  opacity: 0.2;
+}
+
+.fha-analysis-tile:hover .fha-score-circle-medium.fha-score-medium {
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+  transform: scale(1.08);
+}
+
+/* Poor Score (<40) */
+.fha-score-circle-medium.fha-score-poor {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.2));
+  color: var(--fha-danger);
+  border-color: var(--fha-danger);
+}
+
+.fha-score-circle-medium.fha-score-poor::before {
+  background: linear-gradient(135deg, var(--fha-danger), #dc2626);
+  opacity: 0.2;
+}
+
+.fha-analysis-tile:hover .fha-score-circle-medium.fha-score-poor {
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+  transform: scale(1.08);
+}
+
+/* 20.8. Large Score Circle (100x100) - Legacy for backwards compatibility */
+.fha-score-circle-large {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  box-shadow: var(--fha-shadow-md);
+  position: relative;
+  transition: all 0.3s ease-in-out;
+  border: 4px solid transparent;
+}
+
+.fha-score-circle-large::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  padding: 4px;
+  z-index: -1;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Good Score (70+) */
+.fha-score-circle-large.fha-score-good {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.2));
+  color: var(--fha-success);
+  border-color: var(--fha-success);
+}
+
+.fha-score-circle-large.fha-score-good::before {
+  background: linear-gradient(135deg, var(--fha-success), #059669);
+  opacity: 0.2;
+}
+
+.fha-analysis-card-modern:hover .fha-score-circle-large.fha-score-good {
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+  transform: scale(1.05);
+}
+
+/* Medium Score (40-69) */
+.fha-score-circle-large.fha-score-medium {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.2));
+  color: var(--fha-warning);
+  border-color: var(--fha-warning);
+}
+
+.fha-score-circle-large.fha-score-medium::before {
+  background: linear-gradient(135deg, var(--fha-warning), #d97706);
+  opacity: 0.2;
+}
+
+.fha-analysis-card-modern:hover .fha-score-circle-large.fha-score-medium {
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
+  transform: scale(1.05);
+}
+
+/* Poor Score (<40) */
+.fha-score-circle-large.fha-score-poor {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.2));
+  color: var(--fha-danger);
+  border-color: var(--fha-danger);
+}
+
+.fha-score-circle-large.fha-score-poor::before {
+  background: linear-gradient(135deg, var(--fha-danger), #dc2626);
+  opacity: 0.2;
+}
+
+.fha-analysis-card-modern:hover .fha-score-circle-large.fha-score-poor {
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+  transform: scale(1.05);
+}
+
+/* 20.9. Issue Stats Badges (Small Circles) */
+.fha-issue-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease-in-out;
+}
+
+.fha-analysis-card-modern:hover .fha-issue-stat {
+  transform: translateX(2px);
+}
+
+/* 20.10. Issue Stats Compact (for tiles) */
+.fha-issue-stat-compact {
+  display: inline-flex;
+  transition: all 0.2s ease-in-out;
+}
+
+.fha-analysis-tile:hover .fha-issue-stat-compact {
+  transform: scale(1.1);
+}
+
+/* 20.5. Text Color Utilities for Score Labels */
+.fha-text-success { color: var(--fha-success); }
+.fha-text-warning { color: var(--fha-warning); }
+.fha-text-danger { color: var(--fha-danger); }
+
+/* =============================================================================
+ * 20.11. SORTABLE TABLE HEADERS
+ * ============================================================================= */
+
+.fha-th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+  padding-right: 24px !important;
+}
+
+.fha-th-sortable:hover {
+  background: var(--fha-bg-hover);
+  color: var(--fha-primary);
+}
+
+.fha-th-sortable i {
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.6;
+  transition: all 0.2s ease-in-out;
+}
+
+.fha-th-sortable:hover i {
+  opacity: 1;
+}
+
+.fha-th-sortable .fa-sort-up,
+.fha-th-sortable .fa-sort-down {
+  color: var(--fha-primary);
+  opacity: 1;
+}
+
+/* =============================================================================
+ * 21. UTILITY CLASSES
+ * ============================================================================= */
+
+.text-primary { color: var(--fha-primary); }
+.text-success { color: var(--fha-success); }
+.text-warning { color: var(--fha-warning); }
+.text-danger { color: var(--fha-danger); }
+.text-muted { color: var(--fha-text-muted); }
+
+.bg-primary { background-color: var(--fha-primary); }
+.bg-success { background-color: var(--fha-success); }
+.bg-warning { background-color: var(--fha-warning); }
+.bg-danger { background-color: var(--fha-danger); }
+
+.mb-0 { margin-bottom: 0; }
+.mb-sm { margin-bottom: var(--fha-spacing-sm); }
+.mb-md { margin-bottom: var(--fha-spacing-md); }
+.mb-lg { margin-bottom: var(--fha-spacing-lg); }
+
+.mt-0 { margin-top: 0; }
+.mt-sm { margin-top: var(--fha-spacing-sm); }
+.mt-md { margin-top: var(--fha-spacing-md); }
+.mt-lg { margin-top: var(--fha-spacing-lg); }
+
+/* =============================================================================
+ * END OF PROFESSIONAL THEME
+ * ============================================================================= */

@@ -1,0 +1,1071 @@
+/**
+ * =============================================================================
+ * Foundation Health Analyzer - Modern & Colorful Widgets CSS
+ * =============================================================================
+ * Modern, colorful and professional stylesheet for all FHA widgets
+ * Version: 3.0.0 (Modern Edition)
+ * Date: 2026-01-17
+ * 
+ * Features:
+ * - Vibrant color palette with gradients
+ * - Smooth animations & transitions  
+ * - Colored shadows & glow effects
+ * - Modern glassmorphism effects
+ * - Professional yet colorful design
+ * =============================================================================
+ */
+
+/* =============================================================================
+ * 1. CSS VARIABLES - Modern Color Palette
+ * ============================================================================= */
+
+:root {
+  /* ===== Primary Colors (Vibrant) ===== */
+  --fha-primary: #3b82f6;
+  --fha-primary-dark: #2563eb;
+  --fha-primary-light: #60a5fa;
+  --fha-primary-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  
+  /* ===== Accent Colors ===== */
+  --fha-accent-cyan: #06b6d4;
+  --fha-accent-purple: #8b5cf6;
+  --fha-accent-pink: #ec4899;
+  --fha-accent-orange: #f59e0b;
+  
+  /* ===== Status Colors (Vibrant) ===== */
+  --fha-success: #10b981;
+  --fha-success-light: #34d399;
+  --fha-success-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  
+  --fha-warning: #f59e0b;
+  --fha-warning-light: #fbbf24;
+  --fha-warning-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+  
+  --fha-danger: #ef4444;
+  --fha-danger-light: #f87171;
+  --fha-danger-gradient: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  
+  --fha-info: #06b6d4;
+  --fha-info-light: #22d3ee;
+  --fha-info-gradient: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+  
+  /* ===== Severity Colors (Vivid) ===== */
+  --fha-critical: #dc2626;
+  --fha-critical-glow: rgba(220, 38, 38, 0.3);
+  --fha-high: #ea580c;
+  --fha-high-glow: rgba(234, 88, 12, 0.3);
+  --fha-medium: #f59e0b;
+  --fha-medium-glow: rgba(245, 158, 11, 0.3);
+  --fha-low: #6366f1;
+  --fha-low-glow: rgba(99, 102, 241, 0.3);
+  
+  /* ===== Severity Backgrounds (Softer) ===== */
+  --fha-critical-bg: #fee2e2;
+  --fha-high-bg: #fed7aa;
+  --fha-medium-bg: #fef3c7;
+  --fha-low-bg: #e0e7ff;
+  
+  /* ===== Gray Scale (Modern) ===== */
+  --fha-gray-50: #f9fafb;
+  --fha-gray-100: #f3f4f6;
+  --fha-gray-200: #e5e7eb;
+  --fha-gray-300: #d1d5db;
+  --fha-gray-400: #9ca3af;
+  --fha-gray-500: #6b7280;
+  --fha-gray-600: #4b5563;
+  --fha-gray-700: #374151;
+  --fha-gray-800: #1f2937;
+  --fha-gray-900: #111827;
+  
+  /* ===== Background Gradients ===== */
+  --fha-bg-gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --fha-bg-gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --fha-bg-gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --fha-bg-gradient-4: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  --fha-bg-gradient-5: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  
+  /* ===== Spacing ===== */
+  --fha-spacing-xs: 4px;
+  --fha-spacing-sm: 8px;
+  --fha-spacing-md: 16px;
+  --fha-spacing-lg: 24px;
+  --fha-spacing-xl: 32px;
+  --fha-spacing-2xl: 48px;
+  
+  /* ===== Border Radius (More rounded) ===== */
+  --fha-radius-sm: 6px;
+  --fha-radius-md: 10px;
+  --fha-radius-lg: 14px;
+  --fha-radius-xl: 20px;
+  --fha-radius-2xl: 24px;
+  --fha-radius-full: 50%;
+  
+  /* ===== Shadows (Colorful) ===== */
+  --fha-shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+  --fha-shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --fha-shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --fha-shadow-xl: 0 12px 32px rgba(0,0,0,0.15);
+  --fha-shadow-2xl: 0 20px 48px rgba(0,0,0,0.2);
+  
+  /* ===== Colored Shadows ===== */
+  --fha-shadow-primary: 0 8px 24px rgba(59, 130, 246, 0.25);
+  --fha-shadow-success: 0 8px 24px rgba(16, 185, 129, 0.25);
+  --fha-shadow-warning: 0 8px 24px rgba(245, 158, 11, 0.25);
+  --fha-shadow-danger: 0 8px 24px rgba(239, 68, 68, 0.25);
+  
+  /* ===== Transitions ===== */
+  --fha-transition-fast: 0.15s ease;
+  --fha-transition-base: 0.2s ease;
+  --fha-transition-slow: 0.3s ease;
+}
+
+/* =============================================================================
+ * 2. GLOBAL ANIMATIONS
+ * ============================================================================= */
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slideInLeft {
+  from { 
+    opacity: 0; 
+    transform: translateX(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+@keyframes slideInRight {
+  from { 
+    opacity: 0; 
+    transform: translateX(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0; 
+    transform: scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 1; 
+  }
+  50% { 
+    opacity: 0.7; 
+  }
+}
+
+@keyframes shimmer {
+  0% { 
+    background-position: -1000px 0; 
+  }
+  100% { 
+    background-position: 1000px 0; 
+  }
+}
+
+/* =============================================================================
+ * 3. GLOBAL STYLES
+ * ============================================================================= */
+
+.loading-container,
+.fha-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--fha-gray-500);
+  animation: fadeIn 0.3s ease;
+}
+
+.loading-container i,
+.fha-loading i {
+  display: block;
+  margin-bottom: 15px;
+  background: var(--fha-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.empty-state,
+.fha-empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--fha-gray-400);
+  animation: fadeIn 0.4s ease;
+}
+
+.empty-state i,
+.fha-empty-state i {
+  font-size: 64px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, var(--fha-gray-300) 0%, var(--fha-gray-400) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =============================================================================
+ * 4. FHA HEADER (Modern Navigation)
+ * ============================================================================= */
+
+.fha-header {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+  padding: 0;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.fha-header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 70px;
+}
+
+.fha-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: transform var(--fha-transition-base);
+}
+
+.fha-logo:hover {
+  transform: translateX(2px);
+}
+
+.fha-logo-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--fha-primary-gradient);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: white;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-logo:hover .fha-logo-icon {
+  box-shadow: 0 6px 24px rgba(59, 130, 246, 0.6);
+  transform: translateY(-2px);
+}
+
+.fha-logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.fha-logo-title {
+  font-size: 19px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.fha-logo-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  font-weight: 600;
+}
+
+.fha-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fha-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--fha-radius-md);
+  transition: all var(--fha-transition-base);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  position: relative;
+}
+
+.fha-nav-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--fha-radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  opacity: 0;
+  transition: opacity var(--fha-transition-base);
+}
+
+.fha-nav-item:hover::before {
+  opacity: 1;
+}
+
+.fha-nav-item:hover {
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.fha-nav-item.active {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.15);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3);
+}
+
+.fha-nav-item.active::before {
+  opacity: 1;
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.fha-nav-item i {
+  font-size: 18px;
+}
+
+.fha-user-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fha-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-user-info:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.fha-user-avatar {
+  width: 36px;
+  height: 36px;
+  background: var(--fha-bg-gradient-1);
+  border-radius: var(--fha-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.fha-user-name {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fha-mobile-toggle {
+  display: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--fha-radius-md);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-mobile-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* =============================================================================
+ * 5. CARDS & CONTAINERS (Glassmorphism)
+ * ============================================================================= */
+
+.fha-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: var(--fha-radius-xl);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-lg), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  margin-bottom: var(--fha-spacing-lg);
+  transition: all var(--fha-transition-base);
+  animation: scaleIn 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.fha-card:hover {
+  box-shadow: var(--fha-shadow-xl), 0 0 0 1px rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.fha-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-lg);
+  padding-bottom: var(--fha-spacing-md);
+  border-bottom: 2px solid;
+  border-image: linear-gradient(90deg, var(--fha-primary), var(--fha-accent-purple)) 1;
+}
+
+.fha-card-header h4 {
+  margin: 0;
+  font-size: 19px;
+  background: var(--fha-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+/* =============================================================================
+ * 6. BUTTONS (Modern & Colorful)
+ * ============================================================================= */
+
+.fha-btn,
+.fha-btn-primary,
+.fha-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: var(--fha-radius-lg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--fha-transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.fha-btn-primary {
+  background: var(--fha-primary-gradient);
+  color: white;
+  box-shadow: var(--fha-shadow-primary);
+}
+
+.fha-btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+  opacity: 0;
+  transition: opacity var(--fha-transition-base);
+}
+
+.fha-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.35);
+}
+
+.fha-btn-primary:hover::before {
+  opacity: 1;
+}
+
+.fha-btn-primary:active {
+  transform: translateY(0);
+}
+
+.fha-btn-secondary,
+.fha-btn {
+  background: white;
+  color: var(--fha-gray-700);
+  border: 2px solid var(--fha-gray-200);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+.fha-btn-secondary:hover,
+.fha-btn:hover {
+  background: var(--fha-gray-50);
+  border-color: var(--fha-primary);
+  color: var(--fha-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--fha-shadow-md);
+}
+
+/* =============================================================================
+ * 7. BADGES & PILLS (Vibrant)
+ * ============================================================================= */
+
+.fha-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: var(--fha-radius-xl);
+  font-size: 12px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--fha-gray-100) 0%, var(--fha-gray-200) 100%);
+  color: var(--fha-gray-700);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.fha-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: var(--fha-radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.fha-pill-primary {
+  background: var(--fha-primary-gradient);
+  color: white;
+  box-shadow: var(--fha-shadow-primary);
+}
+
+.fha-pill-success {
+  background: var(--fha-success-gradient);
+  color: white;
+  box-shadow: var(--fha-shadow-success);
+}
+
+.fha-pill-warning {
+  background: var(--fha-warning-gradient);
+  color: white;
+  box-shadow: var(--fha-shadow-warning);
+}
+
+.fha-pill-danger {
+  background: var(--fha-danger-gradient);
+  color: white;
+  box-shadow: var(--fha-shadow-danger);
+}
+
+/* =============================================================================
+ * 8. SEVERITY INDICATORS (Glowing)
+ * ============================================================================= */
+
+.issue-badge,
+.fha-issue-badge,
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--fha-radius-xl);
+  font-size: 13px;
+  font-weight: 700;
+  transition: all var(--fha-transition-base);
+}
+
+.issue-badge.critical,
+.fha-issue-badge.fha-sev-critical,
+.severity-badge.critical,
+.issue-count.critical {
+  background: linear-gradient(135deg, var(--fha-critical-bg) 0%, #fecaca 100%);
+  color: var(--fha-critical);
+  box-shadow: 0 4px 12px var(--fha-critical-glow);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.issue-badge.high,
+.fha-issue-badge.fha-sev-high,
+.severity-badge.high,
+.issue-count.high {
+  background: linear-gradient(135deg, var(--fha-high-bg) 0%, #fdba74 100%);
+  color: var(--fha-high);
+  box-shadow: 0 4px 12px var(--fha-high-glow);
+  border: 1px solid rgba(234, 88, 12, 0.2);
+}
+
+.issue-badge.medium,
+.fha-issue-badge.fha-sev-medium,
+.severity-badge.medium,
+.issue-count.medium {
+  background: linear-gradient(135deg, var(--fha-medium-bg) 0%, #fde68a 100%);
+  color: var(--fha-medium);
+  box-shadow: 0 4px 12px var(--fha-medium-glow);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.issue-badge.low,
+.fha-issue-badge.fha-sev-low,
+.severity-badge.low,
+.issue-count.low {
+  background: linear-gradient(135deg, var(--fha-low-bg) 0%, #c7d2fe 100%);
+  color: var(--fha-low);
+  box-shadow: 0 4px 12px var(--fha-low-glow);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.issue-badge:hover,
+.fha-issue-badge:hover,
+.severity-badge:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+/* =============================================================================
+ * 9. HEALTH SCORE INDICATORS (Gradient Circles)
+ * ============================================================================= */
+
+.fha-score-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: var(--fha-radius-lg);
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: all var(--fha-transition-base);
+}
+
+.fha-score-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--fha-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: white;
+  margin-bottom: var(--fha-spacing-sm);
+  position: relative;
+  transition: all var(--fha-transition-base);
+}
+
+.fha-score-circle::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--fha-radius-full);
+  background: inherit;
+  filter: blur(12px);
+  opacity: 0.5;
+  z-index: -1;
+}
+
+.fha-score-circle:hover {
+  transform: scale(1.1);
+}
+
+.fha-score-circle.excellent,
+.fha-score-badge.fha-score-excellent {
+  background: var(--fha-success-gradient);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+}
+
+.fha-score-circle.good,
+.fha-score-badge.fha-score-good {
+  background: var(--fha-info-gradient);
+  box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
+}
+
+.fha-score-circle.medium,
+.fha-score-badge.fha-score-medium {
+  background: var(--fha-warning-gradient);
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.4);
+}
+
+.fha-score-circle.poor,
+.fha-score-badge.fha-score-poor {
+  background: var(--fha-danger-gradient);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+}
+
+/* KPI Cards (Colored borders) */
+.kpi-card {
+  background: white;
+  border-radius: var(--fha-radius-xl);
+  padding: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-lg);
+  display: flex;
+  gap: 16px;
+  border-left: 5px solid;
+  transition: all var(--fha-transition-base);
+  animation: slideInLeft 0.3s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--fha-shadow-2xl);
+}
+
+.kpi-card.kpi-primary { 
+  border-left-color: var(--fha-primary); 
+  box-shadow: var(--fha-shadow-md), -4px 0 20px rgba(59, 130, 246, 0.1);
+}
+
+.kpi-card.kpi-success { 
+  border-left-color: var(--fha-success); 
+  box-shadow: var(--fha-shadow-md), -4px 0 20px rgba(16, 185, 129, 0.1);
+}
+
+.kpi-card.kpi-warning { 
+  border-left-color: var(--fha-warning); 
+  box-shadow: var(--fha-shadow-md), -4px 0 20px rgba(245, 158, 11, 0.1);
+}
+
+.kpi-card.kpi-danger { 
+  border-left-color: var(--fha-danger); 
+  box-shadow: var(--fha-shadow-md), -4px 0 20px rgba(239, 68, 68, 0.1);
+}
+
+.kpi-card.kpi-info { 
+  border-left-color: var(--fha-info); 
+  box-shadow: var(--fha-shadow-md), -4px 0 20px rgba(6, 182, 212, 0.1);
+}
+
+.kpi-icon {
+  font-size: 48px;
+  background: var(--fha-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+}
+
+.kpi-value {
+  font-size: 36px;
+  font-weight: 800;
+  background: var(--fha-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+/* =============================================================================
+ * 10. CHARTS (Colorful containers)
+ * ============================================================================= */
+
+.chart-card,
+.chart-section {
+  background: white;
+  border-radius: var(--fha-radius-xl);
+  padding: var(--fha-spacing-xl);
+  box-shadow: var(--fha-shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all var(--fha-transition-base);
+  animation: scaleIn 0.4s ease;
+}
+
+.chart-card:hover,
+.chart-section:hover {
+  box-shadow: var(--fha-shadow-2xl);
+  transform: translateY(-2px);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-lg);
+  padding-bottom: var(--fha-spacing-md);
+  border-bottom: 2px solid;
+  border-image: linear-gradient(90deg, var(--fha-primary), var(--fha-accent-purple)) 1;
+}
+
+.chart-header h3,
+.chart-header h4 {
+  margin: 0;
+  font-size: 18px;
+  background: var(--fha-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+/* =============================================================================
+ * 11. TABLES (Modern styling)
+ * ============================================================================= */
+
+.fha-data-table,
+.fha-recent-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.fha-data-table thead,
+.fha-recent-table thead {
+  background: linear-gradient(135deg, var(--fha-gray-50) 0%, var(--fha-gray-100) 100%);
+  border-radius: var(--fha-radius-lg);
+}
+
+.fha-data-table th,
+.fha-recent-table th {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fha-gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fha-data-table tbody tr,
+.fha-recent-table tbody tr {
+  transition: all var(--fha-transition-fast);
+  border-bottom: 1px solid var(--fha-gray-100);
+}
+
+.fha-data-table tbody tr:hover,
+.fha-recent-table tbody tr:hover {
+  background: linear-gradient(90deg, var(--fha-gray-50) 0%, rgba(59, 130, 246, 0.05) 100%);
+  transform: translateX(4px);
+}
+
+.fha-data-table td,
+.fha-recent-table td {
+  padding: 14px 16px;
+  color: var(--fha-gray-700);
+}
+
+/* =============================================================================
+ * 12. ANALYSIS CARDS (Grid items)
+ * ============================================================================= */
+
+.fha-analysis-card,
+.fha-table-item,
+.category-card,
+.table-card {
+  background: white;
+  border-radius: var(--fha-radius-xl);
+  overflow: hidden;
+  box-shadow: var(--fha-shadow-md);
+  cursor: pointer;
+  transition: all var(--fha-transition-base);
+  border: 2px solid var(--fha-gray-100);
+  animation: scaleIn 0.3s ease;
+}
+
+.fha-analysis-card:hover,
+.fha-table-item:hover,
+.category-card:hover,
+.table-card:hover {
+  box-shadow: var(--fha-shadow-2xl);
+  transform: translateY(-6px);
+  border-color: var(--fha-primary);
+}
+
+.fha-analysis-card:hover::before,
+.category-card:hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
+  pointer-events: none;
+}
+
+.category-card.selected {
+  border-color: var(--fha-primary);
+  border-width: 3px;
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+}
+
+/* =============================================================================
+ * 13. FILTERS & INPUTS (Modern)
+ * ============================================================================= */
+
+.fha-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fha-spacing-md);
+  align-items: center;
+  padding: var(--fha-spacing-lg);
+  background: linear-gradient(135deg, var(--fha-gray-50) 0%, white 100%);
+  border-radius: var(--fha-radius-xl);
+  margin-bottom: var(--fha-spacing-lg);
+  box-shadow: var(--fha-shadow-sm);
+}
+
+.fha-filter-input {
+  padding: 10px 16px;
+  border: 2px solid var(--fha-gray-200);
+  border-radius: var(--fha-radius-lg);
+  font-size: 14px;
+  color: var(--fha-gray-700);
+  min-width: 200px;
+  transition: all var(--fha-transition-base);
+  background: white;
+}
+
+.fha-filter-input:focus {
+  outline: none;
+  border-color: var(--fha-primary);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+}
+
+/* =============================================================================
+ * 14. DASHBOARD SPECIFIC (Colorful backgrounds)
+ * ============================================================================= */
+
+.fha-executive-dashboard {
+  padding: var(--fha-spacing-xl);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0f9ff 100%);
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--fha-spacing-2xl);
+  padding: var(--fha-spacing-xl);
+  background: white;
+  border-radius: var(--fha-radius-2xl);
+  box-shadow: var(--fha-shadow-xl);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  animation: slideInRight 0.4s ease;
+}
+
+.dashboard-header h2 {
+  margin: 0;
+  font-size: 28px;
+  background: var(--fha-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+}
+
+/* =============================================================================
+ * 15. RESPONSIVE DESIGN
+ * ============================================================================= */
+
+@media (max-width: 768px) {
+  .fha-header-container {
+    padding: 0 16px;
+    height: 64px;
+  }
+  
+  .fha-nav {
+    position: absolute;
+    top: 70px;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    flex-direction: column;
+    padding: 16px;
+    gap: 8px;
+    display: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+  }
+  
+  .fha-nav.mobile-open {
+    display: flex;
+    animation: slideInLeft 0.3s ease;
+  }
+  
+  .fha-nav-item {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 14px 16px;
+  }
+  
+  .fha-mobile-toggle {
+    display: block;
+  }
+  
+  .fha-user-section {
+    display: none;
+  }
+  
+  .kpi-cards-container,
+  .charts-section,
+  .tables-grid,
+  .categories-container,
+  .fha-analysis-grid,
+  .fha-table-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .fha-header-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* =============================================================================
+ * 16. UTILITY CLASSES
+ * ============================================================================= */
+
+.text-gradient-primary {
+  background: var(--fha-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-success {
+  background: var(--fha-success-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-warning {
+  background: var(--fha-warning-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-danger {
+  background: var(--fha-danger-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =============================================================================
+ * END OF MODERN STYLESHEET ✨
+ * ============================================================================= */

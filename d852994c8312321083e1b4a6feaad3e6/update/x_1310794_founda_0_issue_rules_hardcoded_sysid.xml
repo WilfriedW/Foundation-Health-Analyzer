@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="x_1310794_founda_0_issue_rules">
+    <x_1310794_founda_0_issue_rules action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <code>HARDCODED_SYSID</code>
+        <default_severity>high</default_severity>
+        <description>Scanne les scripts et champs pour détecter des sys_id de 32 caractères codés en dur. Utilisez params {"fields": "script,query_value"} pour spécifier les champs à scanner.</description>
+        <name>Hardcoded Sys ID</name>
+        <params>{"fields":"script"}</params>
+        <script><![CDATA[var regex = /[0-9a-f]{32}/ig;
+var hits = [];
+var recordName = item.values.name || item.values.title || 'Record';
+
+var fields = (params.fields || '').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
+for (var i = 0; i < fields.length; i++) {
+    var f = fields[i];
+    var val = (item.values && item.values[f]) || '';
+    if (typeof val !== 'string') continue;
+    var matches = val.match(regex);
+    if (matches && matches.length > 0) {
+        hits.push({ field: f, matches: matches, count: matches.length });
+    }
+}
+
+if (hits.length > 0) {
+    var totalSysIds = 0;
+    var fieldsList = [];
+    hits.forEach(function(h) {
+        totalSysIds += h.count;
+        fieldsList.push(h.field + ' (' + h.count + ')');
+    });
+    
+    var message = 'Sys_id codé(s) en dur détecté(s) dans "' + recordName + '": ' + totalSysIds + ' occurrence(s) dans les champs [' + fieldsList.join(', ') + ']. Remplacez par des requêtes dynamiques.';
+    
+    issues.push({
+        code: rule.code,
+        message: message,
+        severity: rule.severity || 'high',
+        details: {
+            hits: hits,
+            total_sys_ids: totalSysIds,
+            fields: fieldsList,
+            record_table: item.table,
+            record_sys_id: item.sys_id,
+            record_name: recordName,
+            recommendation: 'Remplacer les sys_ids codés en dur par des requêtes dynamiques utilisant le nom ou d\'autres champs uniques'
+        }
+    });
+}]]></script>
+        <severity>high</severity>
+        <sys_class_name>x_1310794_founda_0_issue_rules</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-18 12:00:00</sys_created_on>
+        <sys_id>aaaa0001feed53163610c7233ee0a049</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Hardcoded Sys ID</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>x_1310794_founda_0_issue_rules_aaaa0001feed53163610c7233ee0a049</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-18 12:00:00</sys_updated_on>
+        <type>hardcoded_sys_id</type>
+    </x_1310794_founda_0_issue_rules>
+</record_update>
