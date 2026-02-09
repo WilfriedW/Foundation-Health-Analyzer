@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element db_object_id="6df4d11c53433210c7233ee0a0490e1f" label="Template Rules" max_length="40" name="x_1310794_founda_0_template_rules" type="collection">
+        <element label="Rule" max_length="32" name="rule" reference="x_1310794_founda_0_issue_rules" type="reference"/>
+        <element default="100" label="Order" max_length="255" name="order" type="integer"/>
+        <element label="Params Override" max_length="4000" name="params_override" type="string"/>
+        <element label="Template" max_length="32" name="template" reference="x_1310794_founda_0_analysis_templates" type="reference"/>
+        <element default="true" label="Enabled" max_length="255" name="enabled" type="boolean"/>
+        <index name="index">
+            <element name="rule"/>
+        </index>
+        <index name="index2">
+            <element name="template"/>
+        </index>
+    </element>
+</database>
