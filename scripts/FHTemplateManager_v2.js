@@ -96,24 +96,22 @@ FHTemplateManager.prototype = {
         vi.fields = 'name,active,script,sys_created_by,sys_updated_by,sys_updated_on';
         vi.active = true;
         
+        // Set issue_rules field (glide_list - comma-separated sys_ids)
+        var ruleIds = [];
+        rules.forEach(function(rule) {
+            ruleIds.push(rule.rule_id);
+        });
+        vi.issue_rules = ruleIds.join(',');
+        
         var viId = vi.insert();
         if (!viId) return;
         
-        // Link rules to verification item
-        rules.forEach(function(rule) {
-            var m2m = new GlideRecord('x_1310794_founda_0_verification_items_issue_rules');
-            m2m.initialize();
-            m2m.verification_items = viId;
-            m2m.issue_rules = rule.rule_id;
-            m2m.insert();
-        });
-        
-        // Link verification item to configuration
-        var configM2M = new GlideRecord('x_1310794_founda_0_configurations_verification_items');
-        configM2M.initialize();
-        configM2M.configurations = configId;
-        configM2M.verification_items = viId;
-        configM2M.insert();
+        // Link verification item to configuration (glide_list field)
+        var config = new GlideRecord('x_1310794_founda_0_configurations');
+        if (config.get(configId)) {
+            config.verification_items = viId;
+            config.update();
+        }
     },
 
     // Get template rules (only active rules)
