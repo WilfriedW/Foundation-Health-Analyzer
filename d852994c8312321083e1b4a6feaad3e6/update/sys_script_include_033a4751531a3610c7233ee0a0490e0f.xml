@@ -28,7 +28,7 @@ FHAnalysisEngine.prototype = {
             errors: [],
             metadata: {},
         };
-
+gs.info('runVerification ')
         this.options = this._loadConfigurationOptions(configRecord);
 
         if (!this._validateOptions()) {
@@ -46,13 +46,6 @@ FHAnalysisEngine.prototype = {
                 var queryType = item.query_type.toLowerCase();
                 var queryValue = item.query_value || '';
                 var queryScript = item.query_script || '';
-
-                gs.info('[FHAnalysisEngine] ───────────────────────────────────────');
-                gs.info('[FHAnalysisEngine] Processing VI: ' + item.name);
-                gs.info('[FHAnalysisEngine]   VI table: ' + tableName);
-                gs.info('[FHAnalysisEngine]   Config table: ' + configRecord.table_name);
-                gs.info('[FHAnalysisEngine]   Query type: ' + queryType);
-                gs.info('[FHAnalysisEngine]   Query value: ' + queryValue);
 
                 // --- 2. Apply deep_scan option to fields ---
                 var fields = this._determineFields(item);
@@ -439,10 +432,6 @@ FHAnalysisEngine.prototype = {
                         return;
                     }
 
-                    gs.info('[FHAnalysisEngine]    ✅ GlideRecord loaded successfully');
-                    gs.info('[FHAnalysisEngine]    Record name: ' + gr.getValue('name'));
-
-                    // ✅ MAINTENANT ON PASSE LE GLIDERECORD
                     item.issues = ruleEval.evaluate(gr, rules, context) || [];
 
                     gs.info('[FHAnalysisEngine]    ]]>📊<![CDATA[ Issues found: ' + item.issues.length);
@@ -479,12 +468,6 @@ FHAnalysisEngine.prototype = {
 
             // Calculate widget metrics
             result = this._calculateMetrics(result);
-
-            gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
-            gs.info('[FHAnalysisEngine] ✅ Analysis complete');
-            gs.info('[FHAnalysisEngine] Total issues found: ' + aggregatedIssues.length);
-            gs.info('[FHAnalysisEngine] Health score: ' + result.health_score);
-            gs.info('[FHAnalysisEngine] ═══════════════════════════════════════');
 
         } catch (error) {
             gs.error('[FHAnalysisEngine] ❌ _analyzeResults error: ' + error.message);
@@ -604,13 +587,13 @@ FHAnalysisEngine.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>95</sys_mod_count>
+        <sys_mod_count>97</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-29 08:26:25</sys_updated_on>
+        <sys_updated_on>2026-02-10 09:03:11</sys_updated_on>
     </sys_script_include>
 </record_update>

@@ -24,29 +24,12 @@ FHARuleEvaluator.prototype = {
      */
     evaluate: function(item, rules, context) {
 
-        // ✅ VÉRIFICATION CRITIQUE
-        if (!item) {
-            gs.error('[FHARuleEvaluator] ❌ item is NULL or undefined');
-            return [];
-        }
-
         if (typeof item.getTableName !== 'function') {
-            gs.error('[FHARuleEvaluator] ❌ item is not a GlideRecord');
-            gs.error('[FHARuleEvaluator] item type: ' + typeof item);
-            gs.error('[FHARuleEvaluator] item keys: ' + Object.keys(item).join(', '));
             return [];
         }
-
-        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
-        gs.info('[FHARuleEvaluator] ]]>🔍<![CDATA[ Starting evaluation');
-        gs.info('[FHARuleEvaluator] Item: ' + item.getTableName() + ' / ' + item.sys_id.toString());
-        gs.info('[FHARuleEvaluator] Rules to evaluate: ' + (rules ? rules.length : 0));
-        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
-
         var allIssues = [];
 
         if (!rules || !Array.isArray(rules)) {
-            gs.warn('[FHARuleEvaluator] No rules provided or invalid rules array');
             return allIssues;
         }
 
@@ -54,30 +37,20 @@ FHARuleEvaluator.prototype = {
 
         rules.forEach(function(rule, ruleIndex) {
             try {
-                gs.info('[FHARuleEvaluator] ───────────────────────────────────────');
-                gs.info('[FHARuleEvaluator] ]]>📋<![CDATA[ Rule #' + (ruleIndex + 1) + ': ' + rule.code);
-
                 var issues = [];
 
                 // Execute the rule script
                 if (rule.script) {
-                    gs.info('[FHARuleEvaluator] Executing script for rule: ' + rule.code);
                     issues = self._runScriptSafe(rule, item, context);
-
-                    gs.info('[FHARuleEvaluator] ✅ Rule ' + rule.code + ' returned ' + issues.length + ' issue(s)');
 
                     if (issues.length > 0) {
                         issues.forEach(function(issue, issueIndex) {
-                            gs.info('[FHARuleEvaluator] Issue #' + (issueIndex + 1) + ': ' + issue.code + ' - ' + issue.message);
                         });
                     }
-                } else {
-                    gs.warn('[FHARuleEvaluator] Rule ' + rule.code + ' has no script');
-                }
+                } 
 
                 // Add found issues
                 if (issues && Array.isArray(issues) && issues.length > 0) {
-                    gs.info('[FHARuleEvaluator] Adding ' + issues.length + ' issue(s) to allIssues');
                     allIssues = allIssues.concat(issues);
                 }
 
@@ -86,10 +59,6 @@ FHARuleEvaluator.prototype = {
                 gs.error('[FHARuleEvaluator] Stack: ' + error.stack);
             }
         });
-
-        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
-        gs.info('[FHARuleEvaluator] ]]>📊<![CDATA[ Total issues found: ' + allIssues.length);
-        gs.info('[FHARuleEvaluator] ═══════════════════════════════════════');
 
         return allIssues;
     },
@@ -148,12 +117,22 @@ FHARuleEvaluator.prototype = {
                 values: {}
             };
 
-            // Extract all field values from GlideRecord
-            var fields = item.getFields();
-            for (var i = 0; i < fields.size(); i++) {
-                var field = fields.get(i);
-                var fieldName = field.getName();
-                itemObj.values[fieldName] = item.getValue(fieldName);
+            // Extract field values from GlideRecord (scoped app compatible)
+            var tableName = item.getTableName();
+            var dict = new GlideRecord('sys_dictionary');
+            dict.addQuery('name', tableName);
+            dict.addQuery('internal_type', '!=', 'collection');
+            dict.query();
+
+            while (dict.next()) {
+                var fieldName = dict.getValue('element');
+                if (fieldName && item.isValidField(fieldName)) {
+                    try {
+                        itemObj.values[fieldName] = item.getValue(fieldName);
+                    } catch (e) {
+                        // Skip fields that can't be accessed
+                    }
+                }
             }
 
             // Inject variables
@@ -163,13 +142,14 @@ FHARuleEvaluator.prototype = {
             evaluator.putVariable('context', context || {});
             evaluator.putVariable('issues', issues);
 
+            var fieldCount = Object.keys(itemObj.values).length;
             gs.info('[FHARuleEvaluator]    Variables injected:');
             gs.info('[FHARuleEvaluator]      - params: ' + JSON.stringify(params));
             gs.info('[FHARuleEvaluator]      - rule.code: ' + ruleObj.code);
             gs.info('[FHARuleEvaluator]      - rule.severity: ' + ruleObj.severity);
             gs.info('[FHARuleEvaluator]      - item.table: ' + itemObj.table);
             gs.info('[FHARuleEvaluator]      - item.sys_id: ' + itemObj.sys_id);
-            gs.info('[FHARuleEvaluator]      - item.values keys: ' + Object.keys(itemObj.values).length);
+            gs.info('[FHARuleEvaluator]      - item.values: ' + fieldCount + ' fields extracted');
 
             // Execute script
             gs.info('[FHARuleEvaluator]    Evaluating script...');
@@ -265,13 +245,13 @@ FHARuleEvaluator.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-13 21:15:00</sys_created_on>
         <sys_id>cccafeed53163610c7233ee0a0490abc</sys_id>
-        <sys_mod_count>40</sys_mod_count>
+        <sys_mod_count>42</sys_mod_count>
         <sys_name>FHARuleEvaluator</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_cccafeed53163610c7233ee0a0490abc</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-29 08:26:49</sys_updated_on>
+        <sys_updated_on>2026-02-10 08:55:45</sys_updated_on>
     </sys_script_include>
 </record_update>
