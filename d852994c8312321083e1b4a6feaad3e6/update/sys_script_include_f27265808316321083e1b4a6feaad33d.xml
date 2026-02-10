@@ -83,9 +83,14 @@ FHAnalyzer.prototype = {
         gs.info('[FHAnalyzer]   Found ' + viCount + ' active VIs');
 
         while (verificationItems.next()) {
+            var viSysId = verificationItems.sys_id.toString();
             var viTableName = verificationItems.table.name + '' || '';
+
+            // Find issue rules that reference this VI
+            var issueRuleIds = this._getIssueRulesForVI(viSysId);
+
             var itemObj = {
-                sys_id: verificationItems.sys_id.toString(),
+                sys_id: viSysId,
                 name: verificationItems.name.toString(),
                 active: Boolean(verificationItems.active),
                 category: verificationItems.category + '',
@@ -96,7 +101,7 @@ FHAnalyzer.prototype = {
                 metadata: verificationItems.metadata + '' || '',
                 query_value: verificationItems.query_value + '',
                 query_script: verificationItems.query_script + '',
-                issue_rules: verificationItems.issue_rules + ''
+                issue_rules: issueRuleIds
             };
 
             gs.info('[FHAnalyzer]   VI: ' + itemObj.name);
@@ -139,6 +144,25 @@ FHAnalyzer.prototype = {
             include_ldap: gr.include_ldap,
             verification_items: []
         };
+    },
+
+    /**
+     * Get issue rules for a verification item
+     * @param {String} viSysId - Verification item sys_id
+     * @returns {String} Comma-separated rule IDs
+     */
+    _getIssueRulesForVI: function(viSysId) {
+        var ruleIds = [];
+        var rules = new GlideRecord('x_1310794_founda_0_issue_rules');
+        rules.addQuery('verification_items', 'CONTAINS', viSysId);
+        rules.addQuery('active', true);
+        rules.query();
+
+        while (rules.next()) {
+            ruleIds.push(rules.getUniqueValue());
+        }
+
+        return ruleIds.join(',');
     },
 
     _ensureMetadataDefaults: function(item) {
