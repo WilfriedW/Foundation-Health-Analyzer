@@ -59,17 +59,6 @@ FHARuleEvaluator.prototype = {
 
                 var issues = [];
 
-                // Parse JSON params
-                var params = {};
-                try {
-                    if (rule.params) {
-                        params = JSON.parse(rule.params);
-                        gs.info('[FHARuleEvaluator] Params parsed: ' + JSON.stringify(params));
-                    }
-                } catch (parseError) {
-                    gs.error('[FHARuleEvaluator] Error parsing params for rule ' + rule.code + ': ' + parseError.message);
-                }
-
                 // Execute the rule script
                 if (rule.script) {
                     gs.info('[FHARuleEvaluator] Executing script for rule: ' + rule.code);
@@ -132,11 +121,55 @@ FHARuleEvaluator.prototype = {
             // Create evaluator
             var evaluator = new GlideScopedEvaluator();
 
+            // Parse rule params
+            var params = {};
+            try {
+                if (grX_1310794F_0IR.getValue('params')) {
+                    params = JSON.parse(grX_1310794F_0IR.getValue('params'));
+                }
+            } catch (e) {
+                gs.warn('[FHARuleEvaluator] Failed to parse params: ' + e.message);
+            }
+
+            // Build rule object for script context
+            var ruleObj = {
+                sys_id: grX_1310794F_0IR.getUniqueValue(),
+                code: grX_1310794F_0IR.getValue('code'),
+                name: grX_1310794F_0IR.getValue('name'),
+                severity: grX_1310794F_0IR.getValue('severity'),
+                message_template: grX_1310794F_0IR.getValue('message_template'),
+                table: grX_1310794F_0IR.getValue('table')
+            };
+
+            // Build item object with values
+            var itemObj = {
+                sys_id: item.getUniqueValue(),
+                table: item.getTableName(),
+                values: {}
+            };
+
+            // Extract all field values from GlideRecord
+            var fields = item.getFields();
+            for (var i = 0; i < fields.size(); i++) {
+                var field = fields.get(i);
+                var fieldName = field.getName();
+                itemObj.values[fieldName] = item.getValue(fieldName);
+            }
+
             // Inject variables
-            evaluator.putVariable('params', {});
-            evaluator.putVariable('item', item);
+            evaluator.putVariable('params', params);
+            evaluator.putVariable('rule', ruleObj);
+            evaluator.putVariable('item', itemObj);
             evaluator.putVariable('context', context || {});
             evaluator.putVariable('issues', issues);
+
+            gs.info('[FHARuleEvaluator]    Variables injected:');
+            gs.info('[FHARuleEvaluator]      - params: ' + JSON.stringify(params));
+            gs.info('[FHARuleEvaluator]      - rule.code: ' + ruleObj.code);
+            gs.info('[FHARuleEvaluator]      - rule.severity: ' + ruleObj.severity);
+            gs.info('[FHARuleEvaluator]      - item.table: ' + itemObj.table);
+            gs.info('[FHARuleEvaluator]      - item.sys_id: ' + itemObj.sys_id);
+            gs.info('[FHARuleEvaluator]      - item.values keys: ' + Object.keys(itemObj.values).length);
 
             // Execute script
             gs.info('[FHARuleEvaluator]    Evaluating script...');
