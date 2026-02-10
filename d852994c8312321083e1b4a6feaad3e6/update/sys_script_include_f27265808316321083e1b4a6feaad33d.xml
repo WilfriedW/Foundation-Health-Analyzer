@@ -28,12 +28,13 @@ FHAnalyzer.prototype = {
     runAnalysis: function(configSysId) {
         var config = this.getConfiguration(configSysId);
         var engineResult = new FHAnalysisEngine().runVerification(config);
-        resultSysId = this._saveResult(config, engineResult);
+        var structuredResult = this._buildResultStructure(config, engineResult);
+        resultSysId = this._saveResult(structuredResult);
         return {
             success: true,
             analysis_id: resultSysId,
             sys_id: resultSysId,
-            details: engineResult
+            details: structuredResult
         };
     },
 
@@ -142,19 +143,14 @@ FHAnalyzer.prototype = {
     },
 
     /**
-     * Save analysis result to database
+     * Build structured result object
      * @private
      * @param {Object} config - Analysis configuration
-     * @param {Object} result - Analysis result
-     * @returns {String} Result sys_id
+     * @param {Object} result - Analysis result from engine
+     * @returns {Object} Structured result
      */
-    _saveResult: function(config, result) {
-        var gr = new GlideRecord(this.resultsTable);
-        gr.initialize();
-        gr.setValue('state', 'Completed');
-
-        // Build structured JSON
-        var detailObj = {
+    _buildResultStructure: function(config, result) {
+        return {
             configuration: {
                 sys_id: config.sys_id,
                 name: config.name,
@@ -191,8 +187,19 @@ FHAnalyzer.prototype = {
                 errors: result.errors || []
             }
         };
+    },
 
-        gr.setValue('details', JSON.stringify(detailObj));
+    /**
+     * Save analysis result to database
+     * @private
+     * @param {Object} structuredResult - Structured result object
+     * @returns {String} Result sys_id
+     */
+    _saveResult: function(structuredResult) {
+        var gr = new GlideRecord(this.resultsTable);
+        gr.initialize();
+        gr.setValue('state', 'Completed');
+        gr.setValue('details', JSON.stringify(structuredResult));
         return gr.insert();
     },
 
