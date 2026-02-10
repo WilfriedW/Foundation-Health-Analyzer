@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_policy_action">
     <sys_ui_policy_action action="INSERT_OR_UPDATE">
-        <cleared>true</cleared>
+        <cleared>false</cleared>
         <disabled>ignore</disabled>
-        <field>verifications_items</field>
+        <field>verification_items</field>
         <field_message/>
         <field_message_type>none</field_message_type>
-        <mandatory>false</mandatory>
+        <mandatory>true</mandatory>
         <sys_class_name>sys_ui_policy_action</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-02-09 22:55:29</sys_created_on>
-        <sys_id>228f651453c73210c7233ee0a0490e5c</sys_id>
+        <sys_created_on>2026-02-10 01:38:00</sys_created_on>
+        <sys_id>0bb496d4530f3210c7233ee0a0490ee0</sys_id>
         <sys_mod_count>0</sys_mod_count>
-        <sys_name>verifications_items</sys_name>
+        <sys_name>verification_items</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
-        <sys_update_name>sys_ui_policy_action_228f651453c73210c7233ee0a0490e5c</sys_update_name>
+        <sys_update_name>sys_ui_policy_action_0bb496d4530f3210c7233ee0a0490ee0</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-09 22:55:29</sys_updated_on>
+        <sys_updated_on>2026-02-10 01:38:00</sys_updated_on>
         <table>x_1310794_founda_0_configurations</table>
-        <ui_policy display_value="Use template">43bda51053c73210c7233ee0a0490e4d</ui_policy>
+        <ui_policy display_value="Use Verification items">116ead9c53873210c7233ee0a0490e86</ui_policy>
         <value/>
         <value_action>ignore</value_action>
-        <visible>false</visible>
+        <visible>true</visible>
     </sys_ui_policy_action>
-    <sys_translated_text action="delete_multiple" query="documentkey=228f651453c73210c7233ee0a0490e5c"/>
+    <sys_translated_text action="delete_multiple" query="documentkey=0bb496d4530f3210c7233ee0a0490ee0"/>
 </record_update>

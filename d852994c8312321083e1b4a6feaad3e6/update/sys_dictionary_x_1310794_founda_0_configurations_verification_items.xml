@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update>
-    <sys_dictionary action="INSERT_OR_UPDATE" element="verifications_items" table="x_1310794_founda_0_configurations">
+    <sys_dictionary action="INSERT_OR_UPDATE" element="verification_items" table="x_1310794_founda_0_configurations">
         <active>true</active>
         <array>false</array>
-        <attributes>no_sort=true,slushbucket_ref_no_expand=true</attributes>
+        <attributes/>
         <audit>false</audit>
-        <calculation/>
+        <calculation><![CDATA[(function calculatedFieldValue(current) {
+
+	// Add your code here
+	return '';  // return the calculated value
+
+})(current);]]></calculation>
         <choice/>
         <choice_field/>
         <choice_table/>
-        <column_label>Verifications Items</column_label>
+        <column_label>Verification Items</column_label>
         <comments/>
         <create_roles/>
         <default_value/>
@@ -21,7 +26,7 @@
         <dynamic_creation_script/>
         <dynamic_default_value/>
         <dynamic_ref_qual/>
-        <element>verifications_items</element>
+        <element>verification_items</element>
         <element_reference>false</element_reference>
         <foreign_database/>
         <formula/>
@@ -29,7 +34,7 @@
         <function_field>false</function_field>
         <internal_type display_value="">glide_list</internal_type>
         <mandatory>false</mandatory>
-        <max_length>1024</max_length>
+        <max_length>4000</max_length>
         <name>x_1310794_founda_0_configurations</name>
         <next_element/>
         <primary>false</primary>
@@ -37,7 +42,7 @@
         <read_roles/>
         <reference display_value="" name="x_1310794_founda_0_verification_items">x_1310794_founda_0_verification_items</reference>
         <reference_cascade_rule/>
-        <reference_floats>true</reference_floats>
+        <reference_floats>false</reference_floats>
         <reference_key/>
         <reference_qual>active=true^EQ</reference_qual>
         <reference_qual_condition table="x_1310794_founda_0_verification_items">active=true^EQ<item endquery="false" field="active" goto="false" newquery="false" operator="=" or="false" value="true"/>
@@ -48,14 +53,14 @@
         <staged>false</staged>
         <sys_class_name>sys_dictionary</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-02-09 22:45:58</sys_created_on>
-        <sys_name>Verifications Items</sys_name>
+        <sys_created_on>2026-02-10 01:36:56</sys_created_on>
+        <sys_name>Verification Items</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
-        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verifications_items</sys_update_name>
+        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verification_items</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-09 23:08:29</sys_updated_on>
+        <sys_updated_on>2026-02-10 01:36:56</sys_updated_on>
         <table_reference>false</table_reference>
         <text_index>false</text_index>
         <unique>false</unique>

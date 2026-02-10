@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update>
-    <sys_dictionary action="DELETE" element="verification_items" table="x_1310794_founda_0_configurations">
+    <sys_dictionary action="DELETE" element="verifications_items" table="x_1310794_founda_0_configurations">
         <active>true</active>
         <array>false</array>
-        <attributes/>
+        <attributes>no_sort=true,slushbucket_ref_no_expand=true</attributes>
         <audit>false</audit>
         <calculation/>
-        <choice>0</choice>
+        <choice/>
         <choice_field/>
         <choice_table/>
-        <column_label>Verification Items</column_label>
+        <column_label>Verifications Items</column_label>
         <comments/>
         <create_roles/>
         <default_value/>
@@ -21,7 +21,7 @@
         <dynamic_creation_script/>
         <dynamic_default_value/>
         <dynamic_ref_qual/>
-        <element>verification_items</element>
+        <element>verifications_items</element>
         <element_reference>false</element_reference>
         <foreign_database/>
         <formula/>
@@ -39,21 +39,23 @@
         <reference_cascade_rule/>
         <reference_floats>true</reference_floats>
         <reference_key/>
-        <reference_qual/>
-        <reference_qual_condition/>
+        <reference_qual>active=true^EQ</reference_qual>
+        <reference_qual_condition table="x_1310794_founda_0_verification_items">active=true^EQ<item endquery="false" field="active" goto="false" newquery="false" operator="=" or="false" value="true"/>
+            <item endquery="true" field="" goto="false" newquery="false" operator="=" or="false" value=""/>
+        </reference_qual_condition>
         <reference_type/>
         <spell_check>false</spell_check>
         <staged>false</staged>
         <sys_class_name>sys_dictionary</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-01-06 23:21:08</sys_created_on>
-        <sys_name>Verification Items</sys_name>
+        <sys_created_on>2026-02-09 22:45:58</sys_created_on>
+        <sys_name>Verifications Items</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
-        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verification_items</sys_update_name>
+        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verifications_items</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-07 00:24:49</sys_updated_on>
+        <sys_updated_on>2026-02-09 23:08:29</sys_updated_on>
         <table_reference>false</table_reference>
         <text_index>false</text_index>
         <unique>false</unique>
@@ -72,18 +74,18 @@
         <file_path/>
         <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
         <instance_name>dev329251</instance_name>
-        <name>sys_dictionary_x_1310794_founda_0_configurations_verification_items</name>
+        <name>sys_dictionary_x_1310794_founda_0_configurations_verifications_items</name>
         <payload><![CDATA[<?xml version="1.0" encoding="UTF-8"?><record_update>
-    <sys_dictionary action="INSERT_OR_UPDATE" element="verification_items" table="x_1310794_founda_0_configurations">
+    <sys_dictionary action="INSERT_OR_UPDATE" element="verifications_items" table="x_1310794_founda_0_configurations">
         <active>true</active>
         <array>false</array>
-        <attributes/>
+        <attributes>no_sort=true,slushbucket_ref_no_expand=true</attributes>
         <audit>false</audit>
         <calculation/>
-        <choice>0</choice>
+        <choice/>
         <choice_field/>
         <choice_table/>
-        <column_label>Verification Items</column_label>
+        <column_label>Verifications Items</column_label>
         <comments/>
         <create_roles/>
         <default_value/>
@@ -96,7 +98,7 @@
         <dynamic_creation_script/>
         <dynamic_default_value/>
         <dynamic_ref_qual/>
-        <element>verification_items</element>
+        <element>verifications_items</element>
         <element_reference>false</element_reference>
         <foreign_database/>
         <formula/>
@@ -114,21 +116,23 @@
         <reference_cascade_rule/>
         <reference_floats>true</reference_floats>
         <reference_key/>
-        <reference_qual/>
-        <reference_qual_condition/>
+        <reference_qual>active=true^EQ</reference_qual>
+        <reference_qual_condition table="x_1310794_founda_0_verification_items">active=true^EQ<item endquery="false" field="active" goto="false" newquery="false" operator="=" or="false" value="true"/>
+            <item endquery="true" field="" goto="false" newquery="false" operator="=" or="false" value=""/>
+        </reference_qual_condition>
         <reference_type/>
         <spell_check>false</spell_check>
         <staged>false</staged>
         <sys_class_name>sys_dictionary</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-01-06 23:21:08</sys_created_on>
-        <sys_name>Verification Items</sys_name>
+        <sys_created_on>2026-02-09 22:45:58</sys_created_on>
+        <sys_name>Verifications Items</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
-        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verification_items</sys_update_name>
+        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verifications_items</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-07 00:24:49</sys_updated_on>
+        <sys_updated_on>2026-02-09 23:08:29</sys_updated_on>
         <table_reference>false</table_reference>
         <text_index>false</text_index>
         <unique>false</unique>
@@ -142,41 +146,41 @@
         <xml_view>false</xml_view>
     </sys_dictionary>
 </record_update>]]></payload>
-        <payload_hash>-1641229557</payload_hash>
-        <record_name>Configurations.Verification Items</record_name>
+        <payload_hash>668002353</payload_hash>
+        <record_name>Configurations.Verifications Items</record_name>
         <reverted_from/>
-        <source>f1c43d10530b3210c7233ee0a0490e5f</source>
+        <source>327593d453077210c7233ee0a0490e94</source>
         <source_table>sys_upgrade_history</source_table>
         <state>previous</state>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-02-09 23:18:36</sys_created_on>
-        <sys_id>fbd47950530b3210c7233ee0a0490e64</sys_id>
+        <sys_created_on>2026-02-10 06:20:46</sys_created_on>
+        <sys_id>bb7517d453077210c7233ee0a0490e71</sys_id>
         <sys_mod_count>0</sys_mod_count>
-        <sys_recorded_at>19c44b323940000001</sys_recorded_at>
+        <sys_recorded_at>19c4635a3e50000001</sys_recorded_at>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-09 23:18:36</sys_updated_on>
+        <sys_updated_on>2026-02-10 06:20:46</sys_updated_on>
         <type>Dictionary</type>
-        <update_guid>37d47950990b3210a9121fadfcfac464</update_guid>
-        <update_guid_history>37d47950990b3210a9121fadfcfac464:0,9c2c6d1cae873210729de33414874d55:138635055,ac6743301f62be108c127c61c3ef3ee4:0,36444b382722be10e3e229ccfda6525d:138635055,86fc2238a56e7e105cc7cd4ee8759b9b:0,1e73a2f0472e7e105880280ef6e5364d:138635055,4bdf1f5bc15ab21005217f448e81ab5d:0,52fdbad99f9636109e04ccfcd201ebf3:-131521157,596fe25dd11636108d86e5c3727b29e8:-115530648,556fe25dfa163610af9c04a7cfd6cccb:475386489</update_guid_history>
+        <update_guid>f37517d4b707721059eaa448beaf3471</update_guid>
+        <update_guid_history>f37517d4b707721059eaa448beaf3471:0,e994de94790f3210a617d9c4d4ef59ab:-1115660264,af8235d8abc73210dda9ce65288a511c:-1823432925,52e4b190ed0b3210c05f68b176bfd44a:1491511275,af8235d8abc73210dda9ce65288a511c:-1823432925,da10f954e4c732101590e9489e4ae817:656989002,356de9dc3e8732104b2d76662c8a65fa:1423845351</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
         <sys_audit_delete/>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-02-09 23:20:05</sys_created_on>
+        <sys_created_on>2026-02-10 06:21:09</sys_created_on>
         <sys_db_object display_value="" name="sys_dictionary">sys_dictionary</sys_db_object>
-        <sys_id>1110ef2bc95e4f4791a489ed8e73d169</sys_id>
-        <sys_metadata>b9d4f150530b3210c7233ee0a0490eef</sys_metadata>
+        <sys_id>0c801384336c450e8c88b84e355aa7c4</sys_id>
+        <sys_metadata>af75d3d453077210c7233ee0a0490e6f</sys_metadata>
         <sys_mod_count>0</sys_mod_count>
-        <sys_name>Verification Items</sys_name>
+        <sys_name>Verifications Items</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_parent display_value="Configurations">c0576ad953d23610c7233ee0a0490e11</sys_parent>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
-        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verification_items</sys_update_name>
-        <sys_update_version display_value="sys_dictionary_x_1310794_founda_0_configurations_verification_items">fbd47950530b3210c7233ee0a0490e64</sys_update_version>
+        <sys_update_name>sys_dictionary_x_1310794_founda_0_configurations_verifications_items</sys_update_name>
+        <sys_update_version display_value="sys_dictionary_x_1310794_founda_0_configurations_verifications_items">bb7517d453077210c7233ee0a0490e71</sys_update_version>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-09 23:20:05</sys_updated_on>
+        <sys_updated_on>2026-02-10 06:21:09</sys_updated_on>
     </sys_metadata_delete>
 </record_update>
