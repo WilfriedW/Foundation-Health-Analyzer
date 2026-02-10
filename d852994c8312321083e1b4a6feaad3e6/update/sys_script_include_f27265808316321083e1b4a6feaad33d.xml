@@ -40,44 +40,70 @@ FHAnalyzer.prototype = {
 
     getConfiguration: function(configSysId) {
         var gr = new GlideRecord('x_1310794_founda_0_configurations');
-        if (!gr.get(configSysId)) return null;
+        if (!gr.get(configSysId)) {
+            gs.error('[FHAnalyzer] Configuration not found: ' + configSysId);
+            return null;
+        }
+
+        gs.info('[FHAnalyzer] Loading configuration: ' + gr.getValue('name'));
+        gs.info('[FHAnalyzer]   Table: ' + gr.table.name);
+        gs.info('[FHAnalyzer]   use_template: ' + gr.getValue('use_template'));
 
         var out = [];
         var viIds = '';
 
         // Load VIs from template or direct selection
         if (gr.use_template && gr.getValue('template')) {
+            gs.info('[FHAnalyzer]   Mode: TEMPLATE');
             var template = new GlideRecord('x_1310794_founda_0_analysis_templates');
             if (template.get(gr.getValue('template'))) {
                 viIds = template.getValue('verification_items') || '';
+                gs.info('[FHAnalyzer]   Template: ' + template.getValue('name'));
+                gs.info('[FHAnalyzer]   VI IDs: ' + viIds);
+            } else {
+                gs.error('[FHAnalyzer]   Template not found: ' + gr.getValue('template'));
             }
         } else {
+            gs.info('[FHAnalyzer]   Mode: DIRECT');
             viIds = gr.getValue('verification_items') || '';
+            gs.info('[FHAnalyzer]   VI IDs: ' + viIds);
         }
 
-        if (!viIds) return this._buildEmptyConfig(gr);
+        if (!viIds) {
+            gs.warn('[FHAnalyzer]   No verification items found, returning empty config');
+            return this._buildEmptyConfig(gr);
+        }
 
         var verificationItems = new GlideRecord('x_1310794_founda_0_verification_items');
         verificationItems.addQuery('sys_id', 'IN', viIds);
         verificationItems.addQuery('active', true);
         verificationItems.query();
 
+        var viCount = verificationItems.getRowCount();
+        gs.info('[FHAnalyzer]   Found ' + viCount + ' active VIs');
+
         while (verificationItems.next()) {
+            var viTableName = verificationItems.table.name + '' || '';
             var itemObj = {
                 sys_id: verificationItems.sys_id.toString(),
                 name: verificationItems.name.toString(),
                 active: Boolean(verificationItems.active),
                 category: verificationItems.category + '',
                 tableSysid: verificationItems.table + '',
-                tableName: verificationItems.table.name + '' || '',
-                // issues: verificationItems.issues + '' || '',
+                tableName: viTableName,
                 query_type: verificationItems.query_type + '',
                 fields: verificationItems.fields + '' || '',
                 metadata: verificationItems.metadata + '' || '',
                 query_value: verificationItems.query_value + '',
                 query_script: verificationItems.query_script + '',
-                issue_rules: verificationItems.issue_rules + '' 
+                issue_rules: verificationItems.issue_rules + ''
             };
+
+            gs.info('[FHAnalyzer]   VI: ' + itemObj.name);
+            gs.info('[FHAnalyzer]     - table: ' + viTableName);
+            gs.info('[FHAnalyzer]     - query_value: ' + itemObj.query_value);
+            gs.info('[FHAnalyzer]     - issue_rules: ' + itemObj.issue_rules);
+
             itemObj = this._ensureMetadataDefaults(itemObj);
             out.push(itemObj);
         }

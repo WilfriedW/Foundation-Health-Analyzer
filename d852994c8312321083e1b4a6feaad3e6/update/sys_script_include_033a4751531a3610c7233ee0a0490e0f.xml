@@ -47,6 +47,13 @@ FHAnalysisEngine.prototype = {
                 var queryValue = item.query_value || '';
                 var queryScript = item.query_script || '';
 
+                gs.info('[FHAnalysisEngine] ───────────────────────────────────────');
+                gs.info('[FHAnalysisEngine] Processing VI: ' + item.name);
+                gs.info('[FHAnalysisEngine]   VI table: ' + tableName);
+                gs.info('[FHAnalysisEngine]   Config table: ' + configRecord.table_name);
+                gs.info('[FHAnalysisEngine]   Query type: ' + queryType);
+                gs.info('[FHAnalysisEngine]   Query value: ' + queryValue);
+
                 // --- 2. Apply deep_scan option to fields ---
                 var fields = this._determineFields(item);
 
@@ -74,7 +81,9 @@ FHAnalysisEngine.prototype = {
                         }
                     }
                 } else {
-                    gr.addEncodedQuery(queryValue.replaceAll("{0}", configRecord.table_name));
+                    var finalQuery = queryValue.replaceAll("{0}", configRecord.table_name);
+                    gr.addEncodedQuery(finalQuery);
+                    gs.info('[FHAnalysisEngine]   Final query: ' + finalQuery);
                 }
 
                 this._applyConfigurationOptions(gr, tableName);
@@ -82,7 +91,7 @@ FHAnalysisEngine.prototype = {
                 // --- 4. Execute query and process records ---
                 gr.query();
 
-                gs.info("[FHAnalysisEngine] Query executed for " + tableName + ": " + gr.getRowCount() + " records");
+                gs.info("[FHAnalysisEngine]   Query executed: " + gr.getRowCount() + " records found");
 
                 while (gr.next()) {
                     var record = this._processRecord(gr, fields, item);
