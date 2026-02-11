@@ -22,10 +22,18 @@
     // ============================================================
     // NAVIGATION - ONGLETS
     // ============================================================
-    
+
     c.setActiveTab = function(tab) {
-      c.activeTab = tab;
-      console.log('Active tab:', tab);
+      // Force désactivation de tous les onglets avant d'activer le nouveau
+      c.activeTab = null;
+
+      // Petit délai pour forcer la destruction du DOM
+      setTimeout(function() {
+        $scope.$apply(function() {
+          c.activeTab = tab;
+          console.log('Active tab:', tab);
+        });
+      }, 10);
     };
     
     // ============================================================
@@ -574,19 +582,19 @@
        TABS NAVIGATION
        ============================================================ -->
   <div class="fha-tabs">
-    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'dashboard'}" ng-click="c.activeTab = 'dashboard'">
-      <i class="fa fa-tachometer-alt"></i> Dashboard
+    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'dashboard'}" ng-click="c.setActiveTab('dashboard')">
+      <i class="fa fa-dashboard"></i> Dashboard
     </button>
-    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'issues'}" ng-click="c.activeTab = 'issues'">
+    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'issues'}" ng-click="c.setActiveTab('issues')">
       <i class="fa fa-list"></i> Issues Explorer ({{c.getFilteredIssues().length}})
     </button>
-    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'analytics'}" ng-click="c.activeTab = 'analytics'">
-      <i class="fa fa-chart-bar"></i> Analytics
+    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'analytics'}" ng-click="c.setActiveTab('analytics')">
+      <i class="fa fa-bar-chart"></i> Analytics
     </button>
-    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'details'}" ng-click="c.activeTab = 'details'">
+    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'details'}" ng-click="c.setActiveTab('details')">
       <i class="fa fa-info-circle"></i> Details
     </button>
-    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'data'}" ng-click="c.activeTab = 'data'">
+    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'data'}" ng-click="c.setActiveTab('data')">
       <i class="fa fa-database"></i> Raw Data
     </button>
   </div>
@@ -603,7 +611,7 @@
       <div class="fha-card">
         <div class="fha-card-header">
           <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-chart-pie" style="color: var(--fha-primary);"></i> Issues Distribution
+            <i class="fa fa-pie-chart" style="color: var(--fha-primary);"></i> Issues Distribution
           </h3>
         </div>
         <div class="fha-card-body" style="padding: 20px;">
@@ -1018,7 +1026,7 @@
               {{issue.showDetails ? 'Hide' : 'Show'}} Details
             </button>
             <button class="fha-btn-secondary fha-btn-sm" ng-click="c.viewRecord(issue)" title="View record in ServiceNow">
-              <i class="fa fa-external-link-alt"></i> View Record
+              <i class="fa fa-external-link"></i> View Record
             </button>
           </div>
           
@@ -1049,7 +1057,7 @@
       <div class="fha-card">
         <div class="fha-card-header">
           <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-chart-pie" style="color: var(--fha-primary);"></i> Severity Breakdown
+            <i class="fa fa-pie-chart" style="color: var(--fha-primary);"></i> Severity Breakdown
           </h3>
         </div>
         <div class="fha-card-body" style="padding: 24px;">
