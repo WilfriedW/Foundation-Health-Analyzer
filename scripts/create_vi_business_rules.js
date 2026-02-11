@@ -25,21 +25,21 @@
         {
             name: 'current.update() in before Business Rule',
             code: 'BR_BEFORE_CURRENT_UPDATE',
-            description: 'Détecte current.update() dans les Business Rules "before". Cela cause des boucles infinies et des locks de base de données.',
+            description: 'Detects current.update() in before Business Rules. This causes infinite loops and database locks.',
             severity: 'critical',
             type: 'anti_pattern',
             active: true,
             params: '',
-            script: function() {
+            script: `
 /**
  * RULE: current.update() in before Business Rule
- * Détecte l'anti-pattern critique current.update() dans before BR
+ * Detects the critical anti-pattern current.update() in before BR
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
     var when = item.values.when || '';
 
-    if (when === 'before' && script.match(/current\.update\s*\(/i)) {
+    if (when === 'before' && script.match(/current\\.update\\s*\\(/i)) {
         var recordName = item.values.name || 'Unknown';
 
         issues.push({
@@ -59,34 +59,34 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Async Business Rule accessing current',
             code: 'BR_ASYNC_WITH_CURRENT',
-            description: 'Détecte les BR asynchrones qui accèdent à "current". L\'objet current n\'existe pas dans le contexte asynchrone.',
+            description: 'Detects async Business Rules accessing "current". The current object is not available in async context.',
             severity: 'high',
             type: 'anti_pattern',
             active: true,
             params: '',
-            script: function() {
+            script: `
 /**
  * RULE: Async Business Rule accessing current
- * Détecte l'accès à current dans les BR async
+ * Detects access to current in async BR
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
     var when = item.values.when || '';
 
-    // Vérifier si c'est une BR async
+    // Check if it's an async BR
     var isAsync = item.values.when === 'async';
 
-    if (isAsync && script.match(/\bcurrent\./i)) {
+    if (isAsync && script.match(/\\bcurrent\\./i)) {
         var recordName = item.values.name || 'Unknown';
 
-        // Compter les occurrences de current.
-        var matches = script.match(/\bcurrent\./gi);
+        // Count occurrences of current.
+        var matches = script.match(/\\bcurrent\\./gi);
 
         issues.push({
             code: rule.code,
@@ -105,28 +105,28 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Nested GlideRecord queries',
             code: 'BR_NESTED_GLIDERECORD',
-            description: 'Détecte les GlideRecord imbriqués qui créent des problèmes de performance N+1.',
+            description: 'Detects nested GlideRecord queries creating N+1 performance problems.',
             severity: 'medium',
             type: 'performance',
             active: true,
             params: '',
-            script: function() {
+            script: `
 /**
  * RULE: Nested GlideRecord queries
- * Détecte les requêtes GlideRecord imbriquées (N+1 problem)
+ * Detects nested GlideRecord queries (N+1 problem)
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
 
-    // Recherche de GlideRecord dans des while loops
+    // Search for GlideRecord inside while loops
     // Pattern: while(...next()) { ... new GlideRecord ...}
-    var pattern = /while\s*\([^)]*\.next\s*\(\)\s*\)\s*{[^}]*new\s+GlideRecord/gi;
+    var pattern = /while\\s*\\([^)]*\\.next\\s*\\(\\)\\s*\\)\\s*{[^}]*new\\s+GlideRecord/gi;
 
     var matches = script.match(pattern);
 
@@ -150,27 +150,27 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Business Rule without condition',
             code: 'BR_NO_CONDITION',
-            description: 'Détecte les Business Rules sans condition qui s\'exécutent pour tous les enregistrements.',
+            description: 'Detects Business Rules without conditions that execute for all records.',
             severity: 'low',
             type: 'best_practice',
             active: true,
             params: '',
-            script: function() {
+            script: `
 /**
  * RULE: Business Rule without condition
- * Détecte l'absence de condition
+ * Detects absence of condition
  */
 (function executeRule(item, context, issues) {
     var condition = item.values.condition || '';
     var filter = item.values.filter_condition || '';
 
-    // Vérifier si ni condition ni filter_condition ne sont définis
+    // Check if neither condition nor filter_condition are defined
     if ((!condition || condition.trim() === '') &&
         (!filter || filter.trim() === '')) {
         var recordName = item.values.name || 'Unknown';
@@ -191,23 +191,23 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Too many GlideRecord queries',
             code: 'BR_TOO_MANY_QUERIES',
-            description: 'Détecte les Business Rules avec un nombre excessif de requêtes GlideRecord.',
+            description: 'Detects Business Rules with excessive GlideRecord queries.',
             severity: 'medium',
             type: 'performance',
             active: true,
             params: JSON.stringify({
                 max_queries: 5
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Too many GlideRecord queries
- * Détecte un nombre excessif de requêtes
+ * Detects excessive number of queries
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
@@ -215,8 +215,8 @@
     var params = rule.params ? JSON.parse(rule.params) : {};
     var maxQueries = params.max_queries || 5;
 
-    // Compter les new GlideRecord
-    var pattern = /new\s+GlideRecord\s*\(/gi;
+    // Count new GlideRecord
+    var pattern = /new\\s+GlideRecord\\s*\\(/gi;
     var matches = script.match(pattern);
 
     if (matches && matches.length > maxQueries) {
@@ -240,13 +240,13 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Large Business Rule script',
             code: 'BR_LARGE_SCRIPT',
-            description: 'Détecte les Business Rules avec un code trop volumineux qui devrait être refactorisé.',
+            description: 'Detects Business Rules with overly large code that should be refactored.',
             severity: 'low',
             type: 'best_practice',
             active: true,
@@ -254,10 +254,10 @@
                 max_lines: 150,
                 max_chars: 4000
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Large Business Rule script
- * Détecte les scripts trop volumineux
+ * Detects overly large scripts
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
@@ -266,7 +266,7 @@
     var maxLines = params.max_lines || 150;
     var maxChars = params.max_chars || 4000;
 
-    var lineCount = script.split('\n').length;
+    var lineCount = script.split('\\n').length;
     var charCount = script.length;
 
     if (lineCount > maxLines || charCount > maxChars) {
@@ -292,15 +292,15 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         }
     ];
 
     // ============================================================
-    // 2. CRÉATION DES ISSUE RULES
+    // 2. CREATE ISSUE RULES
     // ============================================================
 
-    gs.info('===== CRÉATION DES ISSUE RULES =====');
+    gs.info('===== CREATING ISSUE RULES =====');
 
     var ruleSysIds = [];
     var rulesByCodes = {};
@@ -308,7 +308,7 @@
     rules.forEach(function(ruleData) {
         var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
 
-        // Vérifier si la règle existe déjà
+        // Check if rule already exists
         gr.addQuery('code', ruleData.code);
         gr.query();
 
@@ -318,20 +318,14 @@
             gr.initialize();
         }
 
-        // Extraire le corps de la fonction
-        var scriptBody = ruleData.script;
-        if (typeof scriptBody === 'string') {
-            scriptBody = scriptBody.replace(/^function\s*\(\s*\)\s*{/, '').replace(/}$/, '').trim();
-        }
-
-        // Mettre à jour les champs
+        // Update fields
         gr.setValue('name', ruleData.name);
         gr.setValue('code', ruleData.code);
         gr.setValue('description', ruleData.description);
         gr.setValue('severity', ruleData.severity);
         gr.setValue('type', ruleData.type);
         gr.setValue('active', ruleData.active);
-        gr.setValue('script', scriptBody);
+        gr.setValue('script', ruleData.script.trim());
         gr.setValue('params', ruleData.params);
 
         var sysId = exists ? gr.update() : gr.insert();
@@ -342,14 +336,14 @@
     });
 
     // ============================================================
-    // 3. CRÉATION DU VERIFICATION ITEM
+    // 3. CREATE VERIFICATION ITEM
     // ============================================================
 
-    gs.info('\n===== CRÉATION DU VERIFICATION ITEM =====');
+    gs.info('\n===== CREATING VERIFICATION ITEM =====');
 
     var vi = new GlideRecord('x_1310794_founda_0_verification_items');
 
-    // Vérifier si le VI existe déjà
+    // Check if VI already exists
     vi.addQuery('name', 'Business Rules - Anti-Patterns & Performance');
     vi.query();
 
@@ -363,7 +357,7 @@
     vi.setValue('category', 'automation');
     vi.setValue('active', true);
 
-    // Référence à la table sys_script
+    // Reference to sys_script table
     var tableGr = new GlideRecord('sys_db_object');
     tableGr.addQuery('name', 'sys_script');
     tableGr.query();
@@ -371,10 +365,10 @@
         vi.setValue('table', tableGr.getUniqueValue());
     }
 
-    // Query pour filtrer les Business Rules actives
+    // Query to filter active Business Rules
     vi.setValue('query_value', 'active=true');
 
-    // Associer les rules
+    // Associate rules
     vi.setValue('issue_rules', ruleSysIds.join(','));
 
     var viSysId = viExists ? vi.update() : vi.insert();
@@ -382,10 +376,10 @@
     gs.info((viExists ? 'Updated' : 'Created') + ' VI: ' + viSysId);
 
     // ============================================================
-    // 4. MISE À JOUR DES RULES POUR RÉFÉRENCER LE VI
+    // 4. UPDATE RULES TO REFERENCE THE VI
     // ============================================================
 
-    gs.info('\n===== MISE À JOUR DES RÉFÉRENCES =====');
+    gs.info('\n===== UPDATING REFERENCES =====');
 
     ruleSysIds.forEach(function(ruleSysId) {
         var ruleGr = new GlideRecord('x_1310794_founda_0_issue_rules');
@@ -403,24 +397,24 @@
     });
 
     // ============================================================
-    // 5. RÉSUMÉ
+    // 5. SUMMARY
     // ============================================================
 
-    gs.info('\n===== CRÉATION TERMINÉE =====');
+    gs.info('\n===== CREATION COMPLETED =====');
     gs.info('Verification Item sys_id: ' + viSysId);
-    gs.info('Issue Rules créées:');
+    gs.info('Issue Rules created/associated:');
 
     for (var code in rulesByCodes) {
         gs.info('  - ' + code + ' (' + rulesByCodes[code] + ')');
     }
 
     gs.info('\n⚠️  CRITICAL RULES:');
-    gs.info('  - BR_BEFORE_CURRENT_UPDATE: Détecte current.update() dans before BR (cause des boucles infinies)');
+    gs.info('  - BR_BEFORE_CURRENT_UPDATE: Detects current.update() in before BR (causes infinite loops)');
 
-    gs.info('\nVous pouvez maintenant :');
-    gs.info('1. Créer une Configuration pour analyser la table sys_script');
-    gs.info('2. Associer le VI "Business Rules - Anti-Patterns & Performance"');
-    gs.info('3. Lancer l\'analyse pour détecter les problèmes critiques');
+    gs.info('\nNext steps:');
+    gs.info('1. Create a Configuration to analyze table sys_script');
+    gs.info('2. Associate the VI "Business Rules - Anti-Patterns & Performance"');
+    gs.info('3. Run the analysis to detect critical issues');
 
     return {
         success: true,

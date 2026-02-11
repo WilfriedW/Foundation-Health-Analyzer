@@ -24,17 +24,17 @@
         {
             name: 'Mandatory field empty',
             code: 'DATA_MANDATORY_EMPTY',
-            description: 'Détecte les enregistrements avec des champs obligatoires vides malgré les règles de validation.',
+            description: 'Detects records with mandatory fields empty despite validation rules.',
             severity: 'medium',
             type: 'data_quality',
             active: true,
             params: JSON.stringify({
                 fields: 'priority,category,short_description'
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Mandatory field empty
- * Détecte les champs obligatoires vides
+ * Detects empty mandatory fields
  * Params: { "fields": "field1,field2,field3" }
  */
 (function executeRule(item, context, issues) {
@@ -76,13 +76,13 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Inconsistent dates',
             code: 'DATA_INCONSISTENT_DATES',
-            description: 'Détecte les incohérences de dates (ex: date de fin avant date de début).',
+            description: 'Detects date inconsistencies (e.g., end date before start date).',
             severity: 'medium',
             type: 'data_quality',
             active: true,
@@ -91,10 +91,10 @@
                 end_field: 'closed_at',
                 allow_null: true
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Inconsistent dates
- * Détecte les dates incohérentes
+ * Detects inconsistent dates
  * Params: { "start_field": "opened_at", "end_field": "closed_at", "allow_null": true }
  */
 (function executeRule(item, context, issues) {
@@ -107,7 +107,7 @@
     var endDate = item.values[params.end_field];
     var allowNull = params.allow_null !== false; // Default true
 
-    // Si allow_null est true et une des dates est null, on ignore
+    // If allow_null is true and one of the dates is null, ignore
     if (allowNull && (!startDate || !endDate)) {
         return;
     }
@@ -116,7 +116,7 @@
         var start = new GlideDateTime(startDate);
         var end = new GlideDateTime(endDate);
 
-        // Vérifie que la date de fin est après la date de début
+        // Check that end date is after start date
         if (end.before(start)) {
             var recordNumber = item.values.number || item.values.name || item.sys_id;
 
@@ -141,23 +141,23 @@
         }
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Duplicate email addresses',
             code: 'DATA_DUPLICATE_EMAIL',
-            description: 'Détecte les adresses email en double dans la table des utilisateurs.',
+            description: 'Detects duplicate email addresses in the users table.',
             severity: 'high',
             type: 'data_quality',
             active: true,
             params: JSON.stringify({
                 email_field: 'email'
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Duplicate email addresses
- * Détecte les emails en double
+ * Detects duplicate emails
  * Params: { "email_field": "email" }
  */
 (function executeRule(item, context, issues) {
@@ -166,7 +166,7 @@
 
     if (!email || email === '') return;
 
-    // Compter les autres enregistrements avec le même email
+    // Count other records with the same email
     var gr = new GlideRecord(item.table);
     gr.addQuery(emailField, email);
     gr.addQuery('sys_id', '!=', item.sys_id);
@@ -176,7 +176,7 @@
     var duplicates = [];
     var count = 0;
 
-    while (gr.next() && count < 10) { // Limiter à 10 pour éviter trop de données
+    while (gr.next() && count < 10) { // Limit to 10 to avoid too much data
         duplicates.push({
             sys_id: gr.getUniqueValue(),
             name: gr.getValue('name') || gr.getValue('user_name') || gr.getValue('sys_id'),
@@ -188,7 +188,7 @@
     if (duplicates.length > 0) {
         var recordName = item.values.name || item.values.user_name || item.sys_id;
 
-        // Compter le total sans limite
+        // Count total without limit
         var totalGr = new GlideAggregate(item.table);
         totalGr.addQuery(emailField, email);
         totalGr.addQuery('sys_id', '!=', item.sys_id);
@@ -214,23 +214,23 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Stale record never updated',
             code: 'DATA_NEVER_UPDATED',
-            description: 'Détecte les enregistrements actifs qui n\'ont jamais été mis à jour depuis leur création.',
+            description: 'Detects active records that have never been updated since creation.',
             severity: 'low',
             type: 'data_quality',
             active: true,
             params: JSON.stringify({
                 min_age_days: 90
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Stale record never updated
- * Détecte les records jamais mis à jour
+ * Detects records never updated
  * Params: { "min_age_days": 90 }
  */
 (function executeRule(item, context, issues) {
@@ -241,7 +241,7 @@
 
     if (!createdOn || !updatedOn) return;
 
-    // Vérifier si sys_created_on == sys_updated_on (jamais mis à jour)
+    // Check if sys_created_on == sys_updated_on (never updated)
     if (createdOn === updatedOn) {
         var created = new GlideDateTime(createdOn);
         var now = new GlideDateTime();
@@ -270,23 +270,23 @@
         }
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Broken reference field',
             code: 'DATA_BROKEN_REFERENCE',
-            description: 'Détecte les champs de référence pointant vers des enregistrements supprimés ou inexistants.',
+            description: 'Detects reference fields pointing to deleted or non-existent records.',
             severity: 'medium',
             type: 'data_quality',
             active: true,
             params: JSON.stringify({
                 reference_fields: 'assigned_to,opened_by,caller_id'
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Broken reference field
- * Détecte les références cassées
+ * Detects broken references
  * Params: { "reference_fields": "assigned_to,opened_by,caller_id" }
  */
 (function executeRule(item, context, issues) {
@@ -304,29 +304,29 @@
     referenceFields.forEach(function(fieldName) {
         var refValue = item.values[fieldName];
 
-        // Si le champ a une valeur
+        // If the field has a value
         if (refValue && refValue !== '') {
-            // Essayer de récupérer l'enregistrement référencé
-            // Note: Dans le contexte de l'analyseur, on n'a pas toujours accès à getRefRecord()
-            // On suppose que si la valeur est un sys_id valide (32 chars hex), on la vérifie
+            // Try to retrieve the referenced record
+            // Note: In the analyzer context, we don't always have access to getRefRecord()
+            // We assume that if the value is a valid sys_id (32 chars hex), we check it
             if (refValue.match(/^[0-9a-f]{32}$/i)) {
-                // On pourrait vérifier ici si l'enregistrement existe
-                // Pour l'instant, on signale simplement les sys_id suspects
-                // Une amélioration serait de faire une vraie vérification
+                // We could check here if the record exists
+                // For now, we simply flag suspect sys_ids
+                // An improvement would be to do real verification
                 brokenRefs.push({
                     field: fieldName,
                     sys_id: refValue,
-                    status: 'unchecked' // À améliorer
+                    status: 'unchecked' // To improve
                 });
             }
         }
     });
 
-    // NOTE: Cette règle nécessite une amélioration pour vraiment vérifier
-    // si les références existent. Pour l'instant, elle sert de placeholder.
+    // NOTE: This rule needs improvement to really verify
+    // if references exist. For now, it serves as a placeholder.
 
-    // Pour éviter trop de faux positifs, on ne crée pas d'issue pour le moment
-    // Vous pouvez activer cette logique si vous implémentez la vraie vérification
+    // To avoid too many false positives, we don't create issues for now
+    // You can enable this logic if you implement real verification
 
     /*
     if (brokenRefs.length > 0) {
@@ -348,15 +348,15 @@
     }
     */
 })(item, context, issues);
-            }.toString()
+`
         }
     ];
 
     // ============================================================
-    // 2. CRÉATION DES ISSUE RULES
+    // 2. CREATE ISSUE RULES
     // ============================================================
 
-    gs.info('===== CRÉATION DES ISSUE RULES =====');
+    gs.info('===== CREATING ISSUE RULES =====');
 
     var ruleSysIds = [];
     var rulesByCodes = {};
@@ -364,7 +364,7 @@
     rules.forEach(function(ruleData) {
         var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
 
-        // Vérifier si la règle existe déjà
+        // Check if rule already exists
         gr.addQuery('code', ruleData.code);
         gr.query();
 
@@ -374,20 +374,14 @@
             gr.initialize();
         }
 
-        // Extraire le corps de la fonction
-        var scriptBody = ruleData.script;
-        if (typeof scriptBody === 'string') {
-            scriptBody = scriptBody.replace(/^function\s*\(\s*\)\s*{/, '').replace(/}$/, '').trim();
-        }
-
-        // Mettre à jour les champs
+        // Update fields
         gr.setValue('name', ruleData.name);
         gr.setValue('code', ruleData.code);
         gr.setValue('description', ruleData.description);
         gr.setValue('severity', ruleData.severity);
         gr.setValue('type', ruleData.type);
         gr.setValue('active', ruleData.active);
-        gr.setValue('script', scriptBody);
+        gr.setValue('script', ruleData.script.trim());
         gr.setValue('params', ruleData.params);
 
         var sysId = exists ? gr.update() : gr.insert();
@@ -398,10 +392,10 @@
     });
 
     // ============================================================
-    // 3. CRÉATION DES VERIFICATION ITEMS
+    // 3. CREATE VERIFICATION ITEMS
     // ============================================================
 
-    gs.info('\n===== CRÉATION DES VERIFICATION ITEMS =====');
+    gs.info('\n===== CREATING VERIFICATION ITEMS =====');
 
     var verificationItems = [
         {
@@ -444,7 +438,7 @@
     verificationItems.forEach(function(viData) {
         var vi = new GlideRecord('x_1310794_founda_0_verification_items');
 
-        // Vérifier si le VI existe déjà
+        // Check if VI already exists
         vi.addQuery('name', viData.name);
         vi.query();
 
@@ -458,7 +452,7 @@
         vi.setValue('category', viData.category);
         vi.setValue('active', true);
 
-        // Référence à la table
+        // Reference to table
         var tableGr = new GlideRecord('sys_db_object');
         tableGr.addQuery('name', viData.table);
         tableGr.query();
@@ -469,7 +463,7 @@
         // Query
         vi.setValue('query_value', viData.query);
 
-        // Associer les rules (filtrer les undefined)
+        // Associate rules (filter undefined)
         var validRules = viData.rules.filter(function(r) { return r; });
         vi.setValue('issue_rules', validRules.join(','));
 
@@ -478,7 +472,7 @@
 
         gs.info((viExists ? 'Updated' : 'Created') + ' VI: ' + viData.name + ' (' + viSysId + ')');
 
-        // Mettre à jour les rules pour référencer le VI
+        // Update rules to reference the VI
         validRules.forEach(function(ruleSysId) {
             var ruleGr = new GlideRecord('x_1310794_founda_0_issue_rules');
             if (ruleGr.get(ruleSysId)) {
@@ -495,31 +489,31 @@
     });
 
     // ============================================================
-    // 4. RÉSUMÉ
+    // 4. SUMMARY
     // ============================================================
 
-    gs.info('\n===== CRÉATION TERMINÉE =====');
-    gs.info('Verification Items créés: ' + viSysIds.length);
+    gs.info('\n===== CREATION COMPLETED =====');
+    gs.info('Verification Items created: ' + viSysIds.length);
     viSysIds.forEach(function(id, idx) {
         gs.info('  ' + (idx + 1) + '. ' + verificationItems[idx].name + ' (' + id + ')');
     });
 
-    gs.info('\nIssue Rules créées:');
+    gs.info('\nIssue Rules created:');
     for (var code in rulesByCodes) {
         gs.info('  - ' + code + ' (' + rulesByCodes[code] + ')');
     }
 
     gs.info('\n📊 DATA QUALITY RULES:');
-    gs.info('  - DATA_MANDATORY_EMPTY: Champs obligatoires vides');
-    gs.info('  - DATA_INCONSISTENT_DATES: Dates incohérentes');
-    gs.info('  - DATA_DUPLICATE_EMAIL: Emails en double');
-    gs.info('  - DATA_NEVER_UPDATED: Records jamais mis à jour');
-    gs.info('  - DATA_BROKEN_REFERENCE: Références cassées (placeholder)');
+    gs.info('  - DATA_MANDATORY_EMPTY: Empty mandatory fields');
+    gs.info('  - DATA_INCONSISTENT_DATES: Inconsistent dates');
+    gs.info('  - DATA_DUPLICATE_EMAIL: Duplicate emails');
+    gs.info('  - DATA_NEVER_UPDATED: Records never updated');
+    gs.info('  - DATA_BROKEN_REFERENCE: Broken references (placeholder)');
 
-    gs.info('\nVous pouvez maintenant :');
-    gs.info('1. Créer des Configurations pour analyser les tables incident, sys_user, change_request');
-    gs.info('2. Associer les VI correspondants');
-    gs.info('3. Lancer les analyses pour détecter les problèmes de qualité des données');
+    gs.info('\nNext steps:');
+    gs.info('1. Create Configurations to analyze tables incident, sys_user, change_request');
+    gs.info('2. Associate the corresponding VIs');
+    gs.info('3. Run analyses to detect data quality issues');
 
     return {
         success: true,
