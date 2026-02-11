@@ -9,7 +9,7 @@
  * Catégories de détection :
  * - GlideRecord dans Client Scripts
  * - AJAX synchrone (getXMLWait)
- * - Hardcoded sys_id
+ * - Hardcoded sys_id (utilise la règle générique)
  * - Scripts trop volumineux
  * - Absence de condition
  */
@@ -24,26 +24,26 @@
         {
             name: 'GlideRecord in Client Script',
             code: 'CS_GLIDERECORD',
-            description: 'Détecte l\'utilisation de GlideRecord dans les Client Scripts. Les Client Scripts s\'exécutent côté navigateur et ne doivent pas accéder directement à la base de données.',
+            description: 'Detects GlideRecord usage in Client Scripts. Client Scripts run in the browser and should not directly access the database.',
             severity: 'high',
             type: 'anti_pattern',
             active: true,
             params: JSON.stringify({
                 patterns: ['new GlideRecord', 'gr.query()', '.addQuery(']
             }),
-            script: function() {
+            script: `
 /**
  * RULE: GlideRecord in Client Script
- * Détecte l'utilisation de GlideRecord dans les Client Scripts
+ * Detects GlideRecord usage in Client Scripts
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
 
-    // Patterns à détecter
+    // Patterns to detect
     var patterns = [
-        { regex: /new\s+GlideRecord\s*\(/gi, name: 'new GlideRecord()' },
-        { regex: /\.query\s*\(/gi, name: '.query()' },
-        { regex: /\.addQuery\s*\(/gi, name: '.addQuery()' }
+        { regex: /new\\s+GlideRecord\\s*\\(/gi, name: 'new GlideRecord()' },
+        { regex: /\\.query\\s*\\(/gi, name: '.query()' },
+        { regex: /\\.addQuery\\s*\\(/gi, name: '.addQuery()' }
     ];
 
     var findings = [];
@@ -68,7 +68,7 @@
             message: 'GlideRecord detected in Client Script "' + recordName + '" (' + totalMatches + ' occurrence(s)). Client Scripts should use GlideAjax for server calls.',
             severity: rule.severity || 'high',
             record: item.sys_id,
-            record_table: 'sys_script_client',
+            record_table: item.table,
             record_sys_id: item.sys_id,
             details: {
                 script_name: recordName,
@@ -81,27 +81,27 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Synchronous AJAX in Client Script',
             code: 'CS_SYNCHRONOUS_AJAX',
-            description: 'Détecte les appels AJAX synchrones (getXMLWait) qui bloquent le navigateur et dégradent l\'expérience utilisateur.',
+            description: 'Detects synchronous AJAX calls (getXMLWait) that block the browser and degrade user experience.',
             severity: 'high',
             type: 'performance',
             active: true,
             params: '',
-            script: function() {
+            script: `
 /**
  * RULE: Synchronous AJAX in Client Script
- * Détecte les appels AJAX synchrones qui bloquent le navigateur
+ * Detects synchronous AJAX calls that block the browser
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
 
-    // Recherche de getXMLWait
-    var pattern = /getXMLWait\s*\(/gi;
+    // Search for getXMLWait
+    var pattern = /getXMLWait\\s*\\(/gi;
     var matches = script.match(pattern);
 
     if (matches && matches.length > 0) {
@@ -112,7 +112,7 @@
             message: 'Synchronous AJAX call (getXMLWait) detected in "' + recordName + '" (' + matches.length + ' occurrence(s)). This blocks the browser and degrades user experience.',
             severity: rule.severity || 'high',
             record: item.sys_id,
-            record_table: 'sys_script_client',
+            record_table: item.table,
             record_sys_id: item.sys_id,
             details: {
                 script_name: recordName,
@@ -124,69 +124,13 @@
         });
     }
 })(item, context, issues);
-            }.toString()
-        },
-
-        {
-            name: 'Hardcoded sys_id in Client Script',
-            code: 'CS_HARDCODED_SYSID',
-            description: 'Détecte les sys_id hardcodés dans les scripts. Les sys_id varient entre instances et rendent le code non portable.',
-            severity: 'high',
-            type: 'anti_pattern',
-            active: true,
-            params: JSON.stringify({
-                fields: 'script'
-            }),
-            script: function() {
-/**
- * RULE: Hardcoded sys_id in Client Script
- * Détecte les sys_id hardcodés (32 caractères hexadécimaux)
- */
-(function executeRule(item, context, issues) {
-    var sysIdRegex = /[0-9a-f]{32}/ig;
-
-    var script = item.values.script || '';
-    var matches = script.match(sysIdRegex);
-
-    if (matches && matches.length > 0) {
-        var recordName = item.values.name || 'Unknown';
-
-        // Exclure les sys_id qui pourraient être des variables (ex: current.sys_id)
-        var likelyHardcoded = matches.filter(function(match) {
-            var context = script.substring(
-                Math.max(0, script.indexOf(match) - 20),
-                Math.min(script.length, script.indexOf(match) + match.length + 20)
-            );
-            // Si entouré de quotes, c'est probablement hardcodé
-            return context.match(/['"][0-9a-f]{32}['"]/i);
-        });
-
-        if (likelyHardcoded.length > 0) {
-            issues.push({
-                code: rule.code,
-                message: 'Hardcoded sys_id(s) detected in "' + recordName + '" (' + likelyHardcoded.length + ' occurrence(s)). Replace with dynamic queries using names or other unique identifiers.',
-                severity: rule.severity || 'high',
-                record: item.sys_id,
-                record_table: 'sys_script_client',
-                record_sys_id: item.sys_id,
-                details: {
-                    script_name: recordName,
-                    script_type: item.values.type,
-                    total_sysids: likelyHardcoded.length,
-                    sample_sysids: likelyHardcoded.slice(0, 5),
-                    recommendation: 'Replace hardcoded sys_ids with queries using names, codes, or other unique fields that are consistent across instances.'
-                }
-            });
-        }
-    }
-})(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Large Client Script',
             code: 'CS_LARGE_SCRIPT',
-            description: 'Détecte les Client Scripts trop volumineux qui ralentissent le chargement des formulaires.',
+            description: 'Detects Client Scripts that are too large and slow down form loading.',
             severity: 'medium',
             type: 'performance',
             active: true,
@@ -194,10 +138,10 @@
                 max_lines: 200,
                 max_chars: 5000
             }),
-            script: function() {
+            script: `
 /**
  * RULE: Large Client Script
- * Détecte les scripts trop volumineux
+ * Detects scripts that are too large
  */
 (function executeRule(item, context, issues) {
     var script = item.values.script || '';
@@ -206,7 +150,7 @@
     var maxLines = params.max_lines || 200;
     var maxChars = params.max_chars || 5000;
 
-    var lineCount = script.split('\n').length;
+    var lineCount = script.split('\\n').length;
     var charCount = script.length;
 
     if (lineCount > maxLines || charCount > maxChars) {
@@ -217,7 +161,7 @@
             message: 'Large Client Script detected: "' + recordName + '" (' + lineCount + ' lines, ' + charCount + ' characters). Consider refactoring into smaller, modular scripts.',
             severity: rule.severity || 'medium',
             record: item.sys_id,
-            record_table: 'sys_script_client',
+            record_table: item.table,
             record_sys_id: item.sys_id,
             details: {
                 script_name: recordName,
@@ -231,27 +175,27 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         },
 
         {
             name: 'Client Script Without Condition',
             code: 'CS_NO_CONDITION',
-            description: 'Détecte les Client Scripts onChange sans condition qui s\'exécutent pour tous les changements de champ.',
+            description: 'Detects onChange Client Scripts without conditions that execute for all field changes.',
             severity: 'low',
             type: 'best_practice',
             active: true,
             params: '',
-            script: function() {
+            script: `
 /**
  * RULE: Client Script Without Condition
- * Détecte les onChange sans condition spécifique
+ * Detects onChange scripts without specific conditions
  */
 (function executeRule(item, context, issues) {
     var type = item.values.type || '';
     var condition = item.values.condition || '';
 
-    // Vérifier seulement les onChange
+    // Check only onChange scripts
     if (type === 'onChange' && (!condition || condition.trim() === '')) {
         var recordName = item.values.name || 'Unknown';
 
@@ -260,7 +204,7 @@
             message: 'onChange Client Script "' + recordName + '" has no condition. This may cause unnecessary executions.',
             severity: rule.severity || 'low',
             record: item.sys_id,
-            record_table: 'sys_script_client',
+            record_table: item.table,
             record_sys_id: item.sys_id,
             details: {
                 script_name: recordName,
@@ -271,7 +215,7 @@
         });
     }
 })(item, context, issues);
-            }.toString()
+`
         }
     ];
 
@@ -279,7 +223,7 @@
     // 2. CRÉATION DES ISSUE RULES
     // ============================================================
 
-    gs.info('===== CRÉATION DES ISSUE RULES =====');
+    gs.info('===== CREATING ISSUE RULES =====');
 
     var ruleSysIds = [];
     var rulesByCodes = {};
@@ -287,7 +231,7 @@
     rules.forEach(function(ruleData) {
         var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
 
-        // Vérifier si la règle existe déjà
+        // Check if rule already exists
         gr.addQuery('code', ruleData.code);
         gr.query();
 
@@ -297,20 +241,14 @@
             gr.initialize();
         }
 
-        // Extraire le corps de la fonction (enlever "function() {" et "}")
-        var scriptBody = ruleData.script;
-        if (typeof scriptBody === 'string') {
-            scriptBody = scriptBody.replace(/^function\s*\(\s*\)\s*{/, '').replace(/}$/, '').trim();
-        }
-
-        // Mettre à jour les champs
+        // Update fields
         gr.setValue('name', ruleData.name);
         gr.setValue('code', ruleData.code);
         gr.setValue('description', ruleData.description);
         gr.setValue('severity', ruleData.severity);
         gr.setValue('type', ruleData.type);
         gr.setValue('active', ruleData.active);
-        gr.setValue('script', scriptBody);
+        gr.setValue('script', ruleData.script.trim());
         gr.setValue('params', ruleData.params);
 
         var sysId = exists ? gr.update() : gr.insert();
@@ -321,14 +259,34 @@
     });
 
     // ============================================================
-    // 3. CRÉATION DU VERIFICATION ITEM
+    // 3. RÉCUPÉRATION DE LA RÈGLE HARDCODED_SYSID (déjà existante)
     // ============================================================
 
-    gs.info('\n===== CRÉATION DU VERIFICATION ITEM =====');
+    gs.info('\n===== USING EXISTING HARDCODED_SYSID RULE =====');
+
+    // La règle hardcoded_sysid est générique et déjà créée
+    // On la récupère pour l'associer au VI
+    var hardcodedRule = new GlideRecord('x_1310794_founda_0_issue_rules');
+    hardcodedRule.addQuery('code', 'HARDCODED_SYSID');
+    hardcodedRule.query();
+
+    if (hardcodedRule.next()) {
+        ruleSysIds.push(hardcodedRule.getUniqueValue());
+        rulesByCodes['HARDCODED_SYSID'] = hardcodedRule.getUniqueValue();
+        gs.info('Found existing rule: HARDCODED_SYSID (' + hardcodedRule.getUniqueValue() + ')');
+    } else {
+        gs.warn('HARDCODED_SYSID rule not found. You may need to create it first.');
+    }
+
+    // ============================================================
+    // 4. CRÉATION DU VERIFICATION ITEM
+    // ============================================================
+
+    gs.info('\n===== CREATING VERIFICATION ITEM =====');
 
     var vi = new GlideRecord('x_1310794_founda_0_verification_items');
 
-    // Vérifier si le VI existe déjà
+    // Check if VI already exists
     vi.addQuery('name', 'Client Scripts - Anti-Patterns & Performance');
     vi.query();
 
@@ -342,7 +300,7 @@
     vi.setValue('category', 'automation');
     vi.setValue('active', true);
 
-    // Référence à la table sys_script_client
+    // Reference to sys_script_client table
     var tableGr = new GlideRecord('sys_db_object');
     tableGr.addQuery('name', 'sys_script_client');
     tableGr.query();
@@ -350,10 +308,10 @@
         vi.setValue('table', tableGr.getUniqueValue());
     }
 
-    // Query pour filtrer les Client Scripts actifs
+    // Query to filter active Client Scripts
     vi.setValue('query_value', 'active=true');
 
-    // Associer les rules (glide_list)
+    // Associate rules (glide_list)
     vi.setValue('issue_rules', ruleSysIds.join(','));
 
     var viSysId = viExists ? vi.update() : vi.insert();
@@ -361,10 +319,10 @@
     gs.info((viExists ? 'Updated' : 'Created') + ' VI: ' + viSysId);
 
     // ============================================================
-    // 4. MISE À JOUR DES RULES POUR RÉFÉRENCER LE VI
+    // 5. UPDATE RULES TO REFERENCE THE VI
     // ============================================================
 
-    gs.info('\n===== MISE À JOUR DES RÉFÉRENCES =====');
+    gs.info('\n===== UPDATING REFERENCES =====');
 
     ruleSysIds.forEach(function(ruleSysId) {
         var ruleGr = new GlideRecord('x_1310794_founda_0_issue_rules');
@@ -382,21 +340,21 @@
     });
 
     // ============================================================
-    // 5. RÉSUMÉ
+    // 6. SUMMARY
     // ============================================================
 
-    gs.info('\n===== CRÉATION TERMINÉE =====');
+    gs.info('\n===== CREATION COMPLETED =====');
     gs.info('Verification Item sys_id: ' + viSysId);
-    gs.info('Issue Rules créées:');
+    gs.info('Issue Rules created/associated:');
 
     for (var code in rulesByCodes) {
         gs.info('  - ' + code + ' (' + rulesByCodes[code] + ')');
     }
 
-    gs.info('\nVous pouvez maintenant :');
-    gs.info('1. Créer une Configuration pour analyser la table sys_script_client');
-    gs.info('2. Associer le VI "Client Scripts - Anti-Patterns & Performance"');
-    gs.info('3. Lancer l\'analyse pour détecter les problèmes');
+    gs.info('\nNext steps:');
+    gs.info('1. Create a Configuration to analyze table sys_script_client');
+    gs.info('2. Associate the VI "Client Scripts - Anti-Patterns & Performance"');
+    gs.info('3. Run the analysis to detect issues');
 
     return {
         success: true,
