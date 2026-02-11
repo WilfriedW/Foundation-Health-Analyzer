@@ -75,6 +75,30 @@
         table: 'all'
       };
     };
+
+    c.clearFilters = function() {
+      c.resetFilters();
+    };
+
+    c.hasActiveFilters = function() {
+      return c.filters.search !== '' ||
+             c.filters.severity !== 'all' ||
+             c.filters.table !== 'all';
+    };
+
+    c.expandAll = function() {
+      if (!c.result || !c.result.issues) return;
+      c.result.issues.forEach(function(issue) {
+        issue.showDetails = true;
+      });
+    };
+
+    c.collapseAll = function() {
+      if (!c.result || !c.result.issues) return;
+      c.result.issues.forEach(function(issue) {
+        issue.showDetails = false;
+      });
+    };
     
     // ============================================================
     // MÉTHODES - STATISTIQUES PAR SEVERITY
@@ -82,8 +106,9 @@
     
     c.getIssuesBySeverity = function(severity) {
       if (!c.result || !c.result.issues) return [];
+      var sev = (severity || '').toLowerCase();
       return c.result.issues.filter(function(issue) {
-        return issue.severity === severity;
+        return (issue.severity || '').toLowerCase() === sev;
       });
     };
     
@@ -96,7 +121,16 @@
       if (total === 0) return 0;
       return Math.round((c.countBySeverity(severity) / total) * 100);
     };
-    
+
+    c.getIssuesBySeverityForTable = function(tableName, severity) {
+      if (!c.result || !c.result.issues) return [];
+      var sev = (severity || '').toLowerCase();
+      return c.result.issues.filter(function(issue) {
+        var issueTable = issue.parent_table || issue.table;
+        var issueSev = (issue.severity || '').toLowerCase();
+        return issueTable === tableName && issueSev === sev;
+      });
+    };
 
     c.getIssuesByTable = function() {
       if (!c.result || !c.result.issues) return {};
@@ -129,10 +163,11 @@
         };
         
         issues.forEach(function(issue) {
-          if (issue.severity === 'CRITICAL') stats.critical++;
-          else if (issue.severity === 'HIGH') stats.high++;
-          else if (issue.severity === 'MEDIUM') stats.medium++;
-          else if (issue.severity === 'LOW') stats.low++;
+          var sev = (issue.severity || '').toLowerCase();
+          if (sev === 'critical') stats.critical++;
+          else if (sev === 'high') stats.high++;
+          else if (sev === 'medium') stats.medium++;
+          else if (sev === 'low') stats.low++;
         });
         
         tables.push(stats);
@@ -347,23 +382,25 @@
     };
     
     c.getSeverityIcon = function(severity) {
+      var sev = (severity || '').toLowerCase();
       var icons = {
-        'CRITICAL': 'exclamation-circle',
-        'HIGH': 'exclamation-triangle',
-        'MEDIUM': 'info-circle',
-        'LOW': 'check-circle'
+        'critical': 'exclamation-circle',
+        'high': 'exclamation-triangle',
+        'medium': 'info-circle',
+        'low': 'check-circle'
       };
-      return icons[severity] || 'question-circle';
+      return icons[sev] || 'question-circle';
     };
-    
+
     c.getSeverityColor = function(severity) {
+      var sev = (severity || '').toLowerCase();
       var colors = {
-        'CRITICAL': '#d9534f',
-        'HIGH': '#f0ad4e',
-        'MEDIUM': '#5bc0de',
-        'LOW': '#5cb85c'
+        'critical': '#d9534f',
+        'high': '#f0ad4e',
+        'medium': '#5bc0de',
+        'low': '#5cb85c'
       };
-      return colors[severity] || '#777';
+      return colors[sev] || '#777';
     };
     
     // ============================================================
@@ -399,6 +436,7 @@
   var gr = new GlideRecord('x_1310794_founda_0_results');
   
   if (gr.get(sysId)) {
+    // Initialize base result object
     data.result = {
       sys_id: gr.getUniqueValue(),
       number: gr.getValue('number'),
@@ -406,20 +444,49 @@
       sys_created_on: gr.getValue('sys_created_on'),
       sys_updated_on: gr.getValue('sys_updated_on'),
       sys_created_by: gr.getValue('sys_created_by'),
-      issues: []
+      issues: [],
+      health_score: 0
     };
-	
-	var issuesJson = gr.getValue('details');    
-		console.log("Sisi : " +issuesJson)
-    if (issuesJson) {
+
+    // Parse JSON from details field
+    var detailsJson = gr.getValue('details');
+
+    if (detailsJson) {
       try {
-    /*    var parsedIssues = JSON.parse(issuesJson);        
-        if (Array.isArray(parsedIssues)) {
-          data.result.issues = parsedIssues;
-        } else if (parsedIssues && parsedIssues.issues && Array.isArray(parsedIssues.issues)) {*/
-          data.result.issues = parsedIssues.result.issues;
-     //   }
+        var parsedDetails = JSON.parse(detailsJson);
+
+        if (parsedDetails) {
+          // Extract configuration data (from root level)
+          if (parsedDetails.configuration) {
+            data.result.configuration_name = parsedDetails.configuration.name;
+            data.result.configuration_description = parsedDetails.configuration.description;
+            data.result.table_name = parsedDetails.configuration.table_name;
+            data.result.table_label = parsedDetails.configuration.table_label;
+            data.result.scope = parsedDetails.configuration.scope;
+
+            // Extract options
+            if (parsedDetails.configuration.options) {
+              data.result.options = parsedDetails.configuration.options;
+            }
+          }
+
+          // Extract result data
+          if (parsedDetails.result) {
+            // Extract all issues-related data
+            data.result.issues = parsedDetails.result.issues || [];
+            data.result.health_score = parsedDetails.result.health_score || 0;
+            data.result.issues_high = parsedDetails.result.issues_high || 0;
+            data.result.issues_medium = parsedDetails.result.issues_medium || 0;
+            data.result.issues_low = parsedDetails.result.issues_low || 0;
+            data.result.issue_count = parsedDetails.result.issue_count || 0;
+            data.result.record_count = parsedDetails.result.record_count || 0;
+            data.result.errors = parsedDetails.result.errors || [];
+          }
+        }
+
+        gs.info('[FHA Analysis Detail] Successfully parsed JSON - ' + data.result.issues.length + ' issues, health score: ' + data.result.health_score);
       } catch (e) {
+        gs.error('[FHA Analysis Detail] Failed to parse details JSON: ' + e.message);
         data.result.issues = [];
       }
     }     
