@@ -12,7 +12,14 @@
                 <element inactive_on_update="false" label="Aggregate (per table)" value="aggregate"/>
             </choice>
         </element>
-        <element label="Type" max_length="40" name="type" type="string"/>
+        <element choice="1" label="Type" max_length="40" name="type" type="string">
+            <choice>
+                <element inactive_on_update="false" label="Code Quality" value="code_quality"/>
+                <element inactive_on_update="false" label="Configuration" value="configurations"/>
+                <element inactive_on_update="false" label="UI" value="ui"/>
+                <element inactive_on_update="false" label="Data Quality" value="data_quality"/>
+            </choice>
+        </element>
         <element display="true" label="Name" mandatory="true" max_length="40" name="name" type="string"/>
         <element label="Severity" max_length="40" name="severity" type="string"/>
     </element>
