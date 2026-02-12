@@ -38,20 +38,19 @@
     };
 };]]></client_script>
         <controller_as>c</controller_as>
-        <css>/* FHA Header - Styles managed in FHA Theme (sp_theme) */
-/* All header styles are centralized in the theme CSS variables */</css>
+        <css/>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
         <docs/>
         <field_list/>
         <has_preview>false</has_preview>
-        <id>fha-header</id>
+        <id>fha_header</id>
         <internal>false</internal>
         <link><![CDATA[function link(scope, element, attrs, controller) {
   
 }]]></link>
-        <name>FHA Header</name>
+        <name>Header</name>
         <option_schema/>
         <public>false</public>
         <roles/>
@@ -148,14 +147,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:01:03</sys_created_on>
         <sys_id>b130c79483deb21083e1b4a6feaad37a</sys_id>
-        <sys_mod_count>4</sys_mod_count>
-        <sys_name>FHA Header</sys_name>
+        <sys_mod_count>7</sys_mod_count>
+        <sys_name>Header</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_header_footer_b130c79483deb21083e1b4a6feaad37a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-03 22:02:23</sys_updated_on>
+        <sys_updated_on>2026-01-18 09:33:03</sys_updated_on>
         <template><![CDATA[<header class="fha-header">
     <div class="fha-header-container">
         <!-- Logo -->

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_ui_form_sections action="DELETE" form_id="daade65953163610c7233ee0a0490e05" sys_domain="global" table="x_1310794_founda_0_verification_items" version="3">
+        <sys_ui_form_section action="INSERT_OR_UPDATE">
+            <position>0</position>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-01-06 23:13:33</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>12ade65953163610c7233ee0a0490ea0</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_overrides/>
+            <sys_ui_form display_value="x_1310794_founda_0_verification_items" name="x_1310794_founda_0_verification_items" sys_domain="global" view="Default view">daade65953163610c7233ee0a0490e05</sys_ui_form>
+            <sys_ui_section caption="NULL" display_value="" name="x_1310794_founda_0_verification_items" sys_domain="global" view="Default view">daade65953163610c7233ee0a0490e94</sys_ui_section>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-01-06 23:13:33</sys_updated_on>
+        </sys_ui_form_section>
+        <sys_ui_form action="INSERT_OR_UPDATE">
+            <name>x_1310794_founda_0_verification_items</name>
+            <roles/>
+            <sys_class_name>sys_ui_form</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-01-06 23:13:33</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>daade65953163610c7233ee0a0490e05</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>x_1310794_founda_0_verification_items</sys_name>
+            <sys_overrides/>
+            <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+            <sys_update_name>sys_ui_form_sections_daade65953163610c7233ee0a0490e05</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-01-06 23:13:33</sys_updated_on>
+            <sys_user/>
+            <view display_value="Default view" name="NULL">Default view</view>
+            <view_name/>
+        </sys_ui_form>
+    </sys_ui_form_sections>
+<sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_ui_form_sections_daade65953163610c7233ee0a0490e05</name>
+        <payload><![CDATA[<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_ui_form_sections form_id="daade65953163610c7233ee0a0490e05" sys_domain="global" table="x_1310794_founda_0_verification_items" version="3">
+        <sys_ui_form_section action="INSERT_OR_UPDATE">
+            <position>0</position>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-01-06 23:13:33</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>12ade65953163610c7233ee0a0490ea0</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_overrides/>
+            <sys_ui_form display_value="x_1310794_founda_0_verification_items" name="x_1310794_founda_0_verification_items" sys_domain="global" view="Default view">daade65953163610c7233ee0a0490e05</sys_ui_form>
+            <sys_ui_section caption="NULL" display_value="" name="x_1310794_founda_0_verification_items" sys_domain="global" view="Default view">daade65953163610c7233ee0a0490e94</sys_ui_section>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-01-06 23:13:33</sys_updated_on>
+        </sys_ui_form_section>
+        <sys_ui_form action="INSERT_OR_UPDATE">
+            <name>x_1310794_founda_0_verification_items</name>
+            <roles/>
+            <sys_class_name>sys_ui_form</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-01-06 23:13:33</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>daade65953163610c7233ee0a0490e05</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>x_1310794_founda_0_verification_items</sys_name>
+            <sys_overrides/>
+            <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+            <sys_update_name>sys_ui_form_sections_daade65953163610c7233ee0a0490e05</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-01-06 23:13:33</sys_updated_on>
+            <sys_user/>
+            <view display_value="Default view" name="NULL">Default view</view>
+            <view_name/>
+        </sys_ui_form>
+    </sys_ui_form_sections>
+</record_update>]]></payload>
+        <payload_hash>1080522574</payload_hash>
+        <record_name>Verification Items</record_name>
+        <reverted_from/>
+        <source>f5574bfc5322be10c7233ee0a0490e91</source>
+        <source_table>sys_upgrade_history</source_table>
+        <state>current</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 22:04:48</sys_created_on>
+        <sys_id>56670b305362be10c7233ee0a0490ea7</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19bcdfd4d580000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 22:04:48</sys_updated_on>
+        <type>Form Sections</type>
+        <update_guid>9e670b303862be10781226fcc126c6a6</update_guid>
+        <update_guid_history>9e670b303862be10781226fcc126c6a6:0,1e440b386022be102074fb872dfb9509:-210758362,880de6382d6e7e10f317d00858dea526:0,fd7322f0ab2e7e100df21fc1165d61c1:-80380409,252fea1d94163610eba1bac4f774c9ab:-1168636532,56ade659461636106bd22b516f2336a2:-947179622,5eade6596e1636105e56f0dc62881878:1723509174</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-09 22:40:22</sys_created_on>
+        <sys_db_object display_value="" name="sys_ui_form">sys_ui_form</sys_db_object>
+        <sys_id>5ec9205dddbb45b79e65d60c9fb6ea91</sys_id>
+        <sys_metadata>daade65953163610c7233ee0a0490e05</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_verification_items</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent display_value="">bdade65953163610c7233ee0a0490e26</sys_parent>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_ui_form_sections_daade65953163610c7233ee0a0490e05</sys_update_name>
+        <sys_update_version display_value="sys_ui_form_sections_daade65953163610c7233ee0a0490e05">56670b305362be10c7233ee0a0490ea7</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-09 22:40:22</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

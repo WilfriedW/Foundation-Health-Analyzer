@@ -3,646 +3,233 @@
         <access>package_private</access>
         <active>true</active>
         <api_name>x_1310794_founda_0.FHARuleEvaluator</api_name>
+        <caller_access/>
         <client_callable>false</client_callable>
         <description>Apply issue rules to analyzed records</description>
+        <mobile_callable>false</mobile_callable>
         <name>FHARuleEvaluator</name>
+        <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[var FHARuleEvaluator = Class.create();
 FHARuleEvaluator.prototype = {
-    initialize: function() {},
+    initialize: function() {
+        this._ruleCache = {}; // Cache for rule GlideRecords
+    },
 
+    /**
+     * Evaluates per-record rules
+     * @param {Object} item - Item object with {sys_id, table, values}
+     * @param {Array} rules - Rules to apply
+     * @param {Object} context - Shared context
+     * @returns {Array} - Issues found
+     */
     evaluate: function(item, rules, context) {
-        var issues = [];
+        var allIssues = [];
+
+        if (!rules || !Array.isArray(rules)) return allIssues;
+
         var self = this;
-        (rules || []).forEach(function(rule) {
-            var params = self._safeParse(rule.params, {});
-            if (!self._isApplicable(item, params)) return;
-            var handler = self._handlers[rule.type];
-            // 1) Custom script (if provided on the rule)
-            var scriptIssues = self._runScript(rule.script, item, rule, params, context);
-            if (scriptIssues && scriptIssues.length) issues = issues.concat(scriptIssues);
-            // 2) Built-in handler
-            if (handler) {
-                var res = handler.call(self, item, rule, params, context);
-                if (res && res.length) issues = issues.concat(res);
+
+        rules.forEach(function(rule) {
+            try {
+                if (rule.execution_mode === "aggregate") return;
+
+                var params = self._parseParams(rule.params);
+                var issues = self._runScriptSafe(rule, item, params, context);
+
+                if (issues && Array.isArray(issues)) {
+                    allIssues = allIssues.concat(issues);
+                }
+            } catch (error) {
+                gs.error(
+                    "[FHARuleEvaluator] Error in rule " +
+                    rule.code +
+                    ": " +
+                    error.message,
+                );
             }
         });
+
+        return allIssues;
+    },
+
+    /**
+     * Evaluates aggregate rules (executed ONCE per table)
+     * @param {String} tableName - Table to analyze
+     * @param {Array} rules - Aggregate rules
+     * @param {Object} context - Shared context
+     * @returns {Array} - Issues found
+     */
+    evaluateAggregate: function(tableName, rules, context) {
+        var allIssues = [];
+
+        if (!rules || !Array.isArray(rules)) return allIssues;
+
+        var self = this;
+
+        rules.forEach(function(rule) {
+            try {
+                if (rule.execution_mode !== "aggregate") return;
+
+                var params = self._parseParams(rule.params);
+                var issues = self._runAggregateScript(rule, tableName, params, context);
+
+                if (issues && Array.isArray(issues)) {
+                    allIssues = allIssues.concat(issues);
+                }
+            } catch (error) {
+                gs.error(
+                    "[FHARuleEvaluator] Error in aggregate rule " +
+                    rule.code +
+                    ": " +
+                    error.message,
+                );
+            }
+        });
+
+        return allIssues;
+    },
+
+    /**
+     * Executes per-record rule script
+     */
+    _runScriptSafe: function(rule, item, params, context) {
+        var issues = [];
+
+        try {
+            var ruleGr = this._getRuleGlideRecord(rule.sys_id);
+            if (!ruleGr) {
+                gs.error("[FHARuleEvaluator] Rule not found: " + rule.sys_id);
+                return issues;
+            }
+
+            var evaluator = new GlideScopedEvaluator();
+
+            var ruleObj = {
+                sys_id: rule.sys_id,
+                code: rule.code,
+                name: rule.name,
+                severity: rule.severity || rule.default_severity || "medium",
+                message_template: rule.message_template,
+                table: rule.table,
+            };
+
+            // Inject variables
+            evaluator.putVariable("params", params);
+            evaluator.putVariable("rule", ruleObj);
+            evaluator.putVariable("item", item);
+            evaluator.putVariable("context", context || {});
+            evaluator.putVariable("issues", issues);
+
+            evaluator.evaluateScript(ruleGr, "script");
+
+            // Retrieve issues
+            var retrievedIssues = evaluator.getVariable("issues");
+
+            if (retrievedIssues && Array.isArray(retrievedIssues)) {
+                issues = retrievedIssues;
+            }
+        } catch (error) {
+            gs.error(
+                "[FHARuleEvaluator] Script error in " +
+                rule.code +
+                ": " +
+                error.message,
+            );
+        }
+
         return issues;
     },
 
-    _handlers: {
-        inactive: function(item, rule, params) {
-            var activeVal = (item.values.active || '').toString().toLowerCase();
-            if (activeVal === 'false') {
-                var recordName = item.values.name || item.values.title || 'Record';
-                var message = 'Inactive record: "' + recordName + '". Consider activating or removing if no longer needed.';
-                return [this._issue(rule, message, { 
-                    field: 'active', 
-                    expected: 'true', 
-                    actual: 'false',
-                    record_table: item.table,
-                    record_sys_id: item.sys_id,
-                    record_name: recordName
-                })];
-            }
-            return [];
-        },
-        system_created: function(item, rule, params) {
-            var createdBy = (item.values.sys_created_by || '').toString();
-            if (createdBy === 'system') {
-                var recordName = item.values.name || item.values.title || 'Record';
-                var message = 'Record "' + recordName + '" created by system user. Review ownership and ensure proper documentation.';
-                return [this._issue(rule, message, {
-                    field: 'sys_created_by',
-                    actual: 'system',
-                    record_table: item.table,
-                    record_sys_id: item.sys_id,
-                    record_name: recordName,
-                    recommendation: 'System-created records should have clear documentation and ownership'
-                })];
-            }
-            return [];
-        },
-        count_threshold: function(item, rule, params, context) {
-            var threshold = params.threshold || 0;
-            var total = (context && context.totalCount) || 0;
-            
-            // Aggregate rule: only fire once per dataset, not per item
-            if (!context) context = {};
-            if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
-            var key = 'count_threshold_' + rule.code;
-            if (context._aggregateIssuesFired[key]) return [];
-            
-            if (threshold && total > threshold) {
-                context._aggregateIssuesFired[key] = true;
-                
-                var message = 'Too many records (' + total + ' > ' + threshold + '). Review and clean up unnecessary records.';
-                var details = {
-                    count: total,
-                    threshold: threshold
-                };
-                
-                return [this._issue(rule, message, details)];
-            }
-            return [];
-        },
-        missing_field: function(item, rule, params) {
-            var fields = (params.field || params.fields || '').split(',');
-            var issues = [];
-            var recordName = item.values.name || item.values.title || 'Record';
-            
-            fields.forEach(function(fRaw) {
-                var f = (fRaw || '').trim();
-                if (!f) return;
-                var v = item.values[f];
-                if (v === undefined || v === null || v === '') {
-                    var message = 'Missing required field "' + f + '" in "' + recordName + '". This may cause issues or incomplete configuration.';
-                    issues.push(this._issue(rule, message, { 
-                        field: f,
-                        record_table: item.table,
-                        record_sys_id: item.sys_id,
-                        record_name: recordName,
-                        recommendation: 'Fill in the ' + f + ' field to complete the configuration'
-                    }));
-                }
-            }, this);
-            return issues;
-        },
-        missing_acl: function(item, rule) {
-            if (item.values && item.values.missing_acl === 'true') {
-                return [this._issue(rule, 'Missing ACL on table/resource')];
-            }
-            return [];
-        },
-        acl_issue: function(item, rule) {
-            if (item.values && item.values.acl_too_wide === 'true') {
-                return [this._issue(rule, 'ACL too permissive')];
-            }
-            return [];
-        },
-        index_needed: function(item, rule, params) {
-            var field = params.field || 'unknown';
-            if (item.values && item.values.index_needed === 'true') {
-                return [this._issue(rule, 'Index needed on ' + field, { field: field })];
-            }
-            return [];
-        },
-        size_threshold: function(item, rule, params) {
-            var field = params.field || 'text';
-            var maxLen = params.max_len || 0;
-            var val = (item.values[field] || '').toString();
-            var recordName = item.values.name || item.values.title || 'Record';
-            
-            if (maxLen && val.length > maxLen) {
-                var percentage = Math.round((val.length / maxLen) * 100);
-                var message = 'Field "' + field + '" too long in "' + recordName + '": ' + val.length + ' characters (limit: ' + maxLen + ', ' + percentage + '%). Consider refactoring or splitting.';
-                
-                return [this._issue(rule, message, { 
-                    field: field, 
-                    length: val.length,
-                    max_length: maxLen,
-                    percentage: percentage,
-                    record_table: item.table,
-                    record_sys_id: item.sys_id,
-                    record_name: recordName,
-                    recommendation: 'Break down large ' + field + ' into smaller functions or modules'
-                })];
-            }
-            return [];
-        },
-        risky_field: function(item, rule) {
-            if (item.values && item.values.risky_field === 'true') {
-                return [this._issue(rule, 'Risky field content')];
-            }
-            return [];
-        },
-        duplicate: function(item, rule, params, context) {
-            var keyFields = params.key_fields || 'name,code';
-            var fields = keyFields.split(',').map(function(f){ return (f || '').trim(); });
-            
-            var keyParts = [];
-            fields.forEach(function(f) {
-                keyParts.push(item.values[f] || '');
-            });
-            var key = keyParts.join('|');
-            
-            var seen = context && context._dupsSeen;
-            if (!seen) return [];
-            
-            if (seen[key] && seen[key] !== item.sys_id) {
-                var recordName = item.values.name || item.values.title || 'Record';
-                var message = 'Duplicate detected: "' + recordName + '" has the same ' + fields.join(', ') + ' as another record. This may cause conflicts.';
-                
-                return [this._issue(rule, message, { 
-                    duplicate_of: seen[key],
-                    key_fields: fields,
-                    key_value: key,
-                    record_table: item.table,
-                    record_sys_id: item.sys_id,
-                    record_name: recordName,
-                    recommendation: 'Rename or merge with the duplicate record'
-                })];
-            }
-            return [];
-        },
-        public_endpoint: function(item, rule) {
-            if (item.values && item.values.public_endpoint === 'true') {
-                return [this._issue(rule, 'Public endpoint without auth/rate limit')];
-            }
-            return [];
-        },
-        public_access: function(item, rule) {
-            if (item.values && item.values.public_access === 'true') {
-                return [this._issue(rule, 'Guest/public access detected')];
-            }
-            return [];
-        },
-        br_density: function(item, rule, params, context) {
-            var count = context && context.totalCount;
-            var threshold = params.threshold || 0;
-            
-            // Aggregate rule: only fire once per dataset, not per item
-            if (!context) context = {};
-            if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
-            var key = 'br_density_' + rule.code;
-            if (context._aggregateIssuesFired[key]) return [];
-            
-            if (threshold && count > threshold) {
-                context._aggregateIssuesFired[key] = true;
-                
-                // Get the table name from the first item
-                var tableName = item.table || 'sys_script';
-                var tableValue = item.values && item.values.collection ? item.values.collection : 'unknown';
-                
-                var message = 'Too many Business Rules (' + count + ' > ' + threshold + ') - Table: ' + tableValue + '. Click to view all active Business Rules and consider consolidating to improve performance.';
-                
-                var details = {
-                    count: count,
-                    threshold: threshold,
-                    table: tableValue,
-                    record_table: 'sys_script',
-                    record_filter: 'collection=' + tableValue + '^active=true',
-                    record_name: 'View ' + count + ' Business Rules'
-                };
-                
-                return [this._issue(rule, message, details)];
-            }
-            return [];
-        },
-        br_heavy: function(item, rule) {
-            if (item.values && item.values.heavy_br === 'true') {
-                return [this._issue(rule, 'Heavy Business Rule')];
-            }
-            return [];
-        },
-        cs_heavy: function(item, rule) {
-            if (item.values && item.values.heavy_cs === 'true') {
-                return [this._issue(rule, 'Heavy Client Script')];
-            }
-            return [];
-        },
-        ui_action: function(item, rule) {
-            if (item.values && item.values.ui_action_server === 'true') {
-                return [this._issue(rule, 'Server UI Action without need')];
-            }
-            return [];
-        },
-        job_error: function(item, rule) {
-            if (item.values && item.values.job_error === 'true') {
-                return [this._issue(rule, 'Scheduled job errors')];
-            }
-            return [];
-        },
-        job_inactive: function(item, rule) {
-            if (item.values && item.values.job_inactive === 'true') {
-                return [this._issue(rule, 'Scheduled job inactive')];
-            }
-            return [];
-        },
-        flow_error: function(item, rule) {
-            if (item.values && item.values.flow_error === 'true') {
-                return [this._issue(rule, 'Flow in error')];
-            }
-            return [];
-        },
-        flow_config: function(item, rule) {
-            if (item.values && item.values.flow_no_timeout === 'true') {
-                return [this._issue(rule, 'Flow missing timeout/retry')];
-            }
-            return [];
-        },
-        notification: function(item, rule) {
-            if (item.values && item.values.notification_spam === 'true') {
-                return [this._issue(rule, 'Notification spam risk')];
-            }
-            return [];
-        },
-        integration_error: function(item, rule) {
-            if (item.values && item.values.integration_error === 'true') {
-                return [this._issue(rule, 'Integration errors detected')];
-            }
-            return [];
-        },
-        integration_config: function(item, rule) {
-            if (item.values && item.values.integration_no_retry === 'true') {
-                return [this._issue(rule, 'Integration missing retry/backoff')];
-            }
-            return [];
-        },
-        hardcoded_sys_id: function(item, rule, params) {
-            // Scan configuration scripts and record fields (if provided in params.fields) for 32-hex sys_ids
-            var regex = /[0-9a-f]{32}/ig;
-            var hits = [];
-            var recordName = item.values.name || item.values.title || 'Record';
+    /**
+     * Executes aggregate rule script
+     * FIXED: Uses GlideRecord for evaluateScript()
+     */
+    _runAggregateScript: function(rule, tableName, params, context) {
+        var issues = [];
 
-            // 1) Scan record fields (item.values) if fields provided
-            var fields = (params.fields || '').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
-            for (var i = 0; i < fields.length; i++) {
-                var f = fields[i];
-                var val = (item.values && item.values[f]) || '';
-                if (typeof val !== 'string') continue;
-                var matches = val.match(regex);
-                if (matches && matches.length > 0) {
-                    hits.push({ field: f, matches: matches, count: matches.length });
-                }
-            }
-
-            // 2) Scan item config scripts/queries
-            var sources = [
-                { field: 'query_script', value: item.query_script },
-                { field: 'query_value', value: item.query_value },
-                { field: 'metadata', value: item.metadata },
-                { field: 'script', value: item.values && item.values.script }
-            ];
-            for (var j = 0; j < sources.length; j++) {
-                var src = sources[j];
-                if (!src.value || typeof src.value !== 'string') continue;
-                var m = src.value.match(regex);
-                if (m && m.length > 0) {
-                    hits.push({ field: src.field, matches: m, count: m.length });
-                }
-            }
-
-            if (hits.length > 0) {
-                var totalSysIds = 0;
-                var fieldsList = [];
-                hits.forEach(function(h) {
-                    totalSysIds += h.count;
-                    fieldsList.push(h.field + ' (' + h.count + ')');
-                });
-                
-                var message = 'Hardcoded sys_id(s) detected in "' + recordName + '": ' + totalSysIds + ' occurrence(s) in fields [' + fieldsList.join(', ') + ']. Replace with dynamic queries or GlideRecord lookups.';
-                
-                return [this._issue(rule, message, {
-                    hits: hits,
-                    total_sys_ids: totalSysIds,
-                    fields: fieldsList,
-                    record_table: item.table,
-                    record_sys_id: item.sys_id,
-                    record_name: recordName,
-                    recommendation: 'Replace hardcoded sys_ids with dynamic queries using name or other unique fields'
-                })];
-            }
-            return [];
-        },
-        widget_perf: function(item, rule) {
-            if (item.values && item.values.widget_no_cache === 'true') {
-                return [this._issue(rule, 'Widget/portal without cache/pagination')];
-            }
-            return [];
-        },
-        query_scan: function(item, rule) {
-            if (item.values && item.values.full_table_scan === 'true') {
-                return [this._issue(rule, 'Full table scan detected')];
-            }
-            return [];
-        },
-        script_weight: function(item, rule) {
-            if (item.values && item.values.heavy_script === 'true') {
-                return [this._issue(rule, 'Heavy server script')];
-            }
-            return [];
-        },
-        audit: function(item, rule) {
-            if (item.values && item.values.audit_disabled === 'true') {
-                return [this._issue(rule, 'Audit disabled on sensitive table')];
-            }
-            return [];
-        },
-        security: function(item, rule) {
-            if (item.values && item.values.security_risk === 'true') {
-                return [this._issue(rule, 'Security risk detected')];
-            }
-            return [];
-        },
-        catalog: function(item, rule) {
-            if (item.values && item.values.catalog_risk === 'true') {
-                return [this._issue(rule, 'Catalog item risk')];
-            }
-            return [];
-        },
-        mail_config: function(item, rule) {
-            if (item.values && item.values.mail_no_restriction === 'true') {
-                return [this._issue(rule, 'Mail not restricted')];
-            }
-            return [];
-        },
-        observability: function(item, rule) {
-            if (item.values && item.values.no_metrics === 'true') {
-                return [this._issue(rule, 'No metrics/logs on critical component')];
-            }
-            return [];
-        },
-        
-        // ========== HANDLERS GÉNÉRIQUES AVANCÉS ==========
-        
-        /**
-         * field_check - Handler générique pour vérifier des conditions sur des champs
-         * Params:
-         *   - field: nom du champ à vérifier
-         *   - operator: 'equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty', 'regex', 'gt', 'lt', 'gte', 'lte'
-         *   - expected: valeur attendue (selon l'opérateur)
-         *   - message_template: template de message (optionnel)
-         */
-        field_check: function(item, rule, params) {
-            var field = params.field;
-            if (!field) return [];
-            
-            var value = item.values && item.values[field];
-            var operator = params.operator || 'equals';
-            var expected = params.expected;
-            var recordName = item.values.name || item.values.title || 'Record';
-            
-            var condition = false;
-            var actualStr = String(value || '');
-            var expectedStr = String(expected || '');
-            
-            switch(operator) {
-                case 'equals':
-                    condition = actualStr === expectedStr;
-                    break;
-                case 'not_equals':
-                    condition = actualStr !== expectedStr;
-                    break;
-                case 'contains':
-                    condition = actualStr.indexOf(expectedStr) !== -1;
-                    break;
-                case 'not_contains':
-                    condition = actualStr.indexOf(expectedStr) === -1;
-                    break;
-                case 'empty':
-                    condition = !value || value === '';
-                    break;
-                case 'not_empty':
-                    condition = value && value !== '';
-                    break;
-                case 'regex':
-                    try {
-                        var regex = new RegExp(expectedStr);
-                        condition = regex.test(actualStr);
-                    } catch(e) {
-                        gs.warn('[field_check] Invalid regex: ' + expectedStr);
-                        return [];
-                    }
-                    break;
-                case 'gt':
-                    condition = parseFloat(value) > parseFloat(expected);
-                    break;
-                case 'lt':
-                    condition = parseFloat(value) < parseFloat(expected);
-                    break;
-                case 'gte':
-                    condition = parseFloat(value) >= parseFloat(expected);
-                    break;
-                case 'lte':
-                    condition = parseFloat(value) <= parseFloat(expected);
-                    break;
-                default:
-                    gs.warn('[field_check] Unknown operator: ' + operator);
-                    return [];
-            }
-            
-            if (condition) {
-                var message = params.message_template || 
-                    'Field "' + field + '" ' + operator + ' "' + expectedStr + '" in "' + recordName + '"';
-                
-                return [this._issue(rule, message, {
-                    field: field,
-                    operator: operator,
-                    expected: expectedStr,
-                    actual: actualStr,
-                    record_table: item.table,
-                    record_sys_id: item.sys_id,
-                    record_name: recordName
-                })];
-            }
-            return [];
-        },
-        
-        /**
-         * pattern_scan - Scan de patterns dans des champs (regex)
-         * Params:
-         *   - fields: liste de champs à scanner (CSV)
-         *   - pattern: regex à chercher
-         *   - message_template: template de message
-         */
-        pattern_scan: function(item, rule, params) {
-            if (!params.pattern) return [];
-            
-            var pattern = params.pattern;
-            var fields = (params.fields || '').split(',').map(function(f){ return (f || '').trim(); }).filter(function(f){ return !!f; });
-            var recordName = item.values.name || item.values.title || 'Record';
-            
-            try {
-                var regex = new RegExp(pattern, 'i');
-                
-                for (var i = 0; i < fields.length; i++) {
-                    var field = fields[i];
-                    var value = item.values && item.values[field];
-                    if (!value || typeof value !== 'string') continue;
-                    
-                    var match = value.match(regex);
-                    if (match) {
-                        var message = params.message_template || 
-                            'Pattern "' + pattern + '" found in field "' + field + '" of "' + recordName + '"';
-                        
-                        return [this._issue(rule, message, {
-                            field: field,
-                            pattern: pattern,
-                            match: match[0],
-                            record_table: item.table,
-                            record_sys_id: item.sys_id,
-                            record_name: recordName
-                        })];
-                    }
-                }
-            } catch(e) {
-                gs.warn('[pattern_scan] Invalid regex: ' + pattern + ' - ' + e.message);
-            }
-            
-            return [];
-        },
-        
-        /**
-         * aggregate_metric - Handler agrégé personnalisable
-         * Params:
-         *   - metric: 'count', 'sum', 'avg', 'max', 'min'
-         *   - field: champ pour sum/avg/max/min
-         *   - threshold: seuil
-         *   - operator: 'gt', 'lt', 'gte', 'lte', 'equals'
-         *   - message_template: template de message
-         */
-        aggregate_metric: function(item, rule, params, context) {
-            var metric = params.metric || 'count';
-            var threshold = params.threshold;
-            var operator = params.operator || 'gt';
-            
-            // Aggregate rule: only fire once per dataset
-            if (!context) context = {};
-            if (!context._aggregateIssuesFired) context._aggregateIssuesFired = {};
-            var key = 'aggregate_metric_' + rule.code;
-            if (context._aggregateIssuesFired[key]) return [];
-            
-            var value = 0;
-            var count = context && context.totalCount || 0;
-            
-            if (metric === 'count') {
-                value = count;
-            } else {
-                // Pour sum/avg/max/min, on devrait accumuler dans le context
-                // Pour simplifier, on retourne ici mais cela nécessite une amélioration du moteur
-                gs.warn('[aggregate_metric] Metrics other than count require engine support');
-                return [];
-            }
-            
-            var condition = false;
-            switch(operator) {
-                case 'gt': condition = value > threshold; break;
-                case 'lt': condition = value < threshold; break;
-                case 'gte': condition = value >= threshold; break;
-                case 'lte': condition = value <= threshold; break;
-                case 'equals': condition = value === threshold; break;
-            }
-            
-            if (condition) {
-                context._aggregateIssuesFired[key] = true;
-                
-                var message = params.message_template || 
-                    metric.toUpperCase() + ' ' + operator + ' threshold (' + value + ' ' + operator + ' ' + threshold + ')';
-                
-                return [this._issue(rule, message, {
-                    metric: metric,
-                    value: value,
-                    threshold: threshold,
-                    operator: operator
-                })];
-            }
-            
-            return [];
-        }
-    },
-
-    _issue: function(rule, message, details) {
-        return {
-            code: rule.code || rule.type || 'ISSUE',
-            message: message,
-            severity: rule.severity || rule.default_severity || 'medium',
-            details: details || {}
-        };
-    },
-
-    _safeParse: function(str, fb) {
-        if (fb === undefined) fb = {};
-        try { if (!str) return fb; return JSON.parse(str); } catch(e){ return fb; }
-    },
-
-    _runScript: function(script, item, rule, params, context) {
-        if (!script || typeof script !== 'string' || !script.trim()) return [];
         try {
-            var fn = new Function('item','rule','params','context','issue','issues', script + '\n; return issues;');
-            var res = fn(item, rule, params, context, this._issue.bind(this), []);
-            if (!res) return [];
-            if (Array.isArray(res)) return res;
-            return [res];
+            var ruleGr = this._getRuleGlideRecord(rule.sys_id);
+            var evaluator = new GlideScopedEvaluator();
+
+            var ruleObj = {
+                sys_id: rule.sys_id,
+                code: rule.code,
+                name: rule.name,
+                severity: rule.severity || rule.default_severity || "medium",
+                message_template: rule.message_template,
+                table: rule.table,
+            };
+
+            // Inject variables for aggregate mode
+            evaluator.putVariable("tableName", tableName);
+            evaluator.putVariable("params", params);
+            evaluator.putVariable("rule", ruleObj);
+            evaluator.putVariable("context", context || {});
+            evaluator.putVariable("issues", issues);
+
+            evaluator.evaluateScript(ruleGr, "script");
+
+            var retrievedIssues = evaluator.getVariable("issues");
+
+            if (retrievedIssues && Array.isArray(retrievedIssues)) {
+                issues = retrievedIssues;
+            }
+        } catch (error) {
+            gs.error(
+                "[FHARuleEvaluator] Aggregate script error in " +
+                rule.code +
+                ": " +
+                error.message,
+            );
+        }
+
+        return issues;
+    },
+
+    /**
+     * Gets rule GlideRecord from cache or DB
+     * Optimization: Cache to avoid multiple queries for same rule
+     */
+    _getRuleGlideRecord: function(ruleSysId) {
+        // Check cache first
+        if (this._ruleCache[ruleSysId]) {
+            return this._ruleCache[ruleSysId];
+        }
+
+        // Load from DB
+        var gr = new GlideRecord("x_1310794_founda_0_issue_rules");
+        if (gr.get(ruleSysId)) {
+            // Cache for reuse
+            this._ruleCache[ruleSysId] = gr;
+            return gr;
+        }
+
+        return null;
+    },
+
+    _parseParams: function(paramsStr) {
+        try {
+            var parsed = JSON.parse(paramsStr);
+            return parsed;
         } catch (e) {
-            gs.error("[FHARuleEvaluator] script error for rule " + (rule && rule.code) + ": " + e.message);
-            return [];
+            gs.error("[FHARuleEvaluator]   - Error: " + e.message);
+            return {};
         }
     },
 
-    _isApplicable: function(item, params) {
-        // optional filters in params:
-        // allowed_tables: comma list
-        // allowed_categories: comma list
-        var tblOk = true, catOk = true;
-        if (params.allowed_tables) {
-            tblOk = this._matchList(item.table, params.allowed_tables);
-        }
-        if (params.allowed_categories) {
-            catOk = this._matchList(item.category, params.allowed_categories);
-        }
-        return tblOk && catOk;
-    },
-
-    _matchList: function(value, listStr) {
-        if (!listStr) return true;
-        var parts = listStr.split(',').map(function(p){ return (p || '').trim(); }).filter(function(p){ return !!p; });
-        if (!parts.length) return true;
-        return parts.indexOf(value) !== -1;
-    },
-
-    type: 'FHARuleEvaluator'
+    type: "FHARuleEvaluator",
 };]]></script>
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-13 21:15:00</sys_created_on>
         <sys_id>cccafeed53163610c7233ee0a0490abc</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>72</sys_mod_count>
         <sys_name>FHARuleEvaluator</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_cccafeed53163610c7233ee0a0490abc</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-13 21:15:00</sys_updated_on>
+        <sys_updated_on>2026-02-12 08:58:40</sys_updated_on>
     </sys_script_include>
 </record_update>

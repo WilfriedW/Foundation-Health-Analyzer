@@ -9,90 +9,63 @@
         <name>Statistics</name>
         <operation_script><![CDATA[(function process(request, response) {
     try {
-        var stats = {
-            configurations: {
-                total: 0,
-                active: 0
-            },
-            analyses: {
-                total: 0,
-                completed: 0,
-                failed: 0,
-                average_health_score: 0
-            },
-            recent_analyses: []
-        };
+        var metricsEngine = new x_1310794_founda_0.FHMetricsEngine();
         
-        // Count configurations
-        var configGa = new GlideAggregate('x_1310794_founda_0_fha_configuration');
-        configGa.addAggregate('COUNT');
-        configGa.query();
-        if (configGa.next()) {
-            stats.configurations.total = parseInt(configGa.getAggregate('COUNT'), 10) || 0;
-        }
+        // Check if specific metrics requested via query params
+        var queryParams = request.queryParams;
+        var type = queryParams.type || 'comprehensive'; // Options: global, category, top_tables, trending, distribution, coverage, comprehensive
         
-        var activeConfigGa = new GlideAggregate('x_1310794_founda_0_fha_configuration');
-        activeConfigGa.addQuery('active', true);
-        activeConfigGa.addAggregate('COUNT');
-        activeConfigGa.query();
-        if (activeConfigGa.next()) {
-            stats.configurations.active = parseInt(activeConfigGa.getAggregate('COUNT'), 10) || 0;
-        }
+        var result = {};
         
-        // Count analyses
-        var analysisGa = new GlideAggregate('x_1310794_founda_0_fha_results');
-        analysisGa.addAggregate('COUNT');
-        analysisGa.query();
-        if (analysisGa.next()) {
-            stats.analyses.total = parseInt(analysisGa.getAggregate('COUNT'), 10) || 0;
-        }
-        
-        var completedGa = new GlideAggregate('x_1310794_founda_0_fha_results');
-        completedGa.addQuery('status', 'completed');
-        completedGa.addAggregate('COUNT');
-        completedGa.addAggregate('AVG', 'health_score');
-        completedGa.query();
-        if (completedGa.next()) {
-            stats.analyses.completed = parseInt(completedGa.getAggregate('COUNT'), 10) || 0;
-            stats.analyses.average_health_score = Math.round(parseFloat(completedGa.getAggregate('AVG', 'health_score')) || 0);
-        }
-        
-        var failedGa = new GlideAggregate('x_1310794_founda_0_fha_results');
-        failedGa.addQuery('status', 'failed');
-        failedGa.addAggregate('COUNT');
-        failedGa.query();
-        if (failedGa.next()) {
-            stats.analyses.failed = parseInt(failedGa.getAggregate('COUNT'), 10) || 0;
-        }
-        
-        // Get recent analyses
-        var recentGr = new GlideRecord('x_1310794_founda_0_fha_results');
-        recentGr.addQuery('status', 'completed');
-        recentGr.orderByDesc('sys_created_on');
-        recentGr.setLimit(10);
-        recentGr.query();
-        
-        while (recentGr.next()) {
-            stats.recent_analyses.push({
-                sys_id: recentGr.getUniqueValue(),
-                number: recentGr.getValue('number'),
-                table_name: recentGr.table_name ? recentGr.table_name.getDisplayValue() : '',
-                health_score: parseInt(recentGr.getValue('health_score'), 10) || 0,
-                issues_count: parseInt(recentGr.getValue('issue_found'), 10) || 0,
-                created_on: recentGr.getValue('sys_created_on')
-            });
+        switch(type.toLowerCase()) {
+            case 'global':
+                result = metricsEngine.getGlobalMetrics();
+                break;
+                
+            case 'category':
+                result = metricsEngine.getCategoryMetrics();
+                break;
+                
+            case 'top_tables':
+                var limit = parseInt(queryParams.limit) || 10;
+                var tables = metricsEngine.getTop10ProblematicTables();
+                result = tables.slice(0, limit);
+                break;
+                
+            case 'trending':
+                var days = parseInt(queryParams.days) || 30;
+                result = metricsEngine.getTrendingData(days);
+                break;
+                
+            case 'distribution':
+                result = metricsEngine.getHealthScoreDistribution();
+                break;
+                
+            case 'coverage':
+                result = metricsEngine.getAnalysisCoverage();
+                break;
+                
+            case 'comprehensive':
+            default:
+                result = metricsEngine.getComprehensiveStatistics();
+                break;
         }
         
         response.setStatus(200);
         response.setBody({
             success: true,
-            statistics: stats
+            type: type,
+            data: result,
+            timestamp: new GlideDateTime().getDisplayValue()
         });
+        
     } catch (error) {
+        gs.error('[FHA API] Error in /statistics: ' + error.message);
         response.setStatus(500);
         response.setBody({
             success: false,
-            error: error.message
+            error: error.message,
+            timestamp: new GlideDateTime().getDisplayValue()
         });
     }
 })(request, response);]]></operation_script>
@@ -100,7 +73,7 @@
         <produces>application/json,application/xml,text/xml</produces>
         <produces_customized>false</produces_customized>
         <relative_path>/statistics</relative_path>
-        <request_example><![CDATA[// No parameters required
+        <request_example>// No parameters required
 
 // Success Response (200):
 {
@@ -127,23 +100,23 @@
       }
     ]
   }
-}]]></request_example>
+}</request_example>
         <requires_acl_authorization>true</requires_acl_authorization>
         <requires_authentication>true</requires_authentication>
         <requires_snc_internal_role>true</requires_snc_internal_role>
-        <short_description>Get global statistics about configurations and analyses</short_description>
+        <short_description>Get comprehensive statistics and metrics for Foundation Health Analyzer dashboar</short_description>
         <sys_class_name>sys_ws_operation</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:44:36</sys_created_on>
         <sys_id>e9352d088316321083e1b4a6feaad345</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>2</sys_mod_count>
         <sys_name>Statistics</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_ws_operation_e9352d088316321083e1b4a6feaad345</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-02 20:44:36</sys_updated_on>
+        <sys_updated_on>2026-01-18 01:48:23</sys_updated_on>
         <web_service_definition display_value="Foundation Health Analyzer API">8add5d0883d2321083e1b4a6feaad355</web_service_definition>
         <web_service_version/>
     </sys_ws_operation>

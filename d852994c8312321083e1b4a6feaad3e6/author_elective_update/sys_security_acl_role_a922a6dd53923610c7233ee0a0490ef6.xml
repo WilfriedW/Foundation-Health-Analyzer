@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_security_acl_role">
+    <sys_security_acl_role action="DELETE">
+        <sys_class_name>sys_security_acl_role</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-06 22:23:16</sys_created_on>
+        <sys_id>a922a6dd53923610c7233ee0a0490ef6</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_item_check_config.x_1310794_founda_0.admin</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_security_acl display_value="x_1310794_founda_0_item_check_config">ad22a6dd53923610c7233ee0a0490ee4</sys_security_acl>
+        <sys_update_name>sys_security_acl_role_a922a6dd53923610c7233ee0a0490ef6</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-06 22:23:16</sys_updated_on>
+        <sys_user_role display_value="x_1310794_founda_0.admin" name="x_1310794_founda_0.admin">dc52d94c8312321083e1b4a6feaad3c7</sys_user_role>
+    </sys_security_acl_role>
+<sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_security_acl_role_a922a6dd53923610c7233ee0a0490ef6</name>
+        <payload><![CDATA[<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_security_acl_role">
+    <sys_security_acl_role action="INSERT_OR_UPDATE">
+        <sys_class_name>sys_security_acl_role</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-06 22:23:16</sys_created_on>
+        <sys_id>a922a6dd53923610c7233ee0a0490ef6</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_item_check_config.x_1310794_founda_0.admin</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_security_acl display_value="x_1310794_founda_0_item_check_config">ad22a6dd53923610c7233ee0a0490ee4</sys_security_acl>
+        <sys_update_name>sys_security_acl_role_a922a6dd53923610c7233ee0a0490ef6</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-06 22:23:16</sys_updated_on>
+        <sys_user_role display_value="x_1310794_founda_0.admin" name="x_1310794_founda_0.admin">dc52d94c8312321083e1b4a6feaad3c7</sys_user_role>
+    </sys_security_acl_role>
+</record_update>]]></payload>
+        <payload_hash>-1249335362</payload_hash>
+        <record_name>x_1310794_founda_0_item_check_config.x_1310794_founda_0.admin</record_name>
+        <reverted_from/>
+        <source>f5574bfc5322be10c7233ee0a0490e91</source>
+        <source_table>sys_upgrade_history</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 22:04:48</sys_created_on>
+        <sys_id>5e670b305362be10c7233ee0a0490e60</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19bcdfd4c6d0000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 22:04:48</sys_updated_on>
+        <type>Access Roles</type>
+        <update_guid>96670b30b062be10c205e3d88a9e1e60</update_guid>
+        <update_guid_history>96670b30b062be10c205e3d88a9e1e60:0,77440f38d622be10b47bdceae98604e7:421863012,080da638226e7e1031d44497342ca3df:0,9373a6f0012e7e1051b38d65dc638316:-1312997551,ad22a6dd5c923610c0e8e8d6ba6d92fa:1592477062</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete display_value="x_1310794_founda_0_item_check_config.x_1310794_founda_0.admin">7a62199453433210c7233ee0a0490ecf</sys_audit_delete>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-09 20:48:04</sys_created_on>
+        <sys_db_object display_value="" name="sys_security_acl_role">sys_security_acl_role</sys_db_object>
+        <sys_id>054475d85c4a441dba70553e0958e381</sys_id>
+        <sys_metadata>a922a6dd53923610c7233ee0a0490ef6</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0_item_check_config.x_1310794_founda_0.admin</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent display_value="">ad22a6dd53923610c7233ee0a0490ee4</sys_parent>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_security_acl_role_a922a6dd53923610c7233ee0a0490ef6</sys_update_name>
+        <sys_update_version display_value="sys_security_acl_role_a922a6dd53923610c7233ee0a0490ef6">5e670b305362be10c7233ee0a0490e60</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-09 20:48:04</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>
