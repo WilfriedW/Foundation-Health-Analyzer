@@ -28,7 +28,6 @@ FHAnalyzer.prototype = {
     runAnalysis: function(configSysId) {
         var config = this.getConfiguration(configSysId);
         var engineResult = new FHAnalysisEngine().runVerification(config);
-		gs.info('engine result : '+ engineResult)
         var structuredResult = this._buildResultStructure(config, engineResult);
         resultSysId = this._saveResult(structuredResult);
         return {
@@ -46,28 +45,23 @@ FHAnalyzer.prototype = {
             return null;
         }
 
-        gs.info('[FHAnalyzer] Loading configuration: ' + gr.getValue('name'));
-        gs.info('[FHAnalyzer]   Table: ' + gr.table.name);
-        gs.info('[FHAnalyzer]   use_template: ' + gr.getValue('use_template'));
+        // gs.info('[FHAnalyzer] Loading configuration: ' + gr.getValue('name'));
+        // gs.info('[FHAnalyzer]   Table: ' + gr.table.name);
+        // gs.info('[FHAnalyzer]   use_template: ' + gr.getValue('use_template'));
 
         var out = [];
         var viIds = '';
 
         // Load VIs from template or direct selection
         if (gr.use_template && gr.getValue('template')) {
-            gs.info('[FHAnalyzer]   Mode: TEMPLATE');
             var template = new GlideRecord('x_1310794_founda_0_analysis_templates');
             if (template.get(gr.getValue('template'))) {
                 viIds = template.getValue('verification_items') || '';
-                gs.info('[FHAnalyzer]   Template: ' + template.getValue('name'));
-                gs.info('[FHAnalyzer]   VI IDs: ' + viIds);
             } else {
                 gs.error('[FHAnalyzer]   Template not found: ' + gr.getValue('template'));
             }
         } else {
-            gs.info('[FHAnalyzer]   Mode: DIRECT');
             viIds = gr.getValue('verification_items') || '';
-            gs.info('[FHAnalyzer]   VI IDs: ' + viIds);
         }
 
         if (!viIds) {
@@ -81,7 +75,6 @@ FHAnalyzer.prototype = {
         verificationItems.query();
 
         var viCount = verificationItems.getRowCount();
-        gs.info('[FHAnalyzer]   Found ' + viCount + ' active VIs');
 
         while (verificationItems.next()) {
             var viSysId = verificationItems.sys_id.toString();
@@ -105,10 +98,10 @@ FHAnalyzer.prototype = {
                 issue_rules: issueRuleIds
             };
 
-            gs.info('[FHAnalyzer]   VI: ' + itemObj.name);
-            gs.info('[FHAnalyzer]     - table: ' + viTableName);
-            gs.info('[FHAnalyzer]     - query_value: ' + itemObj.query_value);
-            gs.info('[FHAnalyzer]     - issue_rules: ' + itemObj.issue_rules);
+            // gs.info('[FHAnalyzer]   VI: ' + itemObj.name);
+            // gs.info('[FHAnalyzer]     - table: ' + viTableName);
+            // gs.info('[FHAnalyzer]     - query_value: ' + itemObj.query_value);
+            // gs.info('[FHAnalyzer]     - issue_rules: ' + itemObj.issue_rules);
 
             itemObj = this._ensureMetadataDefaults(itemObj);
             out.push(itemObj);
@@ -260,13 +253,13 @@ FHAnalyzer.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>110</sys_mod_count>
+        <sys_mod_count>112</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-10 08:59:54</sys_updated_on>
+        <sys_updated_on>2026-02-12 08:23:01</sys_updated_on>
     </sys_script_include>
 </record_update>

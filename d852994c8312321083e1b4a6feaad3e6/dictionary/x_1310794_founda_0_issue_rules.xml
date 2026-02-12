@@ -6,6 +6,12 @@
         <element label="Params" max_length="400" name="params" type="string"/>
         <element attributes="edge_encryption_enabled=true" label="Description" max_length="1000" name="description" type="string"/>
         <element attributes="edge_encryption_enabled=true" label="Active" max_length="40" name="active" type="boolean"/>
+        <element choice="1" default="per_record" label="Execution Mode" max_length="40" name="execution_mode" type="choice">
+            <choice>
+                <element inactive_on_update="false" label="Per record" value="per_record"/>
+                <element inactive_on_update="false" label="Aggregate (per table)" value="aggregate"/>
+            </choice>
+        </element>
         <element label="Type" max_length="40" name="type" type="string"/>
         <element display="true" label="Name" mandatory="true" max_length="40" name="name" type="string"/>
         <element label="Severity" max_length="40" name="severity" type="string"/>

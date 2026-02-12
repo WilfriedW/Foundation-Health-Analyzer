@@ -19,15 +19,8 @@
     c.tableStatsSort = 'total';
     c.tableStatsSortDir = 'desc';
     
-    // ============================================================
-    // NAVIGATION - ONGLETS
-    // ============================================================
-
     c.setActiveTab = function(tab) {
-      // Force désactivation de tous les onglets avant d'activer le nouveau
       c.activeTab = null;
-
-      // Petit délai pour forcer la destruction du DOM
       setTimeout(function() {
         $scope.$apply(function() {
           c.activeTab = tab;
@@ -35,10 +28,6 @@
         });
       }, 10);
     };
-    
-    // ============================================================
-    // MÉTHODES - FILTRAGE DES ISSUES
-    // ============================================================
     
     c.getFilteredIssues = function() {
       if (!c.result || !c.result.issues) return [];
@@ -108,10 +97,6 @@
       });
     };
     
-    // ============================================================
-    // MÉTHODES - STATISTIQUES PAR SEVERITY
-    // ============================================================
-    
     c.getIssuesBySeverity = function(severity) {
       if (!c.result || !c.result.issues) return [];
       var sev = (severity || '').toLowerCase();
@@ -145,7 +130,7 @@
       
       var grouped = {};
       c.result.issues.forEach(function(issue) {
-        var table = issue.parent_table || issue.table;
+        var table = issue.record_table;
         if (!grouped[table]) {
           grouped[table] = [];
         }
@@ -185,7 +170,7 @@
         return b.total - a.total;
       });
       
-      return limit ? tables.slice(0, limit) : tables;
+			return limit ? tables.slice(0, limit) : tables;
     };
     
     c.getUniqueTablesList = function() {
@@ -239,10 +224,7 @@
       return topTables.length > 0 ? topTables[0] : null;
     };
     
-    // ============================================================
-    // MÉTHODES - STATISTIQUES PAR CATÉGORIE
-    // ============================================================
-    
+
     c.getIssuesByCategory = function() {
       if (!c.result || !c.result.issues) return {};
       
@@ -278,11 +260,7 @@
       
       return stats;
     };
-    
-    // ============================================================
-    // MÉTHODES - HEALTH SCORE
-    // ============================================================
-    
+        
     c.getHealthLabel = function() {
       if (!c.result) return 'N/A';
       var score = c.result.health_score;
@@ -313,10 +291,6 @@
       return 'Your system has critical issues that require immediate attention.';
     };
     
-    // ============================================================
-    // MÉTHODES - DURÉE ET DATES
-    // ============================================================
-    
     c.getAnalysisDuration = function() {
       if (!c.result || !c.result.sys_created_on || !c.result.sys_updated_on) return 'N/A';
       
@@ -338,10 +312,6 @@
       var date = new Date(dateString);
       return date.toLocaleString();
     };
-    
-    // ============================================================
-    // MÉTHODES - EXPORT
-    // ============================================================
     
     c.exportJSON = function() {
       if (!c.result) return;
@@ -369,10 +339,7 @@
       window.open(url, '_blank');
     };
     
-    // ============================================================
-    // MÉTHODES - UTILITAIRES
-    // ============================================================
-    
+ 
     c.getTotalIssues = function() {
       return c.result && c.result.issues ? c.result.issues.length : 0;
     };
@@ -399,23 +366,7 @@
       };
       return icons[sev] || 'question-circle';
     };
-
-    c.getSeverityColor = function(severity) {
-      var sev = (severity || '').toLowerCase();
-      var colors = {
-        'critical': '#d9534f',
-        'high': '#f0ad4e',
-        'medium': '#5bc0de',
-        'low': '#5cb85c'
-      };
-      return colors[sev] || '#777';
-    };
-    
-    // ============================================================
-    // INITIALISATION DES DONNÉES
-    // ============================================================
-    
-    // Charger les données depuis le server
+   
     if (c.data && c.data.result) 
       c.result = c.data.result;
     
@@ -509,14 +460,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-03 22:38:44</sys_created_on>
         <sys_id>3ee88bd48312f21083e1b4a6feaad39a</sys_id>
-        <sys_mod_count>111</sys_mod_count>
+        <sys_mod_count>134</sys_mod_count>
         <sys_name>Analysis detail</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sp_widget_3ee88bd48312f21083e1b4a6feaad39a</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-30 16:21:38</sys_updated_on>
+        <sys_updated_on>2026-02-12 10:19:58</sys_updated_on>
         <template><![CDATA[<div class="fha-detail">
   <!-- Header Section -->
   <div class="fha-detail-header">
@@ -684,7 +635,8 @@
         </div>
       </div>
       
-      <!-- Card: Top 5 Affected Tables -->
+      <!-- Card: Top 5 Affected 
+s -->
       <div class="fha-card">
         <div class="fha-card-header">
           <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
@@ -697,10 +649,10 @@
                ng-mouseleave="$event.currentTarget.style.transform='translateX(0)'">
             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
               <i class="fa fa-database" style="color: var(--fha-primary); font-size: 16px;"></i>
-              <span style="font-weight: 600; color: var(--fha-anthracite); font-size: 13px;">{{table}}</span>
+              <span style="font-weight: 600; color: var(--fha-anthracite); font-size: 13px;">{{}}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
-              <span class="fha-badge fha-badge-primary" style="font-size: 11px;">{{issues.length}}</span>
+              <span class="fha-badge fha-badge-primary" style="font-size: 11px;">{{}}</span>
               <!-- Mini distribution -->
               <div style="display: flex; gap: 2px;">
                 <span ng-if="c.getIssuesBySeverityForTable(table, 'critical').length > 0" 
@@ -997,21 +949,30 @@
               <i class="fa fa-table" style="color: var(--fha-primary); font-size: 14px;"></i>
               <div>
                 <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Table</div>
-                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.parent_table || issue.table}}</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.record_table}}</div>
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <i class="fa fa-hashtag" style="color: var(--fha-primary); font-size: 14px;"></i>
               <div>
                 <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Record</div>
-                <code style="font-size: 11px; color: var(--fha-anthracite); background: white; padding: 2px 6px; border-radius: 3px;">{{issue.record}}</code>
+                <code style="font-size: 11px; color: var(--fha-anthracite); background: white; padding: 2px 6px; border-radius: 3px;">{{issue.record_name}}</code>
               </div>
             </div>
             <div ng-if="issue.field" style="display: flex; align-items: center; gap: 8px;">
               <i class="fa fa-edit" style="color: var(--fha-primary); font-size: 14px;"></i>
               <div>
-                <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Field</div>
-                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.field}}</div>
+                <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Recommendation</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.details.recommendation}}</div>
+              </div>
+            </div>
+          </div>
+           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 16px; background: var(--fha-bg-section); border-radius: 6px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fa fa-table" style="color: var(--fha-primary); font-size: 14px;"></i>
+              <div>
+                <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Recommendation</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.details.recommendation}}</div>
               </div>
             </div>
           </div>
