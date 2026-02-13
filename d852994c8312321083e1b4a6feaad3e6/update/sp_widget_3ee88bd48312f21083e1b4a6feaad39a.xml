@@ -24,7 +24,6 @@
       setTimeout(function() {
         $scope.$apply(function() {
           c.activeTab = tab;
-          console.log('Active tab:', tab);
         });
       }, 10);
     };
@@ -443,7 +442,6 @@
           }
         }
 
-        gs.info('[FHA Analysis Detail] Successfully parsed JSON - ' + data.result.issues.length + ' issues, health score: ' + data.result.health_score);
       } catch (e) {
         gs.error('[FHA Analysis Detail] Failed to parse details JSON: ' + e.message);
         data.result.issues = [];

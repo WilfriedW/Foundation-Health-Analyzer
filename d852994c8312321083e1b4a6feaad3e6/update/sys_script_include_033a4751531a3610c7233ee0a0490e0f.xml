@@ -25,6 +25,14 @@
 
 var FHAnalysisEngine = Class.create();
 FHAnalysisEngine.prototype = {
+    TABLES: {
+        RESULTS: 'x_1310794_founda_0_results',
+        CONFIGURATIONS: 'x_1310794_founda_0_configurations',
+        TEMPLATES: 'x_1310794_founda_0_analysis_templates',
+        VERIFICATION_ITEMS: 'x_1310794_founda_0_verification_items',
+        ISSUE_RULES: 'x_1310794_founda_0_issue_rules'
+    },
+
     initialize: function() {
         this.options = {};
     },
@@ -72,7 +80,6 @@ FHAnalysisEngine.prototype = {
                 if (queryType === 'script') {
                     if (queryScript) {
                         var scriptResults = [];
-                        var flowIds = scriptResults;
                         try {
                             eval(queryScript);
                         } catch (eScript) {
@@ -96,8 +103,6 @@ FHAnalysisEngine.prototype = {
 
                 // Execute query and process records
                 gr.query();
-
-                //gs.info("[FHAnalysisEngine] Query executed for " + tableName + ": " + gr.getRowCount() + " records");
 
                 while (gr.next()) {
                     var record = this._processRecord(gr, fields, item);
@@ -462,7 +467,7 @@ FHAnalysisEngine.prototype = {
         });
         if (!ids.length) return map;
 
-        var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
+        var gr = new GlideRecord(this.TABLES.ISSUE_RULES);
         gr.addQuery('sys_id', 'IN', ids.join(','));
         gr.addQuery('active', true);
         gr.query();

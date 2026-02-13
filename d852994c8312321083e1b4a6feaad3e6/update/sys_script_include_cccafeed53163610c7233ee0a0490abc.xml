@@ -11,8 +11,12 @@
         <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[var FHARuleEvaluator = Class.create();
 FHARuleEvaluator.prototype = {
+    TABLES: {
+        ISSUE_RULES: 'x_1310794_founda_0_issue_rules'
+    },
+
     initialize: function() {
-        this._ruleCache = {}; // Cache for rule GlideRecords
+        this._ruleCache = {};
     },
 
     /**
@@ -197,7 +201,7 @@ FHARuleEvaluator.prototype = {
         }
 
         // Load from DB
-        var gr = new GlideRecord("x_1310794_founda_0_issue_rules");
+        var gr = new GlideRecord(this.TABLES.ISSUE_RULES);
         if (gr.get(ruleSysId)) {
             // Cache for reuse
             this._ruleCache[ruleSysId] = gr;
@@ -208,11 +212,11 @@ FHARuleEvaluator.prototype = {
     },
 
     _parseParams: function(paramsStr) {
+        if (!paramsStr || paramsStr === '{}') return {};
         try {
-            var parsed = JSON.parse(paramsStr);
-            return parsed;
+            return JSON.parse(paramsStr);
         } catch (e) {
-            gs.error("[FHARuleEvaluator]   - Error: " + e.message);
+            gs.warn('[FHARuleEvaluator] Failed to parse rule params: ' + e.message);
             return {};
         }
     },

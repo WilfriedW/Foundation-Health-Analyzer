@@ -11,9 +11,19 @@
         <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[var FHMetricsEngine = Class.create();
 FHMetricsEngine.prototype = {
+    TABLES: {
+        RESULTS: 'x_1310794_founda_0_results',
+        CONFIGURATIONS: 'x_1310794_founda_0_configurations',
+        TEMPLATES: 'x_1310794_founda_0_analysis_templates',
+        VERIFICATION_ITEMS: 'x_1310794_founda_0_verification_items',
+        ISSUE_RULES: 'x_1310794_founda_0_issue_rules'
+    },
+
+    MAX_RESULTS_QUERY: 1000,
+
     initialize: function() {
-        this.resultsTable = 'x_1310794_founda_0_results';
-        this.configurationsTable = 'x_1310794_founda_0_configurations';
+        this.resultsTable = this.TABLES.RESULTS;
+        this.configurationsTable = this.TABLES.CONFIGURATIONS;
     },
 
     /**
@@ -48,6 +58,7 @@ FHMetricsEngine.prototype = {
             var resultsGr = new GlideRecord(this.resultsTable);
             resultsGr.addQuery('state', 'Completed');
             resultsGr.orderByDesc('sys_created_on');
+            resultsGr.setLimit(this.MAX_RESULTS_QUERY);
             resultsGr.query();
 
             var totalHealthScore = 0;
@@ -414,6 +425,7 @@ FHMetricsEngine.prototype = {
             // Count tables with configurations
             var configGr = new GlideRecord(this.configurationsTable);
             configGr.addQuery('active', true);
+            configGr.setLimit(this.MAX_RESULTS_QUERY);
             configGr.query();
             
             var tablesWithConfigs = {};
@@ -425,9 +437,10 @@ FHMetricsEngine.prototype = {
             }
             coverage.tables_with_configurations = Object.keys(tablesWithConfigs).length;
 
-            // Count tables actually analyzed
+            // Count tables actually analyzed (limit to recent results)
             var resultsGr = new GlideRecord(this.resultsTable);
             resultsGr.addQuery('state', 'Completed');
+            resultsGr.setLimit(this.MAX_RESULTS_QUERY);
             resultsGr.query();
             
             var analyzedTables = {};
