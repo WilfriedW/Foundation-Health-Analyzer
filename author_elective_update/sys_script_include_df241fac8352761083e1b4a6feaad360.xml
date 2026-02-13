@@ -1,0 +1,1080 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="DELETE">
+        <access>package_private</access>
+        <active>false</active>
+        <api_name>x_1310794_founda_0.FHScanUtils</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHScanUtils</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHScanUtils = Class.create();
+FHScanUtils.prototype = {
+    initialize: function() {
+        // Cache per execution instance
+        this.cache = {
+            bySysId: {}, // { table: { sys_id: plainObject } }
+            query: {} // { cacheKey: [plainObjects] }
+        };
+        this.ctx = new FHAnalysisContext();
+
+    },
+
+    /**
+     * addInQuery(gr, field, values)
+     * Helper to safely add an "IN" query on a GlideRecord for arrays/strings.
+     */
+    addInQuery: function(gr, field, values) {
+        try {
+            if (!gr || typeof gr.addQuery !== 'function' || !field) return;
+            if (Array.isArray(values)) {
+                if (!values.length) return;
+                gr.addQuery(field, 'IN', values.join(','));
+            } else if (values) {
+                gr.addQuery(field, values);
+            }
+        } catch (e) {
+            // keep failures silent to avoid breaking the scan
+        }
+    },
+
+    // === Basic helpers ===
+    toBool: function(value) {
+        return value === true || value === 'true' || value === '1' || value === 1;
+    },
+
+    safeGet: function(gr, field) {
+        try {
+            if (!gr) return '';
+            var v = gr.getValue(field);
+            return v === null || typeof v === 'undefined' ? '' : String(v);
+        } catch (e) {
+            return '';
+        }
+    },
+
+    getRecordBySysId: function(table, sysId, fields) {
+        if (!table || !sysId) return null;
+        this.cache.bySysId[table] = this.cache.bySysId[table] || {};
+        if (this.cache.bySysId[table][sysId]) return this.cache.bySysId[table][sysId];
+
+        var gr = new GlideRecord(table);
+        var out = null;
+        try {
+            if (gr.get(sysId)) {
+                out = {
+                    sys_id: sysId
+                };
+                if (fields && Array.isArray(fields)) {
+                    for (var i = 0; i < fields.length; i++) {
+                        out[fields[i]] = this.safeGet(gr, fields[i]);
+                    }
+                } else {
+                    // return a few common fields conservatively
+                    out['name'] = this.safeGet(gr, 'name');
+                }
+            }
+        } catch (e) {
+            out = null;
+        }
+        this.cache.bySysId[table][sysId] = out;
+        return out;
+    },
+
+    /**
+     * addCategoryAndMetrics(ctx, categoryKey, itemKey, label, items, options)
+     * Simplified version: uses only categories structure, no metrics
+     *
+     * - categoryKey: 'automation' | 'integration' | 'table' | 'security' ...
+     * - itemKey: short key for this item group (e.g. 'rest_apis', 'transform_maps')
+     * - label: human label shown in UI (e.g. 'REST APIs')
+     * - items: array of plain objects representing records
+     * - options: { table, icon, color }
+     *
+     * This will:
+     *  - call ctx.registerCategory(categoryKey, label, icon) if category not present
+     *  - call ctx.addCategoryItems(categoryKey, itemKey, label, items, options)
+     *  - All counts and stats are handled by ctx.addCategoryItems internally
+     */
+    addCategoryAndMetrics: function(ctx, categoryKey, itemKey, label, items, options) {
+        options = options || {};
+        var meta = {
+            table: options.table || '',
+            icon: options.icon || '',
+            color: options.color || '',
+            success: false
+        };
+
+        try {
+            var itemsArray = items || [];
+            if (!Array.isArray(itemsArray)) itemsArray = [itemsArray];
+
+            // Register category if not exists (do not override existing label/icon)
+            if (ctx.registerCategory && typeof ctx.registerCategory === 'function') {
+                var existingCat = ctx.getCategory && ctx.getCategory(categoryKey);
+                var catLabel = existingCat && existingCat.label ? existingCat.label : (label || categoryKey);
+                var catIcon = existingCat && existingCat.icon ? existingCat.icon : (options.icon || 'fa-folder');
+                ctx.registerCategory(categoryKey, catLabel, catIcon);
+            }
+
+            // Add items to category
+            if (ctx.addCategoryItems && typeof ctx.addCategoryItems === 'function') {
+                ctx.addCategoryItems(categoryKey, itemKey, label, itemsArray, {
+                    table: options.table,
+                    icon: options.icon,
+                    color: options.color
+                });
+                meta.success = true;
+            } else {
+                gs.error('addCategoryAndMetrics: ctx.addCategoryItems is not available');
+                meta.success = false;
+                meta.error = 'addCategoryItems not available';
+            }
+
+        } catch (e) {
+            gs.error('addCategoryAndMetrics error: ' + e);
+            meta.success = false;
+            meta.error = '' + e;
+        }
+
+        return meta;
+    },
+
+    /**
+     * Check if a record is a ServiceNow base record (OOTB not modified by non-SNC users)
+     * @param {Object} obj - record with sys_created_by/sys_updated_by
+     */
+    isSncRecord: function(obj) {
+        if (!obj) return false;
+        var sncUsers = {
+            'admin': true,
+            'glide.maint': true,
+            'guest': true,
+            'system': true,
+            'maint': true,
+            'don goodliffe': true,
+            'chris.henson': true
+        };
+        var created = (obj.sys_created_by || '').toLowerCase();
+        var updated = (obj.sys_updated_by || '').toLowerCase();
+        var createdSNC = sncUsers[created];
+        var updatedSNC = sncUsers[updated] || updated === '';
+        return createdSNC && (!updated || updatedSNC);
+    },
+
+    /**
+     * Filter out ServiceNow base records if option enabled
+     * @param {Array} list
+     * @param {Object} opts { ignoreSnc: boolean }
+     */
+    filterOutSncRecords: function(list, opts) {
+        if (!opts || !opts.ignoreSnc) return list || [];
+        var self = this;
+        return (list || []).filter(function(r) {
+            return !self.isSncRecord(r);
+        });
+    },
+
+    /**
+     * addIssueUnlessSnc(ctx, code, message, severity, metadata, record)
+     * - Skips the issue if ignore_snc_records option is enabled AND record is SNC
+     * - record: object with sys_created_by/sys_updated_by (optional)
+     */
+    addIssueUnlessSnc: function(ctx, code, message, severity, metadata, record) {
+        try {
+            var ignoreSnc = false;
+            if (ctx && typeof ctx.isIgnoreSncRecordsEnabled === 'function') {
+                ignoreSnc = ctx.isIgnoreSncRecordsEnabled();
+            } else if (ctx && ctx.options) {
+                ignoreSnc = ctx.options.ignore_servicenow_records === true;
+            }
+            if (ignoreSnc && record && this.isSncRecord && this.isSncRecord(record)) {
+                return; // skip SNC-only records
+            }
+        } catch (e) {
+            // continue to addIssue
+        }
+        if (ctx && ctx.addIssue) {
+            ctx.addIssue(code, message, severity, metadata);
+        }
+    },
+
+    // Safe transform wrapper to call transformFn and normalize results.
+    // Comments in English.
+    _safeApplyTransform: function(transformFn, rec, matched, configTables) {
+        // fallback object in case transformFn fails or returns invalid
+        var fallback = {
+            sys_id: ''
+        };
+        try {
+            // get sys_id reliably whether rec is a GlideRecord or plain object
+            if (rec) {
+                if (typeof rec.getUniqueValue === 'function') {
+                    fallback.sys_id = rec.getUniqueValue() || '';
+                } else if (rec.sys_id) {
+                    fallback.sys_id = rec.sys_id;
+                }
+            }
+        } catch (e) {
+            // ignore, fallback.sys_id stays ''
+        }
+
+        // if no transform function provided, return original record or fallback
+        if (typeof transformFn !== 'function') {
+            return rec || fallback;
+        }
+
+        try {
+            // call transform with correct context (preserve this if transform relies on it)
+            var result = transformFn.call(this, rec, matched, configTables);
+
+            // If transform returned nothing or a non-object, log and return fallback object enriched for debug
+            if (!result || typeof result !== 'object') {
+                gs.warn('_safeApplyTransform: transform returned non-object for ' + fallback.sys_id + ' => ' + String(result));
+                return Object.assign({}, fallback, {
+                    _invalid_transform_return: true,
+                    _returned: result
+                });
+            }
+
+            // ensure sys_id exists on the returned object for downstream usage
+            if (!result.sys_id) result.sys_id = fallback.sys_id;
+
+            return result;
+        } catch (e) {
+            // log stack and return an object that signals transform error (avoids undefined crashes)
+            gs.error('_safeApplyTransform: exception in transformFn for ' + fallback.sys_id + ' => ' + (e && e.message));
+            gs.error((e && e.stack) || '');
+            return Object.assign({}, fallback, {
+                _transform_error: true,
+                _error_message: (e && e.message) || ''
+            });
+        }
+    },
+
+    // Generic record checker used by many specific checks.
+    // - ctx: context object used for adding issues / metrics
+    // - configTables: array of table names / strings used by matcher
+    // - queryTarget: table name or GlideRecord or array (handled by getRecords)
+    // - buildQueryFn: function(gr) { ... } to enrich the query
+    // - fields: array of field names to retrieve (or null to get defaults)
+    // - meta: metadata for reporting (record_table, record_type, displayName, etc.)
+    // - matcherFn: function(rec, cfgTables) -> truthy matched value or false
+    // - transformFn: function(rec, matched, cfgTables) -> normalized object for results
+    checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fields, meta, matcherFn, transformFn) {
+        meta = meta || {};
+        var results = [];
+        var postProcessFn = meta.postProcessFn;
+        var skipCategory = meta.skipCategoryAndMetrics === true;
+        var skipMany = meta.skipManyIssue === true;
+
+        // Flexible tableToUse passed to this.utils.getRecords
+        var tableToUse = queryTarget;
+
+        // Retrieve records with your existing helper (assumed present)
+        var records = this.getRecords(tableToUse, buildQueryFn, fields, 0);
+        if (!Array.isArray(records) || records.length === 0) {
+            return results;
+        }
+
+        for (var i = 0; i < records.length; i++) {
+            var rec = records[i];
+            try {
+                var matched = true;
+                // Apply transform in a safe, normalized way
+                var item = (typeof this._safeApplyTransform === 'function') ?
+                    this._safeApplyTransform(transformFn, rec, matched, configTables) :
+                    ((typeof transformFn === 'function') ? transformFn.call(this, rec, matched, configTables) : rec);
+                
+                // Ensure item is an object before proceeding
+                if (!item || typeof item !== 'object') {
+                    // defensive: skip if still invalid
+                    gs.warn('_checkRecordsGeneric: skipping invalid item for rec index ' + i + ', matched=' + String(matched));
+                    continue;
+                }
+
+                // default metadata
+                item.table = meta.record_table || tableToUse;
+                item.record_type = meta.record_type || 'generic';
+
+                var ignoreSnc = false;
+                try {
+                    if (ctx && typeof ctx.isIgnoreSncRecordsEnabled === 'function') {
+                        ignoreSnc = ctx.isIgnoreSncRecordsEnabled();
+                    } else if (ctx && ctx.options) {
+                        ignoreSnc = ctx.options.ignore_servicenow_records === true;
+                    }
+                } catch (ix) {
+                    ignoreSnc = false;
+                }
+                if (ignoreSnc && typeof this.isSncRecord === 'function' && this.isSncRecord(item)) {
+                    continue;
+                }
+                results.push(item);
+
+                // If record inactive, add issue (use meta.checkActiveField or "active")
+                var activeField = meta.checkActiveField || 'active';
+                var isActive = true;
+                try {
+                    // If active field is undefined, treat as active by default
+                    if (item[activeField] === undefined) {
+                        isActive = true;
+                    } else {
+                        isActive = (typeof this.toBool === 'function') ? this.toBool(item[activeField]) : Boolean(item[activeField]);
+                    }
+                } catch (x) {
+                    isActive = true;
+                }
+
+                if (!isActive && meta.inactivityIssueCode) {
+                    // add issue with details; use helper that avoids SNC duplicates
+                    if (typeof this.addIssueUnlessSnc === 'function') {
+                        this.addIssueUnlessSnc(ctx, meta.inactivityIssueCode,
+                            (meta.inactivityIssueMsg || 'Inactive record: "' + (item.name || 'Unnamed') + '"'),
+                            (meta.inactivitySeverity || 'low'), {
+                                record_table: meta.record_table || tableToUse,
+                                record_sys_id: item.sys_id,
+                                category: meta.category || 'automation'
+                            }, item);
+                    } else if (ctx && typeof ctx.addIssue === 'function') {
+                        // fallback if utility not available
+                        ctx.addIssue(meta.inactivityIssueCode,
+                            (meta.inactivityIssueMsg || 'Inactive record: "' + (item.name || 'Unnamed') + '"'),
+                            (meta.inactivitySeverity || 'low'), {
+                                record_table: meta.record_table || tableToUse,
+                                record_sys_id: item.sys_id,
+                                category: meta.category || 'automation'
+                            });
+                    }
+                }
+            } catch (e) {
+                // log record id and stack so we can locate the problematic record
+                var recId = 'no-id';
+                try {
+                    if (rec) {
+                        if (typeof rec.getUniqueValue === 'function') recId = rec.getUniqueValue() || recId;
+                        else if (rec.sys_id) recId = rec.sys_id;
+                    }
+                } catch (ignore) {}
+                gs.error('_checkRecordsGeneric error processing record ' + recId + ': ' + (e && e.message));
+                gs.error((e && e.stack) || '');
+
+                // debug: preview some keys of rec (safe)
+                try {
+                    gs.info('_checkRecordsGeneric record preview keys: ' + JSON.stringify(Object.keys(rec).slice(0, 20)));
+                } catch (ignore) {}
+                // continue to next record rather than aborting whole loop
+            }
+        }
+
+        // Add metrics/category via helper (assumed present)
+        var categoryKey = meta.categoryKey || meta.category;
+        var itemKey = meta.itemKey || meta.record_type || 'generic';
+        var label = meta.displayName || itemKey || 'Items';
+        if (!skipCategory && typeof this.addCategoryAndMetrics === 'function') {
+            this.addCategoryAndMetrics(ctx, categoryKey, itemKey, label, results, {
+                table: meta.record_table || tableToUse,
+                icon: meta.icon || 'fa-cube',
+                color: meta.color || '#6c757d'
+            });
+        }
+
+        // optional many-items issue
+        if (!skipMany && meta.manyThreshold && results.length > meta.manyThreshold) {
+            if (ctx && typeof ctx.addIssue === 'function') {
+                ctx.addIssue(meta.manyIssueCode || 'MANY_' + (meta.record_type || 'ITEMS').toUpperCase(),
+                    (meta.manyIssueMsg || (meta.record_type || 'Items') + ' has ' + results.length + ' entries. Check for redundancy.'),
+                    meta.manySeverity || 'medium', {
+                        record_table: meta.record_table || tableToUse,
+                        record_filter: meta.record_filter || ''
+                    });
+            }
+        }
+
+        return results;
+    },
+
+    // === Generic query with optional memoization ===
+    // buildQueryFn(gr) should modify the GlideRecord (addQuery, addNotNullQuery, setLimit, etc)
+    getRecords: function(table, buildQueryFn, fields, limit /*,cacheKey*/ ) {
+        /* cacheKey = cacheKey || table + '|' + (buildQueryFn ? '' : 'all');
+         if (this.cache.query[cacheKey]) return this.cache.query[cacheKey].slice(0);*/
+
+        var results = [];
+        var gr = new GlideRecord(table);
+        try {
+            if (typeof buildQueryFn === 'function') buildQueryFn(gr);
+            if (limit && typeof gr.setLimit === 'function') gr.setLimit(limit);
+            gr.query();
+            while (gr.next()) {
+                var obj = {
+                    sys_id: gr.getUniqueValue()
+                };
+
+                if (fields && Array.isArray(fields)) {
+
+                    for (var i = 0; i < fields.length; i++) {
+                        try {
+                            obj[fields[i]] = this.safeGet(gr, fields[i]);
+                        } catch (e) {
+                            obj[fields[i]] = '';
+                        }
+                    }
+                } else {
+                    obj.name = this.safeGet(gr, 'name') || '';
+                }
+                results.push(obj);
+            }
+        } catch (e) {
+            // swallow errors to keep scanning resilient
+            results = [];
+        }
+        return results.slice(0);
+    },
+
+    scanScriptsForTables: function(tablesToCheck, opts) {
+        opts = opts || {};
+        var types = opts.types || ['business_rule', 'client_script'];
+        var sampleLimit = opts.sampleLimit || 0;
+        var results = [];
+
+        var TYPE_MAP = {
+            business_rule: {
+                table: 'sys_script',
+                fields: ['name', 'table', 'script', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id']
+            },
+            client_script: {
+                table: 'sys_script_client',
+                fields: ['name', 'table', 'script', 'active', 'ui_type', 'sys_created_by', 'sys_updated_by', 'sys_id']
+            }
+        };
+
+        var isSnc = (typeof this.isSncRecord === 'function') ? this.isSncRecord.bind(this) : function() {
+            return false;
+        };
+
+        for (var t = 0; t < types.length; t++) {
+            var typeKey = types[t];
+            var cfg = TYPE_MAP[typeKey];
+            if (!cfg) continue;
+
+            var records = this.getRecords(cfg.table, function(gr) {
+                this.addInQuery(gr, 'table', tablesToCheck);
+                if (sampleLimit && typeof gr.setLimit === 'function') gr.setLimit(sampleLimit);
+            }.bind(this), cfg.fields, sampleLimit || 0);
+
+            for (var i = 0; i < records.length; i++) {
+                var rec = records[i];
+                if (!rec) continue;
+
+                var scriptText = (rec.script || '') + '';
+                var matched = null;
+                for (var j = 0; j < tablesToCheck.length; j++) {
+                    if (scriptText.indexOf(tablesToCheck[j]) > -1) {
+                        matched = tablesToCheck[j];
+                        break;
+                    }
+                }
+                if (!matched) continue;
+
+                var item = {
+                    sys_id: rec.sys_id,
+                    name: rec.name || 'Unnamed',
+                    type: typeKey,
+                    table: cfg.table,
+                    target_table: rec.table,
+                    matched_table: matched,
+                    inherited: (rec.table !== matched),
+                    active: rec.active,
+                    ui_type: rec.ui_type,
+                    sys_created_by: rec.sys_created_by,
+                    sys_updated_by: rec.sys_updated_by,
+                    script: scriptText
+                };
+                if (opts.ignoreSnc && isSnc(item)) continue;
+
+                results.push(item);
+            }
+        }
+
+        return results;
+    },
+    type: 'FHScanUtils'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-04 18:06:27</sys_created_on>
+        <sys_id>df241fac8352761083e1b4a6feaad360</sys_id>
+        <sys_mod_count>79</sys_mod_count>
+        <sys_name>FHScanUtils</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_df241fac8352761083e1b4a6feaad360</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-09 07:57:48</sys_updated_on>
+    </sys_script_include>
+<sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_script_include_df241fac8352761083e1b4a6feaad360</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;
+    &lt;sys_script_include action="INSERT_OR_UPDATE"&gt;
+        &lt;access&gt;package_private&lt;/access&gt;
+        &lt;active&gt;false&lt;/active&gt;
+        &lt;api_name&gt;x_1310794_founda_0.FHScanUtils&lt;/api_name&gt;
+        &lt;caller_access/&gt;
+        &lt;client_callable&gt;false&lt;/client_callable&gt;
+        &lt;description/&gt;
+        &lt;mobile_callable&gt;false&lt;/mobile_callable&gt;
+        &lt;name&gt;FHScanUtils&lt;/name&gt;
+        &lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;
+        &lt;script&gt;&lt;![CDATA[var FHScanUtils = Class.create();
+FHScanUtils.prototype = {
+    initialize: function() {
+        // Cache per execution instance
+        this.cache = {
+            bySysId: {}, // { table: { sys_id: plainObject } }
+            query: {} // { cacheKey: [plainObjects] }
+        };
+        this.ctx = new FHAnalysisContext();
+
+    },
+
+    /**
+     * addInQuery(gr, field, values)
+     * Helper to safely add an "IN" query on a GlideRecord for arrays/strings.
+     */
+    addInQuery: function(gr, field, values) {
+        try {
+            if (!gr || typeof gr.addQuery !== 'function' || !field) return;
+            if (Array.isArray(values)) {
+                if (!values.length) return;
+                gr.addQuery(field, 'IN', values.join(','));
+            } else if (values) {
+                gr.addQuery(field, values);
+            }
+        } catch (e) {
+            // keep failures silent to avoid breaking the scan
+        }
+    },
+
+    // === Basic helpers ===
+    toBool: function(value) {
+        return value === true || value === 'true' || value === '1' || value === 1;
+    },
+
+    safeGet: function(gr, field) {
+        try {
+            if (!gr) return '';
+            var v = gr.getValue(field);
+            return v === null || typeof v === 'undefined' ? '' : String(v);
+        } catch (e) {
+            return '';
+        }
+    },
+
+    getRecordBySysId: function(table, sysId, fields) {
+        if (!table || !sysId) return null;
+        this.cache.bySysId[table] = this.cache.bySysId[table] || {};
+        if (this.cache.bySysId[table][sysId]) return this.cache.bySysId[table][sysId];
+
+        var gr = new GlideRecord(table);
+        var out = null;
+        try {
+            if (gr.get(sysId)) {
+                out = {
+                    sys_id: sysId
+                };
+                if (fields &amp;&amp; Array.isArray(fields)) {
+                    for (var i = 0; i &lt; fields.length; i++) {
+                        out[fields[i]] = this.safeGet(gr, fields[i]);
+                    }
+                } else {
+                    // return a few common fields conservatively
+                    out['name'] = this.safeGet(gr, 'name');
+                }
+            }
+        } catch (e) {
+            out = null;
+        }
+        this.cache.bySysId[table][sysId] = out;
+        return out;
+    },
+
+    /**
+     * addCategoryAndMetrics(ctx, categoryKey, itemKey, label, items, options)
+     * Simplified version: uses only categories structure, no metrics
+     *
+     * - categoryKey: 'automation' | 'integration' | 'table' | 'security' ...
+     * - itemKey: short key for this item group (e.g. 'rest_apis', 'transform_maps')
+     * - label: human label shown in UI (e.g. 'REST APIs')
+     * - items: array of plain objects representing records
+     * - options: { table, icon, color }
+     *
+     * This will:
+     *  - call ctx.registerCategory(categoryKey, label, icon) if category not present
+     *  - call ctx.addCategoryItems(categoryKey, itemKey, label, items, options)
+     *  - All counts and stats are handled by ctx.addCategoryItems internally
+     */
+    addCategoryAndMetrics: function(ctx, categoryKey, itemKey, label, items, options) {
+        options = options || {};
+        var meta = {
+            table: options.table || '',
+            icon: options.icon || '',
+            color: options.color || '',
+            success: false
+        };
+
+        try {
+            var itemsArray = items || [];
+            if (!Array.isArray(itemsArray)) itemsArray = [itemsArray];
+
+            // Register category if not exists (do not override existing label/icon)
+            if (ctx.registerCategory &amp;&amp; typeof ctx.registerCategory === 'function') {
+                var existingCat = ctx.getCategory &amp;&amp; ctx.getCategory(categoryKey);
+                var catLabel = existingCat &amp;&amp; existingCat.label ? existingCat.label : (label || categoryKey);
+                var catIcon = existingCat &amp;&amp; existingCat.icon ? existingCat.icon : (options.icon || 'fa-folder');
+                ctx.registerCategory(categoryKey, catLabel, catIcon);
+            }
+
+            // Add items to category
+            if (ctx.addCategoryItems &amp;&amp; typeof ctx.addCategoryItems === 'function') {
+                ctx.addCategoryItems(categoryKey, itemKey, label, itemsArray, {
+                    table: options.table,
+                    icon: options.icon,
+                    color: options.color
+                });
+                meta.success = true;
+            } else {
+                gs.error('addCategoryAndMetrics: ctx.addCategoryItems is not available');
+                meta.success = false;
+                meta.error = 'addCategoryItems not available';
+            }
+
+        } catch (e) {
+            gs.error('addCategoryAndMetrics error: ' + e);
+            meta.success = false;
+            meta.error = '' + e;
+        }
+
+        return meta;
+    },
+
+    /**
+     * Check if a record is a ServiceNow base record (OOTB not modified by non-SNC users)
+     * @param {Object} obj - record with sys_created_by/sys_updated_by
+     */
+    isSncRecord: function(obj) {
+        if (!obj) return false;
+        var sncUsers = {
+            'admin': true,
+            'glide.maint': true,
+            'guest': true,
+            'system': true,
+            'maint': true,
+            'don goodliffe': true,
+            'chris.henson': true
+        };
+        var created = (obj.sys_created_by || '').toLowerCase();
+        var updated = (obj.sys_updated_by || '').toLowerCase();
+        var createdSNC = sncUsers[created];
+        var updatedSNC = sncUsers[updated] || updated === '';
+        return createdSNC &amp;&amp; (!updated || updatedSNC);
+    },
+
+    /**
+     * Filter out ServiceNow base records if option enabled
+     * @param {Array} list
+     * @param {Object} opts { ignoreSnc: boolean }
+     */
+    filterOutSncRecords: function(list, opts) {
+        if (!opts || !opts.ignoreSnc) return list || [];
+        var self = this;
+        return (list || []).filter(function(r) {
+            return !self.isSncRecord(r);
+        });
+    },
+
+    /**
+     * addIssueUnlessSnc(ctx, code, message, severity, metadata, record)
+     * - Skips the issue if ignore_snc_records option is enabled AND record is SNC
+     * - record: object with sys_created_by/sys_updated_by (optional)
+     */
+    addIssueUnlessSnc: function(ctx, code, message, severity, metadata, record) {
+        try {
+            var ignoreSnc = false;
+            if (ctx &amp;&amp; typeof ctx.isIgnoreSncRecordsEnabled === 'function') {
+                ignoreSnc = ctx.isIgnoreSncRecordsEnabled();
+            } else if (ctx &amp;&amp; ctx.options) {
+                ignoreSnc = ctx.options.ignore_servicenow_records === true;
+            }
+            if (ignoreSnc &amp;&amp; record &amp;&amp; this.isSncRecord &amp;&amp; this.isSncRecord(record)) {
+                return; // skip SNC-only records
+            }
+        } catch (e) {
+            // continue to addIssue
+        }
+        if (ctx &amp;&amp; ctx.addIssue) {
+            ctx.addIssue(code, message, severity, metadata);
+        }
+    },
+
+    // Safe transform wrapper to call transformFn and normalize results.
+    // Comments in English.
+    _safeApplyTransform: function(transformFn, rec, matched, configTables) {
+        // fallback object in case transformFn fails or returns invalid
+        var fallback = {
+            sys_id: ''
+        };
+        try {
+            // get sys_id reliably whether rec is a GlideRecord or plain object
+            if (rec) {
+                if (typeof rec.getUniqueValue === 'function') {
+                    fallback.sys_id = rec.getUniqueValue() || '';
+                } else if (rec.sys_id) {
+                    fallback.sys_id = rec.sys_id;
+                }
+            }
+        } catch (e) {
+            // ignore, fallback.sys_id stays ''
+        }
+
+        // if no transform function provided, return original record or fallback
+        if (typeof transformFn !== 'function') {
+            return rec || fallback;
+        }
+
+        try {
+            // call transform with correct context (preserve this if transform relies on it)
+            var result = transformFn.call(this, rec, matched, configTables);
+
+            // If transform returned nothing or a non-object, log and return fallback object enriched for debug
+            if (!result || typeof result !== 'object') {
+                gs.warn('_safeApplyTransform: transform returned non-object for ' + fallback.sys_id + ' =&gt; ' + String(result));
+                return Object.assign({}, fallback, {
+                    _invalid_transform_return: true,
+                    _returned: result
+                });
+            }
+
+            // ensure sys_id exists on the returned object for downstream usage
+            if (!result.sys_id) result.sys_id = fallback.sys_id;
+
+            return result;
+        } catch (e) {
+            // log stack and return an object that signals transform error (avoids undefined crashes)
+            gs.error('_safeApplyTransform: exception in transformFn for ' + fallback.sys_id + ' =&gt; ' + (e &amp;&amp; e.message));
+            gs.error((e &amp;&amp; e.stack) || '');
+            return Object.assign({}, fallback, {
+                _transform_error: true,
+                _error_message: (e &amp;&amp; e.message) || ''
+            });
+        }
+    },
+
+    // Generic record checker used by many specific checks.
+    // - ctx: context object used for adding issues / metrics
+    // - configTables: array of table names / strings used by matcher
+    // - queryTarget: table name or GlideRecord or array (handled by getRecords)
+    // - buildQueryFn: function(gr) { ... } to enrich the query
+    // - fields: array of field names to retrieve (or null to get defaults)
+    // - meta: metadata for reporting (record_table, record_type, displayName, etc.)
+    // - matcherFn: function(rec, cfgTables) -&gt; truthy matched value or false
+    // - transformFn: function(rec, matched, cfgTables) -&gt; normalized object for results
+    checkRecordsGeneric: function(ctx, configTables, queryTarget, buildQueryFn, fields, meta, matcherFn, transformFn) {
+        meta = meta || {};
+        var results = [];
+        var postProcessFn = meta.postProcessFn;
+        var skipCategory = meta.skipCategoryAndMetrics === true;
+        var skipMany = meta.skipManyIssue === true;
+
+        // Flexible tableToUse passed to this.utils.getRecords
+        var tableToUse = queryTarget;
+
+        // Retrieve records with your existing helper (assumed present)
+        var records = this.getRecords(tableToUse, buildQueryFn, fields, 0);
+        if (!Array.isArray(records) || records.length === 0) {
+            return results;
+        }
+
+        for (var i = 0; i &lt; records.length; i++) {
+            var rec = records[i];
+            try {
+                var matched = true;
+                // Apply transform in a safe, normalized way
+                var item = (typeof this._safeApplyTransform === 'function') ?
+                    this._safeApplyTransform(transformFn, rec, matched, configTables) :
+                    ((typeof transformFn === 'function') ? transformFn.call(this, rec, matched, configTables) : rec);
+                
+                // Ensure item is an object before proceeding
+                if (!item || typeof item !== 'object') {
+                    // defensive: skip if still invalid
+                    gs.warn('_checkRecordsGeneric: skipping invalid item for rec index ' + i + ', matched=' + String(matched));
+                    continue;
+                }
+
+                // default metadata
+                item.table = meta.record_table || tableToUse;
+                item.record_type = meta.record_type || 'generic';
+
+                var ignoreSnc = false;
+                try {
+                    if (ctx &amp;&amp; typeof ctx.isIgnoreSncRecordsEnabled === 'function') {
+                        ignoreSnc = ctx.isIgnoreSncRecordsEnabled();
+                    } else if (ctx &amp;&amp; ctx.options) {
+                        ignoreSnc = ctx.options.ignore_servicenow_records === true;
+                    }
+                } catch (ix) {
+                    ignoreSnc = false;
+                }
+                if (ignoreSnc &amp;&amp; typeof this.isSncRecord === 'function' &amp;&amp; this.isSncRecord(item)) {
+                    continue;
+                }
+                results.push(item);
+
+                // If record inactive, add issue (use meta.checkActiveField or "active")
+                var activeField = meta.checkActiveField || 'active';
+                var isActive = true;
+                try {
+                    // If active field is undefined, treat as active by default
+                    if (item[activeField] === undefined) {
+                        isActive = true;
+                    } else {
+                        isActive = (typeof this.toBool === 'function') ? this.toBool(item[activeField]) : Boolean(item[activeField]);
+                    }
+                } catch (x) {
+                    isActive = true;
+                }
+
+                if (!isActive &amp;&amp; meta.inactivityIssueCode) {
+                    // add issue with details; use helper that avoids SNC duplicates
+                    if (typeof this.addIssueUnlessSnc === 'function') {
+                        this.addIssueUnlessSnc(ctx, meta.inactivityIssueCode,
+                            (meta.inactivityIssueMsg || 'Inactive record: "' + (item.name || 'Unnamed') + '"'),
+                            (meta.inactivitySeverity || 'low'), {
+                                record_table: meta.record_table || tableToUse,
+                                record_sys_id: item.sys_id,
+                                category: meta.category || 'automation'
+                            }, item);
+                    } else if (ctx &amp;&amp; typeof ctx.addIssue === 'function') {
+                        // fallback if utility not available
+                        ctx.addIssue(meta.inactivityIssueCode,
+                            (meta.inactivityIssueMsg || 'Inactive record: "' + (item.name || 'Unnamed') + '"'),
+                            (meta.inactivitySeverity || 'low'), {
+                                record_table: meta.record_table || tableToUse,
+                                record_sys_id: item.sys_id,
+                                category: meta.category || 'automation'
+                            });
+                    }
+                }
+            } catch (e) {
+                // log record id and stack so we can locate the problematic record
+                var recId = 'no-id';
+                try {
+                    if (rec) {
+                        if (typeof rec.getUniqueValue === 'function') recId = rec.getUniqueValue() || recId;
+                        else if (rec.sys_id) recId = rec.sys_id;
+                    }
+                } catch (ignore) {}
+                gs.error('_checkRecordsGeneric error processing record ' + recId + ': ' + (e &amp;&amp; e.message));
+                gs.error((e &amp;&amp; e.stack) || '');
+
+                // debug: preview some keys of rec (safe)
+                try {
+                    gs.info('_checkRecordsGeneric record preview keys: ' + JSON.stringify(Object.keys(rec).slice(0, 20)));
+                } catch (ignore) {}
+                // continue to next record rather than aborting whole loop
+            }
+        }
+
+        // Add metrics/category via helper (assumed present)
+        var categoryKey = meta.categoryKey || meta.category;
+        var itemKey = meta.itemKey || meta.record_type || 'generic';
+        var label = meta.displayName || itemKey || 'Items';
+        if (!skipCategory &amp;&amp; typeof this.addCategoryAndMetrics === 'function') {
+            this.addCategoryAndMetrics(ctx, categoryKey, itemKey, label, results, {
+                table: meta.record_table || tableToUse,
+                icon: meta.icon || 'fa-cube',
+                color: meta.color || '#6c757d'
+            });
+        }
+
+        // optional many-items issue
+        if (!skipMany &amp;&amp; meta.manyThreshold &amp;&amp; results.length &gt; meta.manyThreshold) {
+            if (ctx &amp;&amp; typeof ctx.addIssue === 'function') {
+                ctx.addIssue(meta.manyIssueCode || 'MANY_' + (meta.record_type || 'ITEMS').toUpperCase(),
+                    (meta.manyIssueMsg || (meta.record_type || 'Items') + ' has ' + results.length + ' entries. Check for redundancy.'),
+                    meta.manySeverity || 'medium', {
+                        record_table: meta.record_table || tableToUse,
+                        record_filter: meta.record_filter || ''
+                    });
+            }
+        }
+
+        return results;
+    },
+
+    // === Generic query with optional memoization ===
+    // buildQueryFn(gr) should modify the GlideRecord (addQuery, addNotNullQuery, setLimit, etc)
+    getRecords: function(table, buildQueryFn, fields, limit /*,cacheKey*/ ) {
+        /* cacheKey = cacheKey || table + '|' + (buildQueryFn ? '' : 'all');
+         if (this.cache.query[cacheKey]) return this.cache.query[cacheKey].slice(0);*/
+
+        var results = [];
+        var gr = new GlideRecord(table);
+        try {
+            if (typeof buildQueryFn === 'function') buildQueryFn(gr);
+            if (limit &amp;&amp; typeof gr.setLimit === 'function') gr.setLimit(limit);
+            gr.query();
+            while (gr.next()) {
+                var obj = {
+                    sys_id: gr.getUniqueValue()
+                };
+
+                if (fields &amp;&amp; Array.isArray(fields)) {
+
+                    for (var i = 0; i &lt; fields.length; i++) {
+                        try {
+                            obj[fields[i]] = this.safeGet(gr, fields[i]);
+                        } catch (e) {
+                            obj[fields[i]] = '';
+                        }
+                    }
+                } else {
+                    obj.name = this.safeGet(gr, 'name') || '';
+                }
+                results.push(obj);
+            }
+        } catch (e) {
+            // swallow errors to keep scanning resilient
+            results = [];
+        }
+        return results.slice(0);
+    },
+
+    scanScriptsForTables: function(tablesToCheck, opts) {
+        opts = opts || {};
+        var types = opts.types || ['business_rule', 'client_script'];
+        var sampleLimit = opts.sampleLimit || 0;
+        var results = [];
+
+        var TYPE_MAP = {
+            business_rule: {
+                table: 'sys_script',
+                fields: ['name', 'table', 'script', 'active', 'sys_created_by', 'sys_updated_by', 'sys_id']
+            },
+            client_script: {
+                table: 'sys_script_client',
+                fields: ['name', 'table', 'script', 'active', 'ui_type', 'sys_created_by', 'sys_updated_by', 'sys_id']
+            }
+        };
+
+        var isSnc = (typeof this.isSncRecord === 'function') ? this.isSncRecord.bind(this) : function() {
+            return false;
+        };
+
+        for (var t = 0; t &lt; types.length; t++) {
+            var typeKey = types[t];
+            var cfg = TYPE_MAP[typeKey];
+            if (!cfg) continue;
+
+            var records = this.getRecords(cfg.table, function(gr) {
+                this.addInQuery(gr, 'table', tablesToCheck);
+                if (sampleLimit &amp;&amp; typeof gr.setLimit === 'function') gr.setLimit(sampleLimit);
+            }.bind(this), cfg.fields, sampleLimit || 0);
+
+            for (var i = 0; i &lt; records.length; i++) {
+                var rec = records[i];
+                if (!rec) continue;
+
+                var scriptText = (rec.script || '') + '';
+                var matched = null;
+                for (var j = 0; j &lt; tablesToCheck.length; j++) {
+                    if (scriptText.indexOf(tablesToCheck[j]) &gt; -1) {
+                        matched = tablesToCheck[j];
+                        break;
+                    }
+                }
+                if (!matched) continue;
+
+                var item = {
+                    sys_id: rec.sys_id,
+                    name: rec.name || 'Unnamed',
+                    type: typeKey,
+                    table: cfg.table,
+                    target_table: rec.table,
+                    matched_table: matched,
+                    inherited: (rec.table !== matched),
+                    active: rec.active,
+                    ui_type: rec.ui_type,
+                    sys_created_by: rec.sys_created_by,
+                    sys_updated_by: rec.sys_updated_by,
+                    script: scriptText
+                };
+                if (opts.ignoreSnc &amp;&amp; isSnc(item)) continue;
+
+                results.push(item);
+            }
+        }
+
+        return results;
+    },
+    type: 'FHScanUtils'
+};]]&gt;&lt;/script&gt;
+        &lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;
+        &lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;
+        &lt;sys_created_on&gt;2026-01-04 18:06:27&lt;/sys_created_on&gt;
+        &lt;sys_id&gt;df241fac8352761083e1b4a6feaad360&lt;/sys_id&gt;
+        &lt;sys_mod_count&gt;79&lt;/sys_mod_count&gt;
+        &lt;sys_name&gt;FHScanUtils&lt;/sys_name&gt;
+        &lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;
+        &lt;sys_policy&gt;read&lt;/sys_policy&gt;
+        &lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;
+        &lt;sys_update_name&gt;sys_script_include_df241fac8352761083e1b4a6feaad360&lt;/sys_update_name&gt;
+        &lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;
+        &lt;sys_updated_on&gt;2026-01-09 07:57:48&lt;/sys_updated_on&gt;
+    &lt;/sys_script_include&gt;
+&lt;/record_update&gt;</payload>
+        <payload_hash>-389088093</payload_hash>
+        <record_name>FHScanUtils</record_name>
+        <reverted_from/>
+        <source>f5574bfc5322be10c7233ee0a0490e91</source>
+        <source_table>sys_upgrade_history</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 22:04:46</sys_created_on>
+        <sys_id>3d6787305362be10c7233ee0a0490ee6</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19bcdfd46200000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 22:04:46</sys_updated_on>
+        <type>Script Include</type>
+        <update_guid>756787300562be10fa7c3ace3ec8e7e6</update_guid>
+        <update_guid_history>756787300562be10fa7c3ace3ec8e7e6:0,c754c7782322be10ab69964ab0044421:1931115598,e7fc6638a66e7e10b7356380f938af37:0,0b83a234682e7e10b2b498436427a90d:667943493,d9d8b24639d2ba108f24042ff6abfe2d:1445299105,35b304c6b75e3a109739341f77230178:919017106,ff63c8861c5e3a10b5c44d09eb14a830:-1766748540,6f303f09a75eb210b4227e74a1a2a7a8:24547882,98bfe7c5405eb210972394b88644d9ab:-1672882036,70b92fc9b11eb2108b0938bbbfdb0a6a:760948451,3c79e3c91a1eb210f9c7f2c016a4fe4d:-570792684,fe496b89901eb21023e82684641ccca7:-325311612,5766af05c81eb2108c31edbee23afbd8:108641846,a67523c1ea1eb210378f80e25b048eb6:49019454,1ef3ab01d51eb210bef945f79b25c180:-174401515,3793efcddedab210a830c191a2349979:-143306006,964323cd12dab2108acaf7ef85c5b598:1772235056,bd032f8db3dab210b6699727a5a7d8bb:-1304930993,a7c2278dbcdab21058ec86ce8dc94cde:-1480396066,61b2ab4d70dab210a9a607e3bce65553:-2099216518,0152a74d5edab210385b5059d8022fe9:1168217370,5101678960dab2100e4f167c2be0db01:-1482432993,8050e34976dab210ee3467c9b50c8f0c:-852613397,fa10ab097adab2100d3bddbf0d5433cc:-1887231363,28106b09eadab210a7b4f80c1bf0df87:-1050650754,5bff97cd125ab210fbdec6469aac5d1b:759166333,1c9fdbc52adab210024d63fa283a242e:330598992,586f57c5d5dab21072bd5b2f7be18c04:-1557082058,6d2fdb85b1dab210be6893a5890808e4:2032667442,89fe5f0d1c5ab2102d057827a18e9b6f:-597612900,35fd130536dab210cd699ca6eecf0b9e:-1990150458,e01c5f8d729ab210d09a589488812415:-1182456142,92499fc57a9ab21062c37be4b8493702:1675217239,3bc829cd781e7210bc27bb81cfe9476f:72143111,7578ed8d831e7210fcb836695b6dcfaa:-2096334603,5957e50d741e721045078f2302ea070f:-457621786,b3a1e141f41e721099e014ec683f58b9:0,b4c8d10d2f9a72108d622ceab352f872:-1276506371,311715c9549a72105184d8766d5e6785:2006827492,28a6dd89179a721079735c880d1fc1a7:-604248499,d8769589b89a7210f50d5bb55c89d1a4:1648281071,b8d5dd099e9a721086295dce395d765b:1161967285,fea51d09659a7210d445f6924aaf9ab5:-1757790137,59851109329a7210435b6651cacf43c8:890095086,71451dc5509a72102058fecbd8500a15:-2023595344,8b2599c50b9a72107fbe16e1edb07627:868054550,59cebc0df0d67210e15076633264ab48:-315271428,081e3849b4d67210befcfa83b172df3f:844756315,5d607041d99672100ccf3e531970c5a7:-1137051315,fe40780d865672104316564877af6845:154070305,87edacc9595672106dabf0d72dbab967:1986173407,667ce409ff56721098aed08383d48c35:-1118855246,a7cb6cc59d56721001ec835bc50f361b:-89549950,964cbe70c01a3210fe250d2c52bab8a3:-1266879432,86b9fa3c27d63210e73e8a52f37d02f0:904415792,71993a3c0fd63210fd6c9b4ca3c62927:-888554302,d9d8bab83ad632107a475122c7b4ccea:324015334,2988b6bc029632109573e01bc0ae66b4:-1584220267,6604267061563210fadb0f3281fd568c:1498905929,8ac32e3022563210da690da751b78334:-1227066263,5983e23037563210f6b70b92a31f3ae6:-1489979941,cd12267c6e1632105c467639410de817:-1826339385,c7e0e2fce2d23210e2846ff29eb3fa39:-571710630,af5f1af45c16321003ffcca643896207:1401584400,bc3fd2f4fc163210b9fca94803f06911:-80978190,2d0f5eb41d163210e56fb05dc7d97c9c:69848044,e1d95e3c39d232104edb4391bacb9540:-2097408704,f5395af80ed232106dacaadb5286dcce:-1952309061,ce1996f888d232105eac6f7e1552fe1c:-32065701,84095eb837d232109bb7bacf9b03fd95:-1885802693,04385a785cd2321032bca030f6222e8d:-1513669986,e1f79af462d23210ce12e712a86acdb8:-353976754,26a71a38cfd232109b3094c25402ebb0:-1763075938,47579ef4bdd23210cc902b4f8166e8eb:-1314876923,29371ab4ebd2321056d6e9655bfb25e5:-1538059688,2f9452b037d23210f7de2a476003e307:-254089523,a2a3963047d23210b4ee1504900c18f8:-1744937717,984312bcfc923210f2314679c551a4cd:299914633,f38ece70ed9232100ea693a51c2fb2f1:-1716831880</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 23:28:34</sys_created_on>
+        <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
+        <sys_id>afb4c633e5bf443e8946cd499ddb4964</sys_id>
+        <sys_metadata>df241fac8352761083e1b4a6feaad360</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHScanUtils</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_script_include_df241fac8352761083e1b4a6feaad360</sys_update_name>
+        <sys_update_version display_value="sys_script_include_df241fac8352761083e1b4a6feaad360">3d6787305362be10c7233ee0a0490ee6</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 23:28:34</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

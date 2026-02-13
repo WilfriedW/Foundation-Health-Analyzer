@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_transform_entry">
+    <sys_transform_entry action="DELETE">
+        <choice_action>create</choice_action>
+        <coalesce>false</coalesce>
+        <coalesce_case_sensitive>false</coalesce_case_sensitive>
+        <coalesce_empty_fields>false</coalesce_empty_fields>
+        <date_format>yyyy-MM-dd HH:mm:ss</date_format>
+        <map display_value="u_imp_tmpl_x_1310794_founda_0_issue_rules">c56d5fd3535ab210c7233ee0a0490eba</map>
+        <reference_value_field/>
+        <source_field>u_type</source_field>
+        <source_script><![CDATA[answer = (function transformEntry(source) {
+
+	// Add your code here
+	return ""; // return the value to be put into the target field
+
+})(source);]]></source_script>
+        <source_table>u_imp_tmpl_x_1310794_founda_0_issue_rules</source_table>
+        <sys_class_name>sys_transform_entry</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 07:49:57</sys_created_on>
+        <sys_id>8d6d9fd3535ab210c7233ee0a0490ed0</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>u_type</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_transform_entry_8d6d9fd3535ab210c7233ee0a0490ed0</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 07:49:57</sys_updated_on>
+        <target_field>type</target_field>
+        <target_table>x_1310794_founda_0_issue_rules</target_table>
+        <use_source_script>false</use_source_script>
+    </sys_transform_entry>
+<sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_transform_entry_8d6d9fd3535ab210c7233ee0a0490ed0</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_transform_entry"&gt;
+    &lt;sys_transform_entry action="INSERT_OR_UPDATE"&gt;
+        &lt;choice_action&gt;create&lt;/choice_action&gt;
+        &lt;coalesce&gt;false&lt;/coalesce&gt;
+        &lt;coalesce_case_sensitive&gt;false&lt;/coalesce_case_sensitive&gt;
+        &lt;coalesce_empty_fields&gt;false&lt;/coalesce_empty_fields&gt;
+        &lt;date_format&gt;yyyy-MM-dd HH:mm:ss&lt;/date_format&gt;
+        &lt;map display_value="u_imp_tmpl_x_1310794_founda_0_issue_rules"&gt;c56d5fd3535ab210c7233ee0a0490eba&lt;/map&gt;
+        &lt;reference_value_field/&gt;
+        &lt;source_field&gt;u_type&lt;/source_field&gt;
+        &lt;source_script&gt;&lt;![CDATA[answer = (function transformEntry(source) {
+
+	// Add your code here
+	return ""; // return the value to be put into the target field
+
+})(source);]]&gt;&lt;/source_script&gt;
+        &lt;source_table&gt;u_imp_tmpl_x_1310794_founda_0_issue_rules&lt;/source_table&gt;
+        &lt;sys_class_name&gt;sys_transform_entry&lt;/sys_class_name&gt;
+        &lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;
+        &lt;sys_created_on&gt;2026-01-13 07:49:57&lt;/sys_created_on&gt;
+        &lt;sys_id&gt;8d6d9fd3535ab210c7233ee0a0490ed0&lt;/sys_id&gt;
+        &lt;sys_mod_count&gt;0&lt;/sys_mod_count&gt;
+        &lt;sys_name&gt;u_type&lt;/sys_name&gt;
+        &lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;
+        &lt;sys_policy/&gt;
+        &lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;
+        &lt;sys_update_name&gt;sys_transform_entry_8d6d9fd3535ab210c7233ee0a0490ed0&lt;/sys_update_name&gt;
+        &lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;
+        &lt;sys_updated_on&gt;2026-01-13 07:49:57&lt;/sys_updated_on&gt;
+        &lt;target_field&gt;type&lt;/target_field&gt;
+        &lt;target_table&gt;x_1310794_founda_0_issue_rules&lt;/target_table&gt;
+        &lt;use_source_script&gt;false&lt;/use_source_script&gt;
+    &lt;/sys_transform_entry&gt;
+&lt;/record_update&gt;</payload>
+        <payload_hash>1762602287</payload_hash>
+        <record_name>u_type</record_name>
+        <reverted_from/>
+        <source>c686ab5b539ab210c7233ee0a0490e71</source>
+        <source_table>sys_upgrade_history</source_table>
+        <state>current</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 08:29:57</sys_created_on>
+        <sys_id>9f866f5b539ab210c7233ee0a0490e29</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19bb679db5b0000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-13 08:29:57</sys_updated_on>
+        <type>Field Map</type>
+        <update_guid>d7866f5bb09ab2108499b549ad4c1429</update_guid>
+        <update_guid_history>d7866f5bb09ab2108499b549ad4c1429:0,27a0e75fee5ab210c327566959f95512:-1082420200,016d9fd35f5ab2105d6fcee4fd6db1d3:321960163,4fcf175b2a5ab2107accdd3b34eab135:1102303599,016d9fd35f5ab2105d6fcee4fd6db1d3:321960163</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 17:11:19</sys_created_on>
+        <sys_db_object display_value="" name="sys_transform_entry">sys_transform_entry</sys_db_object>
+        <sys_id>11501e45ae4e489b8f04a920c0335bf1</sys_id>
+        <sys_metadata>8d6d9fd3535ab210c7233ee0a0490ed0</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>u_type</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_transform_entry_8d6d9fd3535ab210c7233ee0a0490ed0</sys_update_name>
+        <sys_update_version display_value="sys_transform_entry_8d6d9fd3535ab210c7233ee0a0490ed0">9f866f5b539ab210c7233ee0a0490e29</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 17:11:19</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>
