@@ -1,0 +1,820 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="DELETE">
+        <access>package_private</access>
+        <active>false</active>
+        <api_name>x_1310794_founda_0.FHAnalysisContext</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHAnalysisContext</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHAnalysisContext - Context for analysis execution
+ * 
+ */
+var FHAnalysisContext = Class.create();
+FHAnalysisContext.prototype = {
+    initialize: function(config) {
+       // this.config = config;
+        // this.issues = [];
+        // this.categories = {};
+
+        // this.options = {
+        //     deep_scan: config && config.deep_scan,
+        //     include_children_tables: config && config.include_children_tables,
+        //     analyze_references: (config && config.analyze_references) || false,
+        //     include_ldap: config && config.include_ldap,
+        //     ignore_servicenow_records: config && config.ignore_servicenow_records
+        // };
+
+        // this._verificationResults = [];
+
+        // this._executionMetadata = {
+        //     duration_ms: 0
+        // };
+
+        // // Cache for table hierarchy (computed once, reused)
+        // this._tableHierarchyCache = null;
+        // this._childrenTablesCache = null;
+        // this._tablesToCheckCache = null;
+    },
+
+
+
+    /**
+     * Convert context to result object
+     * @returns {Object} Result object
+     */
+    // toResult: function() {
+    //     var self = this;
+    //     return {
+    //         table: this.config.table_name,
+    //         issues: this.issues,
+    //         categories: this.categories,
+    //         execution_metadata: this._executionMetadata,
+
+    //     };
+    // },
+
+    // ==================== TABLE HIERARCHY HELPERS ====================
+
+    /**
+     * Get table name from config
+     * @returns {String} Table name
+     */
+    // getTableName: function() {
+    //     return this.config && this.config.table_name ? String(this.config.table_name) : '';
+    // },
+
+    /**
+     * Get table hierarchy (current table + all parent tables)
+     * Results are cached for performance
+     * @returns {Array} Array of table names [current, parent1, parent2, ...]
+     */
+//     getTableHierarchy: function() {
+//     if (this._tableHierarchyCache !== null) {
+//         return this._tableHierarchyCache;
+//     }
+
+//     var tableName = this.getTableName();
+//     var tables = [tableName];
+
+//     if (!tableName) {
+//         this._tableHierarchyCache = tables;
+//         return tables;
+//     }
+
+//     try {
+//         var gr = new GlideRecord('sys_db_object');
+//         if (gr.get('name', tableName)) {
+//             var superClass = gr.super_class;
+//             while (superClass && !superClass.nil()) {
+//                 var parentGr = superClass.getRefRecord();
+//                 if (parentGr) {
+//                     var parentName = parentGr.getValue('name');
+//                     if (parentName && tables.indexOf(parentName) === -1) {
+//                         tables.push(parentName);
+//                     }
+//                     superClass = parentGr.super_class;
+//                 } else {
+//                     break;
+//                 }
+//             }
+//         }
+//     } catch (e) {}
+
+//     this._tableHierarchyCache = tables;
+//     return tables;
+// },
+
+    /**
+     * Get children tables (tables that extend the current table)
+     * Results are cached for performance
+     * @returns {Array} Array of child table names
+     */
+    // getChildrenTables: function() {
+    //     if (this._childrenTablesCache !== null) {
+    //         return this._childrenTablesCache;
+    //     }
+
+    //     var tableName = this.getTableName();
+    //     var children = [];
+
+    //     if (!tableName) {
+    //         this._childrenTablesCache = children;
+    //         return children;
+    //     }
+
+    //     try {
+    //         var parentGr = new GlideRecord('sys_db_object');
+    //         if (parentGr.get('name', tableName)) {
+    //             var parentSysId = parentGr.getUniqueValue();
+
+    //             var gr = new GlideRecord('sys_db_object');
+    //             gr.addQuery('super_class', parentSysId);
+    //             gr.query();
+
+    //             while (gr.next()) {
+    //                 var childName = gr.getValue('name');
+    //                 if (childName && children.indexOf(childName) === -1) {
+    //                     children.push(childName);
+    //                 }
+    //             }
+    //         }
+    //     } catch (e) {
+    //         // Ignore errors
+    //     }
+
+    //     this._childrenTablesCache = children;
+    //     return children;
+    // },
+
+    /**
+     * Get all tables to check based on options
+     * Combines: current table + parents + children (if option enabled)
+     * Results are cached for performance
+     * @returns {Array} Array of table names to check
+     */
+    // getTablesToCheck: function() {
+    //     var tables = [];
+    //     tables.push(this.getTableName());
+    //     if (this.config.include_children_tables) {
+    //         var children = this.getChildrenTables();
+    //         children.forEach(function(child) {
+    //             if (tables.indexOf(child) === -1) {
+    //                 tables.push(child);
+    //             }
+    //         });
+    //     }
+
+    //     this._tablesToCheckCache = tables;
+    //     return tables;
+    // },
+
+    // ==================== UTILITY HELPERS ====================
+
+    /**
+     * Safely get a value from a GlideRecord, returning empty string if null
+     * @param {GlideRecord} gr - GlideRecord
+     * @param {String} field - Field name
+     * @returns {String} Field value or empty string
+     */
+    // safeGetValue: function(gr, field) {
+    //     var val = gr.getValue(field);
+    //     return (val === null || val === undefined) ? '' : String(val);
+    // },
+
+    /**
+     * Check if a script contains an exact table reference
+     * @param {String} script - Script content
+     * @param {String} tableName - Table name to search
+     * @returns {Boolean} True if exact match found
+     */
+    /*  scriptContainsTable: function(script, tableName) {
+        if (!script || !tableName) return false;
+
+        var patterns = [
+            new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i"),
+            new RegExp("setTableName\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i")
+        ];
+
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+*/
+    /**
+     * Check if a script updates a specific field
+     * @param {String} script - Script content
+     * @param {String} fieldName - Field name to check
+     * @returns {Boolean} True if script updates the field
+     */
+    /*scriptUpdatesField: function(script, fieldName) {
+        if (!script || !fieldName) return false;
+
+        var patterns = [
+            new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
+            new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i")
+        ];
+
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+*/
+    // ==================== CATEGORY MANAGEMENT ====================
+
+    /**
+     * Register a category for structured output
+     * @param {String} categoryId - Category identifier (e.g., 'automation', 'integration')
+     * @param {String} label - Display label
+     * @param {String} icon - FontAwesome icon class (e.g., 'fa-cogs')
+     */
+    // registerCategory: function(categoryId, label, icon) {
+    //     if (!this.categories[categoryId]) {
+    //         this.categories[categoryId] = {
+    //             id: categoryId,
+    //             label: label,
+    //             icon: icon || 'fa-folder',
+    //             items: []
+    //         };
+    //     }
+    // },
+
+    /**
+     * Add items to a category
+     * @param {String} categoryId - Category identifier
+     * @param {String} itemType - Item type (e.g., 'scheduled_job', 'flow')
+     * @param {String} itemLabel - Display label for this item type
+     * @param {Array} records - Array of record objects
+     * @param {Object} options - Additional options (table, icon, color)
+     */
+    // addCategoryItems: function(categoryId, itemType, itemLabel, records, options) {
+    //     // Auto-register category if not exists
+    //     if (!this.categories[categoryId]) {
+    //         this.registerCategory(categoryId, categoryId, 'fa-folder');
+    //     }
+
+    //     options = options || {};
+    //     var activeCount = 0;
+    //     var inactiveCount = 0;
+    //     var directCount = 0;
+    //     var inheritedCount = 0;
+
+    //     // Calculate counts
+    //     records.forEach(function(r) {
+    //         if (r.active === true || r.active === 'true') activeCount++;
+    //         else inactiveCount++;
+    //         if (r.inherited) inheritedCount++;
+    //         else directCount++;
+    //     });
+
+    //     this.categories[categoryId].items.push({
+    //         type: itemType,
+    //         label: itemLabel,
+    //         table: options.table || '',
+    //         icon: options.icon || 'fa-file',
+    //         color: options.color || '#6c757d',
+    //         records: records,
+    //         count: records.length,
+    //         active_count: activeCount,
+    //         inactive_count: inactiveCount,
+    //         direct_count: directCount,
+    //         inherited_count: inheritedCount
+    //     });
+    // },
+
+    /**
+     * Get a category by ID
+     * @param {String} categoryId - Category identifier
+     * @returns {Object} Category object or null
+     */
+    // getCategory: function(categoryId) {
+    //     return this.categories[categoryId] || null;
+    // },
+
+    /**
+     * Get all categories
+     * @returns {Object} All categories
+     */
+    // getCategories: function() {
+    //     return this.categories;
+    // },
+
+    // ==================== ISSUE MANAGEMENT ====================
+
+    /**
+     * Add an issue to the context
+     * @param {String} code - Issue code
+     * @param {String} message - Issue message
+     * @param {String} severity - Issue severity (low, medium, high)
+     * @param {Object} metadata - Optional metadata (record_table, record_sys_id, record_filter, category)
+     */
+    // addIssue: function(code, message, severity, metadata) {
+    //     var issue = {
+    //         code: code,
+    //         message: message,
+    //         severity: severity || 'low',
+    //         timestamp: new Date().toISOString()
+    //     };
+
+    //     // Add metadata for record linking
+    //     if (metadata) {
+    //         if (metadata.record_table) issue.record_table = metadata.record_table;
+    //         if (metadata.record_sys_id) issue.record_sys_id = metadata.record_sys_id;
+    //         if (metadata.record_filter) issue.record_filter = metadata.record_filter;
+    //         if (metadata.category) issue.category = metadata.category;
+    //     }
+
+    //     this.issues.push(issue);
+    // },
+
+    // ==================== RESULT GENERATION ====================
+
+    /**
+     * Helper to check if table exists (from categories.table)
+     * @returns {Boolean} True if table exists
+     */
+    // isTableExists: function() {
+    //     var tableCategory = this.getCategory('table');
+    //     if (tableCategory && tableCategory.items && tableCategory.items.length > 0) {
+    //         for (var i = 0; i < tableCategory.items.length; i++) {
+    //             var item = tableCategory.items[i];
+    //             if (item.type === 'table_summary' && item.records && item.records.length > 0) {
+    //                 return item.records[0].exists === true;
+    //             }
+    //         }
+    //     }
+    //     return false;
+    // },
+
+
+    /**
+     * Set execution duration
+     * @param {Number} durationMs - Duration in milliseconds
+     */
+    // setDuration: function(durationMs) {
+    //     this._executionMetadata.duration_ms = durationMs;
+    // },
+
+
+
+    type: 'FHAnalysisContext'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 23:27:30</sys_created_on>
+        <sys_id>f17a0204835a321083e1b4a6feaad360</sys_id>
+        <sys_mod_count>44</sys_mod_count>
+        <sys_name>FHAnalysisContext</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-09 07:56:27</sys_updated_on>
+    </sys_script_include>
+<sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_script_include_f17a0204835a321083e1b4a6feaad360</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;
+    &lt;sys_script_include action="INSERT_OR_UPDATE"&gt;
+        &lt;access&gt;package_private&lt;/access&gt;
+        &lt;active&gt;false&lt;/active&gt;
+        &lt;api_name&gt;x_1310794_founda_0.FHAnalysisContext&lt;/api_name&gt;
+        &lt;caller_access/&gt;
+        &lt;client_callable&gt;false&lt;/client_callable&gt;
+        &lt;description/&gt;
+        &lt;mobile_callable&gt;false&lt;/mobile_callable&gt;
+        &lt;name&gt;FHAnalysisContext&lt;/name&gt;
+        &lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;
+        &lt;script&gt;&lt;![CDATA[/**
+ * FHAnalysisContext - Context for analysis execution
+ * 
+ */
+var FHAnalysisContext = Class.create();
+FHAnalysisContext.prototype = {
+    initialize: function(config) {
+       // this.config = config;
+        // this.issues = [];
+        // this.categories = {};
+
+        // this.options = {
+        //     deep_scan: config &amp;&amp; config.deep_scan,
+        //     include_children_tables: config &amp;&amp; config.include_children_tables,
+        //     analyze_references: (config &amp;&amp; config.analyze_references) || false,
+        //     include_ldap: config &amp;&amp; config.include_ldap,
+        //     ignore_servicenow_records: config &amp;&amp; config.ignore_servicenow_records
+        // };
+
+        // this._verificationResults = [];
+
+        // this._executionMetadata = {
+        //     duration_ms: 0
+        // };
+
+        // // Cache for table hierarchy (computed once, reused)
+        // this._tableHierarchyCache = null;
+        // this._childrenTablesCache = null;
+        // this._tablesToCheckCache = null;
+    },
+
+
+
+    /**
+     * Convert context to result object
+     * @returns {Object} Result object
+     */
+    // toResult: function() {
+    //     var self = this;
+    //     return {
+    //         table: this.config.table_name,
+    //         issues: this.issues,
+    //         categories: this.categories,
+    //         execution_metadata: this._executionMetadata,
+
+    //     };
+    // },
+
+    // ==================== TABLE HIERARCHY HELPERS ====================
+
+    /**
+     * Get table name from config
+     * @returns {String} Table name
+     */
+    // getTableName: function() {
+    //     return this.config &amp;&amp; this.config.table_name ? String(this.config.table_name) : '';
+    // },
+
+    /**
+     * Get table hierarchy (current table + all parent tables)
+     * Results are cached for performance
+     * @returns {Array} Array of table names [current, parent1, parent2, ...]
+     */
+//     getTableHierarchy: function() {
+//     if (this._tableHierarchyCache !== null) {
+//         return this._tableHierarchyCache;
+//     }
+
+//     var tableName = this.getTableName();
+//     var tables = [tableName];
+
+//     if (!tableName) {
+//         this._tableHierarchyCache = tables;
+//         return tables;
+//     }
+
+//     try {
+//         var gr = new GlideRecord('sys_db_object');
+//         if (gr.get('name', tableName)) {
+//             var superClass = gr.super_class;
+//             while (superClass &amp;&amp; !superClass.nil()) {
+//                 var parentGr = superClass.getRefRecord();
+//                 if (parentGr) {
+//                     var parentName = parentGr.getValue('name');
+//                     if (parentName &amp;&amp; tables.indexOf(parentName) === -1) {
+//                         tables.push(parentName);
+//                     }
+//                     superClass = parentGr.super_class;
+//                 } else {
+//                     break;
+//                 }
+//             }
+//         }
+//     } catch (e) {}
+
+//     this._tableHierarchyCache = tables;
+//     return tables;
+// },
+
+    /**
+     * Get children tables (tables that extend the current table)
+     * Results are cached for performance
+     * @returns {Array} Array of child table names
+     */
+    // getChildrenTables: function() {
+    //     if (this._childrenTablesCache !== null) {
+    //         return this._childrenTablesCache;
+    //     }
+
+    //     var tableName = this.getTableName();
+    //     var children = [];
+
+    //     if (!tableName) {
+    //         this._childrenTablesCache = children;
+    //         return children;
+    //     }
+
+    //     try {
+    //         var parentGr = new GlideRecord('sys_db_object');
+    //         if (parentGr.get('name', tableName)) {
+    //             var parentSysId = parentGr.getUniqueValue();
+
+    //             var gr = new GlideRecord('sys_db_object');
+    //             gr.addQuery('super_class', parentSysId);
+    //             gr.query();
+
+    //             while (gr.next()) {
+    //                 var childName = gr.getValue('name');
+    //                 if (childName &amp;&amp; children.indexOf(childName) === -1) {
+    //                     children.push(childName);
+    //                 }
+    //             }
+    //         }
+    //     } catch (e) {
+    //         // Ignore errors
+    //     }
+
+    //     this._childrenTablesCache = children;
+    //     return children;
+    // },
+
+    /**
+     * Get all tables to check based on options
+     * Combines: current table + parents + children (if option enabled)
+     * Results are cached for performance
+     * @returns {Array} Array of table names to check
+     */
+    // getTablesToCheck: function() {
+    //     var tables = [];
+    //     tables.push(this.getTableName());
+    //     if (this.config.include_children_tables) {
+    //         var children = this.getChildrenTables();
+    //         children.forEach(function(child) {
+    //             if (tables.indexOf(child) === -1) {
+    //                 tables.push(child);
+    //             }
+    //         });
+    //     }
+
+    //     this._tablesToCheckCache = tables;
+    //     return tables;
+    // },
+
+    // ==================== UTILITY HELPERS ====================
+
+    /**
+     * Safely get a value from a GlideRecord, returning empty string if null
+     * @param {GlideRecord} gr - GlideRecord
+     * @param {String} field - Field name
+     * @returns {String} Field value or empty string
+     */
+    // safeGetValue: function(gr, field) {
+    //     var val = gr.getValue(field);
+    //     return (val === null || val === undefined) ? '' : String(val);
+    // },
+
+    /**
+     * Check if a script contains an exact table reference
+     * @param {String} script - Script content
+     * @param {String} tableName - Table name to search
+     * @returns {Boolean} True if exact match found
+     */
+    /*  scriptContainsTable: function(script, tableName) {
+        if (!script || !tableName) return false;
+
+        var patterns = [
+            new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+            new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i"),
+            new RegExp("setTableName\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i")
+        ];
+
+        for (var i = 0; i &lt; patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+*/
+    /**
+     * Check if a script updates a specific field
+     * @param {String} script - Script content
+     * @param {String} fieldName - Field name to check
+     * @returns {Boolean} True if script updates the field
+     */
+    /*scriptUpdatesField: function(script, fieldName) {
+        if (!script || !fieldName) return false;
+
+        var patterns = [
+            new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
+            new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i")
+        ];
+
+        for (var i = 0; i &lt; patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+*/
+    // ==================== CATEGORY MANAGEMENT ====================
+
+    /**
+     * Register a category for structured output
+     * @param {String} categoryId - Category identifier (e.g., 'automation', 'integration')
+     * @param {String} label - Display label
+     * @param {String} icon - FontAwesome icon class (e.g., 'fa-cogs')
+     */
+    // registerCategory: function(categoryId, label, icon) {
+    //     if (!this.categories[categoryId]) {
+    //         this.categories[categoryId] = {
+    //             id: categoryId,
+    //             label: label,
+    //             icon: icon || 'fa-folder',
+    //             items: []
+    //         };
+    //     }
+    // },
+
+    /**
+     * Add items to a category
+     * @param {String} categoryId - Category identifier
+     * @param {String} itemType - Item type (e.g., 'scheduled_job', 'flow')
+     * @param {String} itemLabel - Display label for this item type
+     * @param {Array} records - Array of record objects
+     * @param {Object} options - Additional options (table, icon, color)
+     */
+    // addCategoryItems: function(categoryId, itemType, itemLabel, records, options) {
+    //     // Auto-register category if not exists
+    //     if (!this.categories[categoryId]) {
+    //         this.registerCategory(categoryId, categoryId, 'fa-folder');
+    //     }
+
+    //     options = options || {};
+    //     var activeCount = 0;
+    //     var inactiveCount = 0;
+    //     var directCount = 0;
+    //     var inheritedCount = 0;
+
+    //     // Calculate counts
+    //     records.forEach(function(r) {
+    //         if (r.active === true || r.active === 'true') activeCount++;
+    //         else inactiveCount++;
+    //         if (r.inherited) inheritedCount++;
+    //         else directCount++;
+    //     });
+
+    //     this.categories[categoryId].items.push({
+    //         type: itemType,
+    //         label: itemLabel,
+    //         table: options.table || '',
+    //         icon: options.icon || 'fa-file',
+    //         color: options.color || '#6c757d',
+    //         records: records,
+    //         count: records.length,
+    //         active_count: activeCount,
+    //         inactive_count: inactiveCount,
+    //         direct_count: directCount,
+    //         inherited_count: inheritedCount
+    //     });
+    // },
+
+    /**
+     * Get a category by ID
+     * @param {String} categoryId - Category identifier
+     * @returns {Object} Category object or null
+     */
+    // getCategory: function(categoryId) {
+    //     return this.categories[categoryId] || null;
+    // },
+
+    /**
+     * Get all categories
+     * @returns {Object} All categories
+     */
+    // getCategories: function() {
+    //     return this.categories;
+    // },
+
+    // ==================== ISSUE MANAGEMENT ====================
+
+    /**
+     * Add an issue to the context
+     * @param {String} code - Issue code
+     * @param {String} message - Issue message
+     * @param {String} severity - Issue severity (low, medium, high)
+     * @param {Object} metadata - Optional metadata (record_table, record_sys_id, record_filter, category)
+     */
+    // addIssue: function(code, message, severity, metadata) {
+    //     var issue = {
+    //         code: code,
+    //         message: message,
+    //         severity: severity || 'low',
+    //         timestamp: new Date().toISOString()
+    //     };
+
+    //     // Add metadata for record linking
+    //     if (metadata) {
+    //         if (metadata.record_table) issue.record_table = metadata.record_table;
+    //         if (metadata.record_sys_id) issue.record_sys_id = metadata.record_sys_id;
+    //         if (metadata.record_filter) issue.record_filter = metadata.record_filter;
+    //         if (metadata.category) issue.category = metadata.category;
+    //     }
+
+    //     this.issues.push(issue);
+    // },
+
+    // ==================== RESULT GENERATION ====================
+
+    /**
+     * Helper to check if table exists (from categories.table)
+     * @returns {Boolean} True if table exists
+     */
+    // isTableExists: function() {
+    //     var tableCategory = this.getCategory('table');
+    //     if (tableCategory &amp;&amp; tableCategory.items &amp;&amp; tableCategory.items.length &gt; 0) {
+    //         for (var i = 0; i &lt; tableCategory.items.length; i++) {
+    //             var item = tableCategory.items[i];
+    //             if (item.type === 'table_summary' &amp;&amp; item.records &amp;&amp; item.records.length &gt; 0) {
+    //                 return item.records[0].exists === true;
+    //             }
+    //         }
+    //     }
+    //     return false;
+    // },
+
+
+    /**
+     * Set execution duration
+     * @param {Number} durationMs - Duration in milliseconds
+     */
+    // setDuration: function(durationMs) {
+    //     this._executionMetadata.duration_ms = durationMs;
+    // },
+
+
+
+    type: 'FHAnalysisContext'
+};]]&gt;&lt;/script&gt;
+        &lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;
+        &lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;
+        &lt;sys_created_on&gt;2026-01-02 23:27:30&lt;/sys_created_on&gt;
+        &lt;sys_id&gt;f17a0204835a321083e1b4a6feaad360&lt;/sys_id&gt;
+        &lt;sys_mod_count&gt;44&lt;/sys_mod_count&gt;
+        &lt;sys_name&gt;FHAnalysisContext&lt;/sys_name&gt;
+        &lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;
+        &lt;sys_policy&gt;read&lt;/sys_policy&gt;
+        &lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;
+        &lt;sys_update_name&gt;sys_script_include_f17a0204835a321083e1b4a6feaad360&lt;/sys_update_name&gt;
+        &lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;
+        &lt;sys_updated_on&gt;2026-01-09 07:56:27&lt;/sys_updated_on&gt;
+    &lt;/sys_script_include&gt;
+&lt;/record_update&gt;</payload>
+        <payload_hash>1528933881</payload_hash>
+        <record_name>FHAnalysisContext</record_name>
+        <reverted_from/>
+        <source>f5574bfc5322be10c7233ee0a0490e91</source>
+        <source_table>sys_upgrade_history</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 22:04:46</sys_created_on>
+        <sys_id>fd6787305362be10c7233ee0a0490ef6</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19bcdfd465b0000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 22:04:46</sys_updated_on>
+        <type>Script Include</type>
+        <update_guid>396787305d62be10e4e5d14bfffc9bf6</update_guid>
+        <update_guid_history>396787305d62be10e4e5d14bfffc9bf6:0,0754c778a922be1081a5bbea5023d444:-262070829,a7fc6638c26e7e10af73a3700623a960:0,0f83a2342f2e7e10a2fc441855828e56:-1606071288,2588b20654d2ba10745d5773c45e6f9d:-1832369963,1fc2fec61292ba10481e0925c20b052b:1914021662,5bb07ac20a92ba103b436075ae5b28cb:-1113897462,c27dae0eb552ba109900fc4a23ae8698:1840787629,08462c4ab4527a10fb784bec43445b51:1555836617,9b65408a2a5e3a10f9e89729a80e3df5:1558129687,1fa4880a1b5e3a10a8e13f7a18b9a0c9:43825385,d80488c61d5e3a10284416baa8ab6239:1765483453,5c21c082a65e3a10b85895c1ac412e2e:1113565036,0676a0692bd27610bfd2f34e246dbc27:0,b67d97c19bdab2103502723a3fa4ab8c:-1410945947,898a5f4906de7210cc817f22d217295c:-789557247,b91a1749a29ab210c4e9c586cab2ec97:2025607433,2089763c1fd63210c37e0cfeee33f562:-780742263,26113af8b396321031cc02c4b6f55848:950552095,fe5072b8e4963210b1c0a3573fac3633:-1027766673,a8303e7801963210aafc121ac2432a62:344091283,93ffae387d9632102218d27b360e0607:710563641,5d8feeb4e0963210d0250327e2c61caa:-1667516716,864d62f09b963210f5df1cd0836449e0:1613032943,9a0d22f047963210a204088fb1612596:559314023,d2e3de300fd23210701632ae6796f547:-1678536761,378e02b00792321012b14ed5f86efc01:-628470003</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 23:28:34</sys_created_on>
+        <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
+        <sys_id>00972d494bc447b2801af5034c48e4d1</sys_id>
+        <sys_metadata>f17a0204835a321083e1b4a6feaad360</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHAnalysisContext</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_script_include_f17a0204835a321083e1b4a6feaad360</sys_update_name>
+        <sys_update_version display_value="sys_script_include_f17a0204835a321083e1b4a6feaad360">fd6787305362be10c7233ee0a0490ef6</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 23:28:34</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

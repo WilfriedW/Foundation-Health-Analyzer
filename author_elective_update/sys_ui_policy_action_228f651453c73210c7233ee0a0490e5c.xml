@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_policy_action">
+    <sys_ui_policy_action action="DELETE">
+        <cleared>true</cleared>
+        <disabled>ignore</disabled>
+        <field>verifications_items</field>
+        <field_message/>
+        <field_message_type>none</field_message_type>
+        <mandatory>false</mandatory>
+        <sys_class_name>sys_ui_policy_action</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-09 22:55:29</sys_created_on>
+        <sys_id>228f651453c73210c7233ee0a0490e5c</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>verifications_items</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_ui_policy_action_228f651453c73210c7233ee0a0490e5c</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-09 22:55:29</sys_updated_on>
+        <table>x_1310794_founda_0_configurations</table>
+        <ui_policy display_value="Use template">43bda51053c73210c7233ee0a0490e4d</ui_policy>
+        <value/>
+        <value_action>ignore</value_action>
+        <visible>false</visible>
+    </sys_ui_policy_action>
+    <sys_translated_text action="DELETE" query="documentkey=228f651453c73210c7233ee0a0490e5c"/>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_ui_policy_action_228f651453c73210c7233ee0a0490e5c</name>
+        <payload><![CDATA[<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_policy_action"><sys_ui_policy_action action="INSERT_OR_UPDATE"><cleared>true</cleared><disabled>ignore</disabled><field>verifications_items</field><field_message/><field_message_type>none</field_message_type><mandatory>false</mandatory><sys_class_name>sys_ui_policy_action</sys_class_name><sys_created_by>admin</sys_created_by><sys_created_on>2026-02-09 22:55:29</sys_created_on><sys_id>228f651453c73210c7233ee0a0490e5c</sys_id><sys_mod_count>0</sys_mod_count><sys_name>verifications_items</sys_name><sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package><sys_policy/><sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope><sys_update_name>sys_ui_policy_action_228f651453c73210c7233ee0a0490e5c</sys_update_name><sys_updated_by>admin</sys_updated_by><sys_updated_on>2026-02-09 22:55:29</sys_updated_on><table>x_1310794_founda_0_configurations</table><ui_policy display_value="Use template">43bda51053c73210c7233ee0a0490e4d</ui_policy><value/><value_action>ignore</value_action><visible>false</visible></sys_ui_policy_action><sys_translated_text action="delete_multiple" query="documentkey=228f651453c73210c7233ee0a0490e5c"/></record_update>]]></payload>
+        <payload_hash>1730320849</payload_hash>
+        <record_name>verifications_items</record_name>
+        <reverted_from/>
+        <source>ab2531d0530b3210c7233ee0a0490e15</source>
+        <source_table>sys_update_set</source_table>
+        <state>current</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-09 23:20:09</sys_created_on>
+        <sys_id>2e3539d0530b3210c7233ee0a0490e23</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19c44b48ec80000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-09 23:20:09</sys_updated_on>
+        <type>UI Policy Action</type>
+        <update_guid>c19fa51453c732103df2cf2c8b8e996d</update_guid>
+        <update_guid_history>c19fa51453c732103df2cf2c8b8e996d:1730320849,64d471500a0b3210cedffc219de05050:-306337211,c19fa51453c732103df2cf2c8b8e996d:1730320849</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-10 01:37:10</sys_created_on>
+        <sys_db_object display_value="" name="sys_ui_policy_action">sys_ui_policy_action</sys_db_object>
+        <sys_id>0acce0e992f04eb080d19b96efbf6d79</sys_id>
+        <sys_metadata>228f651453c73210c7233ee0a0490e5c</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>verifications_items</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent display_value="Use template">43bda51053c73210c7233ee0a0490e4d</sys_parent>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_ui_policy_action_228f651453c73210c7233ee0a0490e5c</sys_update_name>
+        <sys_update_version display_value="sys_ui_policy_action_228f651453c73210c7233ee0a0490e5c">2e3539d0530b3210c7233ee0a0490e23</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-10 01:37:10</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>
