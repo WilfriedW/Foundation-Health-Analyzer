@@ -11,12 +11,18 @@
         <sandbox_callable>false</sandbox_callable>
         <script><![CDATA[var FHTemplateManager = Class.create();
 FHTemplateManager.prototype = {
+    TABLES: {
+        CONFIGURATIONS: 'x_1310794_founda_0_configurations',
+        TEMPLATES: 'x_1310794_founda_0_analysis_templates',
+        VERIFICATION_ITEMS: 'x_1310794_founda_0_verification_items'
+    },
+
     initialize: function() {},
 
-    // Get all active template
+    // Get all active templates
     getTemplates: function(filters) {
         var templates = [];
-        var gr = new GlideRecord('x_1310794_founda_0_analysis_templates');
+        var gr = new GlideRecord(this.TABLES.TEMPLATES);
         gr.addQuery('active', true);
         
         if (filters) {
@@ -78,7 +84,7 @@ FHTemplateManager.prototype = {
         }
         
         // Create configuration
-        var config = new GlideRecord('x_1310794_founda_0_configurations');
+        var config = new GlideRecord(this.TABLES.CONFIGURATIONS);
         config.initialize();
         config.name = configName || template.name;
         config.table = tableValue;
@@ -130,7 +136,7 @@ FHTemplateManager.prototype = {
         
         // Link cloned VIs to configuration
         if (clonedVIIds.length > 0) {
-            var config = new GlideRecord('x_1310794_founda_0_configurations');
+            var config = new GlideRecord(this.TABLES.CONFIGURATIONS);
             if (config.get(configId)) {
                 config.verification_items = clonedVIIds.join(',');
                 config.update();
@@ -140,11 +146,11 @@ FHTemplateManager.prototype = {
 
     // Clone a single verification item
     _cloneVI: function(templateVIId, targetTableName) {
-        var templateVI = new GlideRecord('x_1310794_founda_0_verification_items');
+        var templateVI = new GlideRecord(this.TABLES.VERIFICATION_ITEMS);
         if (!templateVI.get(templateVIId)) return null;
         
         // Create new VI instance
-        var vi = new GlideRecord('x_1310794_founda_0_verification_items');
+        var vi = new GlideRecord(this.TABLES.VERIFICATION_ITEMS);
         vi.initialize();
         
         // Copy all fields
@@ -182,7 +188,7 @@ FHTemplateManager.prototype = {
     // Get template verification items
     _getTemplateVIs: function(templateId) {
         var vis = [];
-        var template = new GlideRecord('x_1310794_founda_0_analysis_templates');
+        var template = new GlideRecord(this.TABLES.TEMPLATES);
         if (!template.get(templateId)) return vis;
         
         // Get VIs from template.verification_items (glide_list)
@@ -194,7 +200,7 @@ FHTemplateManager.prototype = {
             var viId = viIdArray[i].trim();
             if (!viId) continue;
             
-            var vi = new GlideRecord('x_1310794_founda_0_verification_items');
+            var vi = new GlideRecord(this.TABLES.VERIFICATION_ITEMS);
             if (vi.get(viId)) {
                 vis.push({
                     sys_id: vi.sys_id.toString(),
@@ -220,7 +226,7 @@ FHTemplateManager.prototype = {
 
     // Get template record
     _getTemplate: function(templateId) {
-        var gr = new GlideRecord('x_1310794_founda_0_analysis_templates');
+        var gr = new GlideRecord(this.TABLES.TEMPLATES);
         if (!gr.get(templateId)) return null;
         
         return {
@@ -241,13 +247,13 @@ FHTemplateManager.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-02-09 21:07:55</sys_created_on>
         <sys_id>7ad6551053833210c7233ee0a0490e9e</sys_id>
-        <sys_mod_count>5</sys_mod_count>
+        <sys_mod_count>4</sys_mod_count>
         <sys_name>FHTemplateManager</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_7ad6551053833210c7233ee0a0490e9e</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-13 07:47:41</sys_updated_on>
+        <sys_updated_on>2026-02-09 22:32:42</sys_updated_on>
     </sys_script_include>
 </record_update>

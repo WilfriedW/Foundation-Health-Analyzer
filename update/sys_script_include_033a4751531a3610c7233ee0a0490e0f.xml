@@ -9,8 +9,30 @@
         <mobile_callable>false</mobile_callable>
         <name>FHAnalysisEngine</name>
         <sandbox_callable>false</sandbox_callable>
-        <script><![CDATA[var FHAnalysisEngine = Class.create();
+        <script><![CDATA[// =====================================================================
+// SCRIPT: FHAnalysisEngine - Standardized Version
+// =====================================================================
+// Description: Updated version with standardized issue structure support
+// Date: 2026-02-12
+// =====================================================================
+// CHANGES:
+// - Added _normalizeIssue() to ensure consistent issue structure
+// - Updated _analyzeResults() to use normalization
+// - Ensures record_table is at level 1 of issue object
+// - Auto-fills missing contextual fields
+// - Backward compatible with old rule formats
+// =====================================================================
+
+var FHAnalysisEngine = Class.create();
 FHAnalysisEngine.prototype = {
+    TABLES: {
+        RESULTS: 'x_1310794_founda_0_results',
+        CONFIGURATIONS: 'x_1310794_founda_0_configurations',
+        TEMPLATES: 'x_1310794_founda_0_analysis_templates',
+        VERIFICATION_ITEMS: 'x_1310794_founda_0_verification_items',
+        ISSUE_RULES: 'x_1310794_founda_0_issue_rules'
+    },
+
     initialize: function() {
         this.options = {};
     },
@@ -58,11 +80,8 @@ FHAnalysisEngine.prototype = {
                 if (queryType === 'script') {
                     if (queryScript) {
                         var scriptResults = [];
-                        var flowIds = scriptResults;
                         try {
-                            //eval(queryScript);
-                            var evaluator = new GlideScopedEvaluator();
-                            scriptResults = evaluator.evaluateScript(queryScript, 'scriptResults');
+                            eval(queryScript);
                         } catch (eScript) {
                             result.errors.push("Query script error: " + eScript.message);
                             gs.error("[FHAnalysisEngine] Query script error: " + eScript.message);
@@ -84,8 +103,6 @@ FHAnalysisEngine.prototype = {
 
                 // Execute query and process records
                 gr.query();
-
-                //gs.info("[FHAnalysisEngine] Query executed for " + tableName + ": " + gr.getRowCount() + " records");
 
                 while (gr.next()) {
                     var record = this._processRecord(gr, fields, item);
@@ -165,9 +182,7 @@ FHAnalysisEngine.prototype = {
     _applyIgnoreServiceNowRecords: function(gr, tableName) {
         try {
             var snUsersStr = this.options.servicenow_users || 'system,admin,maint,guest';
-            var snUsers = snUsersStr.split(',').map(function(u) {
-                return u.trim();
-            });
+            var snUsers = snUsersStr.split(',').map(function(u) { return u.trim(); });
 
             gs.debug("[FHAnalysisEngine] Applying intelligent ServiceNow filter");
 
@@ -332,7 +347,7 @@ FHAnalysisEngine.prototype = {
                             message: normalized.message,
                             severity: normalized.severity,
                             record: normalized.record,
-                            record_table: normalized.record_table, // LEVEL 1 - for widget
+                            record_table: normalized.record_table,  // LEVEL 1 - for widget
                             record_sys_id: normalized.details.record_sys_id || '',
                             record_name: normalized.details.record_name || '',
                             record_filter: normalized.details.record_filter || '',
@@ -452,7 +467,7 @@ FHAnalysisEngine.prototype = {
         });
         if (!ids.length) return map;
 
-        var gr = new GlideRecord('x_1310794_founda_0_issue_rules');
+        var gr = new GlideRecord(this.TABLES.ISSUE_RULES);
         gr.addQuery('sys_id', 'IN', ids.join(','));
         gr.addQuery('active', true);
         gr.query();
@@ -477,18 +492,19 @@ FHAnalysisEngine.prototype = {
     },
 
     type: 'FHAnalysisEngine'
-};]]></script>
+};
+]]></script>
         <sys_class_name>sys_script_include</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>113</sys_mod_count>
+        <sys_mod_count>112</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-13 00:07:07</sys_updated_on>
+        <sys_updated_on>2026-02-12 18:15:06</sys_updated_on>
     </sys_script_include>
 </record_update>

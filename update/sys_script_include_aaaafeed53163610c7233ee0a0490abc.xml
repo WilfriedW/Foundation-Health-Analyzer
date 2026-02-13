@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHAUtils</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description>Builds default metadata for verification items (color/icon/name/type)</description>
+        <mobile_callable>false</mobile_callable>
+        <name>FHAUtils</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHAUtils = Class.create();
+FHAUtils.prototype = {
+    TABLES: {
+        RESULTS: 'x_1310794_founda_0_results',
+        CONFIGURATIONS: 'x_1310794_founda_0_configurations',
+        TEMPLATES: 'x_1310794_founda_0_analysis_templates',
+        VERIFICATION_ITEMS: 'x_1310794_founda_0_verification_items',
+        ISSUE_RULES: 'x_1310794_founda_0_issue_rules'
+    },
+
+    METADATA_PALETTE: ['#0c63d4', '#6f42c1', '#d97706', '#0f766e', '#be185d', '#4338ca', '#2563eb', '#dc2626', '#16a34a'],
+    METADATA_ICONS: ['fa-clock', 'fa-cog', 'fa-plug', 'fa-shield', 'fa-code', 'fa-database', 'fa-bolt', 'fa-magic', 'fa-tags'],
+
+    SCORE_THRESHOLDS: { EXCELLENT: 90, GOOD: 70, FAIR: 50, POOR: 30 },
+
+    initialize: function() {
+        this._tableHierarchyCache = {};
+        this._childrenTablesCache = {};
+        this._regexCache = {};
+    },
+
+    // ==================== TABLE HIERARCHY FUNCTIONS ====================
+    // Recovered from FHAnalysisContext (deprecated)
+
+    /**
+     * Get table hierarchy (current table + all parent tables)
+     * Results are cached for performance
+     * @param {String} tableName - Table name to analyze
+     * @returns {Array} Array of table names [current, parent1, parent2, ...]
+     */
+    getTableHierarchy: function(tableName) {
+        if (!tableName) return [];
+
+        // Check cache
+        if (this._tableHierarchyCache[tableName]) {
+            return this._tableHierarchyCache[tableName];
+        }
+
+        var tables = [tableName];
+
+        try {
+            var gr = new GlideRecord('sys_db_object');
+            if (gr.get('name', tableName)) {
+                var superClass = gr.super_class;
+                var maxDepth = 20; // Prevent infinite loops
+                var depth = 0;
+
+                while (superClass && !superClass.nil() && depth < maxDepth) {
+                    var parentGr = superClass.getRefRecord();
+                    if (parentGr) {
+                        var parentName = parentGr.getValue('name');
+                        if (parentName && tables.indexOf(parentName) === -1) {
+                            tables.push(parentName);
+                        }
+                        superClass = parentGr.super_class;
+                    } else {
+                        break;
+                    }
+                    depth++;
+                }
+            }
+        } catch (e) {
+            gs.warn('[FHUtilities] Error getting table hierarchy for ' + tableName + ': ' + e.message);
+        }
+
+        // Cache result
+        this._tableHierarchyCache[tableName] = tables;
+        return tables;
+    },
+
+    /**
+     * Get children tables (tables that extend the current table)
+     * Results are cached for performance
+     * @param {String} tableName - Parent table name
+     * @returns {Array} Array of child table objects with name, label, and record_count
+     */
+    getChildrenTables: function(tableName) {
+        if (!tableName) return [];
+
+        // Check cache
+        if (this._childrenTablesCache[tableName]) {
+            return this._childrenTablesCache[tableName];
+        }
+
+        var children = [];
+
+        try {
+            var parentGr = new GlideRecord('sys_db_object');
+            if (parentGr.get('name', tableName)) {
+                var parentSysId = parentGr.getUniqueValue();
+
+                var gr = new GlideRecord('sys_db_object');
+                gr.addQuery('super_class', parentSysId);
+                gr.query();
+
+                while (gr.next()) {
+                    var childName = gr.getValue('name');
+                    var childLabel = gr.getValue('label') || childName;
+
+                    if (childName) {
+                        // Get record count for this child table
+                        var recordCount = 0;
+                        try {
+                            var countGr = new GlideAggregate(childName);
+                            countGr.addAggregate('COUNT');
+                            countGr.query();
+                            if (countGr.next()) {
+                                recordCount = parseInt(countGr.getAggregate('COUNT')) || 0;
+                            }
+                        } catch (e) {
+                            // Table might not be accessible
+                            recordCount = -1;
+                        }
+
+                        children.push({
+                            name: childName,
+                            label: childLabel,
+                            record_count: recordCount,
+                            sys_id: gr.getUniqueValue()
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            gs.warn('[FHUtilities] Error getting children tables for ' + tableName + ': ' + e.message);
+        }
+
+        // Cache result
+        this._childrenTablesCache[tableName] = children;
+        return children;
+    },
+
+    /**
+     * Get all tables to check (current + parents + children if requested)
+     * @param {String} tableName - Table name
+     * @param {Boolean} includeParents - Include parent tables
+     * @param {Boolean} includeChildren - Include child tables
+     * @returns {Array} Array of table names
+     */
+    getTablesToCheck: function(tableName, includeParents, includeChildren) {
+        var tables = [];
+
+        if (includeParents) {
+            // Get hierarchy (includes current table)
+            tables = this.getTableHierarchy(tableName);
+        } else {
+            tables = [tableName];
+        }
+
+        if (includeChildren) {
+            var children = this.getChildrenTables(tableName);
+            children.forEach(function(child) {
+                if (tables.indexOf(child.name) === -1) {
+                    tables.push(child.name);
+                }
+            });
+        }
+
+        return tables;
+    },
+
+    // ==================== SCRIPT ANALYSIS FUNCTIONS ====================
+    // Recovered from FHAnalysisContext (deprecated)
+
+    /**
+     * Check if a script contains a reference to a specific table
+     * Detects: GlideRecord('table'), GlideAggregate('table'), table='table', etc.
+     * @param {String} script - Script content to analyze
+     * @param {String} tableName - Table name to search for
+     * @returns {Boolean} True if table reference found
+     */
+    scriptContainsTable: function(script, tableName) {
+        if (!script || !tableName) return false;
+
+        var cacheKey = 'table_' + tableName;
+        if (!this._regexCache[cacheKey]) {
+            this._regexCache[cacheKey] = [
+                new RegExp("GlideRecord\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+                new RegExp("GlideAggregate\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+                new RegExp("table\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i"),
+                new RegExp("setTableName\\s*\\(\\s*['\"]" + tableName + "['\"]\\s*\\)", "i"),
+                new RegExp("collection\\s*[=:]\\s*['\"]" + tableName + "['\"]", "i")
+            ];
+        }
+
+        var patterns = this._regexCache[cacheKey];
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+
+    /**
+     * Check if a script updates a specific field
+     * Detects: current.field = ..., setValue('field', ...), etc.
+     * @param {String} script - Script content to analyze
+     * @param {String} fieldName - Field name to search for
+     * @returns {Boolean} True if field update found
+     */
+    scriptUpdatesField: function(script, fieldName) {
+        if (!script || !fieldName) return false;
+
+        var cacheKey = 'field_' + fieldName;
+        if (!this._regexCache[cacheKey]) {
+            this._regexCache[cacheKey] = [
+                new RegExp("\\b(current|gr|record|glideRecord)\\." + fieldName + "\\s*=", "i"),
+                new RegExp("setValue\\s*\\(\\s*['\"]" + fieldName + "['\"]", "i"),
+                new RegExp("\\b" + fieldName + "\\s*=", "i")
+            ];
+        }
+
+        var patterns = this._regexCache[cacheKey];
+        for (var i = 0; i < patterns.length; i++) {
+            if (patterns[i].test(script)) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+
+    /**
+     * Get all fields accessed in a script
+     * @param {String} script - Script content to analyze
+     * @returns {Array} Array of field names found in script
+     */
+    scriptGetFieldReferences: function(script) {
+        if (!script) return [];
+
+        var fields = [];
+
+        // Match: current.field, gr.field, setValue('field'), getValue('field')
+        var patterns = [
+            /\b(?:current|gr|record)\.([\w_]+)/gi,
+            /(?:setValue|getValue|setDisplayValue|getDisplayValue)\s*\(\s*['"](\w+)['"]/gi
+        ];
+
+        patterns.forEach(function(pattern) {
+            var match;
+            while ((match = pattern.exec(script)) !== null) {
+                var fieldName = match[1];
+                if (fieldName && fields.indexOf(fieldName) === -1) {
+                    // Filter out common non-field words
+                    var nonFields = ['update', 'insert', 'query', 'next', 'getUniqueValue',
+                        'getValue', 'setValue', 'nil', 'canRead', 'canWrite'
+                    ];
+                    if (nonFields.indexOf(fieldName) === -1) {
+                        fields.push(fieldName);
+                    }
+                }
+            }
+        });
+
+        return fields;
+    },
+
+    // ==================== RECORD SCANNING FUNCTIONS ====================
+    // Recovered from FHScanUtils (deprecated)
+
+    /**
+     * Scan scripts (Business Rules, Client Scripts, etc.) that reference specific tables
+     * @param {Array} tablesToCheck - Array of table names to check
+     * @param {Object} opts - Options: { types: ['business_rule', 'client_script'], limit: 100 }
+     * @returns {Array} Array of script objects with references
+     */
+    scanScriptsForTables: function(tablesToCheck, opts) {
+        opts = opts || {};
+        var types = opts.types || ['business_rule', 'client_script'];
+        var limit = opts.limit || 0;
+        var results = [];
+
+        var TYPE_MAP = {
+            business_rule: {
+                table: 'sys_script',
+                fields: ['name', 'table', 'script', 'active', 'when', 'order'],
+                tableField: 'collection'
+            },
+            client_script: {
+                table: 'sys_script_client',
+                fields: ['name', 'table', 'script', 'active', 'type', 'ui_type'],
+                tableField: 'table'
+            },
+            ui_action: {
+                table: 'sys_ui_action',
+                fields: ['name', 'table', 'script', 'active', 'action_name'],
+                tableField: 'table'
+            },
+            ui_policy: {
+                table: 'sys_ui_policy',
+                fields: ['name', 'table', 'script_true', 'script_false', 'active'],
+                tableField: 'table'
+            }
+        };
+
+        for (var t = 0; t < types.length; t++) {
+            var typeKey = types[t];
+            var cfg = TYPE_MAP[typeKey];
+            if (!cfg) continue;
+
+            var gr = new GlideRecord(cfg.table);
+            gr.addQuery('active', true);
+
+            // Query by table field first
+            if (cfg.tableField) {
+                gr.addQuery(cfg.tableField, 'IN', tablesToCheck.join(','));
+            }
+
+            if (limit) gr.setLimit(limit);
+            gr.query();
+
+            while (gr.next()) {
+                var scriptFields = ['script', 'script_true', 'script_false', 'condition'];
+                var scriptText = '';
+
+                // Concatenate all script fields
+                scriptFields.forEach(function(field) {
+                    var fieldValue = gr.getValue(field);
+                    if (fieldValue) {
+                        scriptText += fieldValue + '\n';
+                    }
+                });
+
+                // Check if script contains any of the tables
+                var matchedTables = [];
+                for (var j = 0; j < tablesToCheck.length; j++) {
+                    if (this.scriptContainsTable(scriptText, tablesToCheck[j])) {
+                        matchedTables.push(tablesToCheck[j]);
+                    }
+                }
+
+                if (matchedTables.length > 0) {
+                    var item = {
+                        sys_id: gr.getUniqueValue(),
+                        name: gr.getValue('name') || 'Unnamed',
+                        type: typeKey,
+                        source_table: cfg.table,
+                        target_table: gr.getValue(cfg.tableField),
+                        matched_tables: matchedTables,
+                        active: gr.getValue('active') === 'true'
+                    };
+
+                    results.push(item);
+                }
+            }
+        }
+
+        return results;
+    },
+
+    // ==================== SERVICENOW RECORD DETECTION ====================
+    // Recovered from FHScanUtils (deprecated)
+
+    /**
+     * Check if a record is an out-of-box (OOTB) ServiceNow record
+     * Detects based on sys_created_by and sys_updated_by
+     * @param {Object} record - Record with sys_created_by and sys_updated_by fields
+     * @returns {Boolean} True if record is OOTB ServiceNow
+     */
+    isSncRecord: function(record) {
+        if (!record) return false;
+
+        var sncUsers = {
+            'admin': true,
+            'glide.maint': true,
+            'guest': true,
+            'system': true,
+            'maint': true,
+            'don goodliffe': true,
+            'chris.henson': true,
+            'pat casey': true,
+            'fred luddy': true
+        };
+
+        var created = (record.sys_created_by || '').toLowerCase();
+        var updated = (record.sys_updated_by || '').toLowerCase();
+
+        var createdBySNC = sncUsers[created] || false;
+        var updatedBySNC = sncUsers[updated] || updated === '';
+
+        // Record is SNC if created by SNC and either not updated or updated by SNC
+        return createdBySNC && updatedBySNC;
+    },
+
+    /**
+     * Filter out ServiceNow OOTB records from an array
+     * @param {Array} records - Array of records
+     * @returns {Array} Filtered array without OOTB records
+     */
+    filterOutSncRecords: function(records) {
+        if (!records || !Array.isArray(records)) return [];
+
+        var self = this;
+        return records.filter(function(record) {
+            return !self.isSncRecord(record);
+        });
+    },
+
+    // ==================== HELPER FUNCTIONS ====================
+
+    /**
+     * Safely get a value from a GlideRecord or object
+     * @param {GlideRecord|Object} obj - GlideRecord or plain object
+     * @param {String} field - Field name
+     * @returns {String} Field value or empty string
+     */
+    safeGetValue: function(obj, field) {
+        if (!obj) return '';
+
+        try {
+            // GlideRecord
+            if (typeof obj.getValue === 'function') {
+                var val = obj.getValue(field);
+                return (val === null || val === undefined) ? '' : String(val);
+            }
+            // Plain object
+            else if (obj[field] !== undefined) {
+                return String(obj[field]);
+            }
+        } catch (e) {
+            return '';
+        }
+
+        return '';
+    },
+
+    /**
+     * Get table record count
+     * @param {String} tableName - Table name
+     * @returns {Number} Record count or -1 if error
+     */
+    getTableRecordCount: function(tableName) {
+        if (!tableName) return -1;
+
+        try {
+            var ga = new GlideAggregate(tableName);
+            ga.addAggregate('COUNT');
+            ga.query();
+
+            if (ga.next()) {
+                return parseInt(ga.getAggregate('COUNT')) || 0;
+            }
+        } catch (e) {
+            gs.warn('[FHUtilities] Error counting records in ' + tableName + ': ' + e.message);
+            return -1;
+        }
+
+        return 0;
+    },
+
+    /**
+     * Check if table exists
+     * @param {String} tableName - Table name
+     * @returns {Boolean} True if table exists
+     */
+    tableExists: function(tableName) {
+        if (!tableName) return false;
+
+        try {
+            var gr = new GlideRecord('sys_db_object');
+            return gr.get('name', tableName);
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Get table label
+     * @param {String} tableName - Table name
+     * @returns {String} Table label or table name if not found
+     */
+    getTableLabel: function(tableName) {
+        if (!tableName) return '';
+
+        try {
+            var gr = new GlideRecord('sys_db_object');
+            if (gr.get('name', tableName)) {
+                return gr.getValue('label') || tableName;
+            }
+        } catch (e) {
+            return tableName;
+        }
+
+        return tableName;
+    },
+
+    /**
+     * Build metadata JSON for a verification item GlideRecord.
+     * Ensures displayName, record_type, icon, color are present.
+     * Deterministic (hash-based) to keep visual stability.
+     */
+    build: function(itemGr) {
+        var name = (itemGr.name + '') || '';
+        var tableName = (itemGr.table && itemGr.table.name + '') || (itemGr.table + '') || '';
+        var category = (itemGr.category + '') || '';
+        var metadataStr = (itemGr.metadata + '') || '';
+        return this.buildMetadata(metadataStr, name, tableName, category);
+    },
+
+    /**
+     * Build metadata JSON from raw string parameters.
+     * Single source of truth for metadata generation.
+     * Called by FHAnalyzer (from config object) and build() (from GlideRecord).
+     * @param {String} metadataStr - Existing metadata JSON string (or empty)
+     * @param {String} name - Verification item name
+     * @param {String} tableName - Table name
+     * @param {String} category - Category
+     * @returns {String} JSON string with displayName, record_type, icon, color
+     */
+    buildMetadata: function(metadataStr, name, tableName, category) {
+        var meta = {};
+        try {
+            if (metadataStr) {
+                meta = JSON.parse(metadataStr);
+            }
+        } catch (e) {
+            meta = {};
+        }
+
+        var key = name || tableName || category || 'item';
+
+        var hash = 0;
+        for (var i = 0; i < key.length; i++) {
+            hash = (hash + key.charCodeAt(i)) % 997;
+        }
+
+        if (!meta.record_type) meta.record_type = tableName || 'record';
+        if (!meta.displayName) meta.displayName = name || (category + ' item');
+        if (!meta.icon) meta.icon = this.METADATA_ICONS[hash % this.METADATA_ICONS.length];
+        if (!meta.color) meta.color = this.METADATA_PALETTE[hash % this.METADATA_PALETTE.length];
+
+        return JSON.stringify(meta);
+    },
+
+    type: 'FHAUtils'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-13 20:45:00</sys_created_on>
+        <sys_id>aaaafeed53163610c7233ee0a0490abc</sys_id>
+        <sys_mod_count>2</sys_mod_count>
+        <sys_name>FHAUtils</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_aaaafeed53163610c7233ee0a0490abc</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 23:28:06</sys_updated_on>
+    </sys_script_include>
+</record_update>

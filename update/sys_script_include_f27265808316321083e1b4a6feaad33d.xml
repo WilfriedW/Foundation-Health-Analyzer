@@ -9,84 +9,65 @@
         <mobile_callable>false</mobile_callable>
         <name>FHAnalyzer</name>
         <sandbox_callable>false</sandbox_callable>
-        <script><![CDATA[/**
- * FHAnalyzer - Main analysis engine for Foundation Health Assessment
- * This script include contains all core logic for table analysis
- */
-var FHAnalyzer = Class.create();
+        <script><![CDATA[var FHAnalyzer = Class.create();
 FHAnalyzer.prototype = {
-    initialize: function() {
-        this.resultsTable = 'x_1310794_founda_0_results';
-        this.configTable = 'x_1310794_founda_0_configurations';
+    TABLES: {
+        RESULTS: 'x_1310794_founda_0_results',
+        CONFIGURATIONS: 'x_1310794_founda_0_configurations',
+        TEMPLATES: 'x_1310794_founda_0_analysis_templates',
+        VERIFICATION_ITEMS: 'x_1310794_founda_0_verification_items',
+        ISSUE_RULES: 'x_1310794_founda_0_issue_rules'
     },
 
-    /**
-     * Run analysis for a specific configuration
-     * @param {String} configSysId - Configuration sys_id
-     * @returns {Object} Analysis result
-     */
+    initialize: function() {},
+
     runAnalysis: function(configSysId) {
         var config = this.getConfiguration(configSysId);
         var engineResult = new FHAnalysisEngine().runVerification(config);
-
-        try {
-            resultSysId = this._saveResult(structuredResult);
-            return {
-                success: true,
-                analysis_id: resultSysId,
-                sys_id: resultSysId,
-                details: structuredResult
-            };
-        } catch (e) {
-            gs.addErrorMessage('Analysis failed: ' + e.message);
-            throw e;
-        }
+        var structuredResult = this._buildResultStructure(config, engineResult);
+        var resultSysId = this._saveResult(structuredResult);
+        return {
+            success: true,
+            analysis_id: resultSysId,
+            sys_id: resultSysId,
+            details: structuredResult
+        };
     },
 
     getConfiguration: function(configSysId) {
-        var gr = new GlideRecord('x_1310794_founda_0_configurations');
+        var gr = new GlideRecord(this.TABLES.CONFIGURATIONS);
         if (!gr.get(configSysId)) {
             gs.error('[FHAnalyzer] Configuration not found: ' + configSysId);
             return null;
         }
 
-        // gs.info('[FHAnalyzer] Loading configuration: ' + gr.getValue('name'));
-        // gs.info('[FHAnalyzer]   Table: ' + gr.table.name);
-        // gs.info('[FHAnalyzer]   use_template: ' + gr.getValue('use_template'));
-
-        var out = [];
         var viIds = '';
-
-        // Load VIs from template or direct selection
         if (gr.use_template && gr.getValue('template')) {
-            var template = new GlideRecord('x_1310794_founda_0_analysis_templates');
+            var template = new GlideRecord(this.TABLES.TEMPLATES);
             if (template.get(gr.getValue('template'))) {
                 viIds = template.getValue('verification_items') || '';
             } else {
-                gs.error('[FHAnalyzer]   Template not found: ' + gr.getValue('template'));
+                gs.error('[FHAnalyzer] Template not found: ' + gr.getValue('template'));
             }
         } else {
             viIds = gr.getValue('verification_items') || '';
         }
 
+        var configObj = this._buildConfigObj(gr);
         if (!viIds) {
-            gs.warn('[FHAnalyzer]   No verification items found, returning empty config');
-            return this._buildEmptyConfig(gr);
+            gs.warn('[FHAnalyzer] No verification items found');
+            return configObj;
         }
 
-        var verificationItems = new GlideRecord('x_1310794_founda_0_verification_items');
+        var utils = new FHAUtils();
+        var verificationItems = new GlideRecord(this.TABLES.VERIFICATION_ITEMS);
         verificationItems.addQuery('sys_id', 'IN', viIds);
         verificationItems.addQuery('active', true);
         verificationItems.query();
 
-        var viCount = verificationItems.getRowCount();
-
         while (verificationItems.next()) {
             var viSysId = verificationItems.sys_id.toString();
             var viTableName = verificationItems.table.name + '' || '';
-
-            // Find issue rules that reference this VI
-            var issueRuleIds = this._getIssueRulesForVIs(viSysId);
 
             var itemObj = {
                 sys_id: viSysId,
@@ -100,35 +81,18 @@ FHAnalyzer.prototype = {
                 metadata: verificationItems.metadata + '' || '',
                 query_value: verificationItems.query_value + '',
                 query_script: verificationItems.query_script + '',
-                issue_rules: issueRuleIds
+                issue_rules: this._getIssueRulesForVI(viSysId)
             };
 
-            // gs.info('[FHAnalyzer]   VI: ' + itemObj.name);
-            // gs.info('[FHAnalyzer]     - table: ' + viTableName);
-            // gs.info('[FHAnalyzer]     - query_value: ' + itemObj.query_value);
-            // gs.info('[FHAnalyzer]     - issue_rules: ' + itemObj.issue_rules);
-
-            itemObj = this._ensureMetadataDefaults(itemObj);
-            out.push(itemObj);
+            // Delegate metadata to FHAUtils (single source of truth)
+            itemObj.metadata = utils.buildMetadata(itemObj.metadata, itemObj.name, itemObj.tableName, itemObj.category);
+            configObj.verification_items.push(itemObj);
         }
 
-        return {
-            sys_id: gr.sys_id.toString(),
-            name: gr.name.toString(),
-            active: Boolean(gr.active),
-            table_name: gr.table.name || '',
-            table_label: gr.table.label || '',
-            table_sys_id: gr.table.sys_id || '',
-            description: gr.description || '',
-            include_children_tables: gr.include_children_tables,
-            deep_scan: gr.deep_scan,
-            ignore_servicenow_records: gr.ignore_servicenow_records,
-            include_ldap: gr.include_ldap,
-            verification_items: out
-        };
+        return configObj;
     },
 
-    _buildEmptyConfig: function(gr) {
+    _buildConfigObj: function(gr) {
         return {
             sys_id: gr.sys_id.toString(),
             name: gr.name.toString(),
@@ -145,77 +109,18 @@ FHAnalyzer.prototype = {
         };
     },
 
-    /**
-     * Get issue rules for a verification item
-     * @param {String} viSysId - Verification item sys_id
-     * @returns {String} Comma-separated rule IDs
-     */
-    // _getIssueRulesForVI: function(viSysId) {
-    //     var ruleIds = [];
-    //     var rules = new GlideRecord('x_1310794_founda_0_issue_rules');
-    //     rules.addQuery('verification_items', 'CONTAINS', viSysId);
-    //     rules.addQuery('active', true);
-    //     rules.query();
-
-    //     while (rules.next()) {
-    //         ruleIds.push(rules.getUniqueValue());
-    //     }
-
-    //     return ruleIds.join(',');
-    // },
-
-
-    _getIssueRulesForVIs: function(viSysIds) {
-        var rulesMap = {};
-        var rules = new GlideRecord('x_1310794_founda_0_issue_rules');
+    _getIssueRulesForVI: function(viSysId) {
+        var ruleIds = [];
+        var rules = new GlideRecord(this.TABLES.ISSUE_RULES);
+        rules.addQuery('verification_items', 'CONTAINS', viSysId);
         rules.addQuery('active', true);
         rules.query();
-
         while (rules.next()) {
-            var ruleVIs = rules.getValue('verification_items').split(',');
-            ruleVIs.forEach(function(vi) {
-                if (viSysIds.indexOf(vi) !== -1) {
-                    if (!rulesMap[vi]) rulesMap[vi] = [];
-                    rulesMap[vi].push(rules.getUniqueValue());
-                }
-            });
+            ruleIds.push(rules.getUniqueValue());
         }
-        return rulesMap;
-    },
-    _ensureMetadataDefaults: function(item) {
-        var meta = {};
-        try {
-            if (item.metadata) {
-                meta = JSON.parse(item.metadata);
-            }
-        } catch (e) {
-            // fallback if metadata invalid
-            meta = {};
-        }
-
-        var key = item.name || item.tableName || item.category || 'item';
-        var palette = ['#0c63d4', '#6f42c1', '#d97706', '#0f766e', '#be185d', '#4338ca', '#2563eb', '#dc2626', '#16a34a'];
-        var icons = ['fa-clock', 'fa-cog', 'fa-plug', 'fa-shield', 'fa-code', 'fa-database', 'fa-bolt', 'fa-magic', 'fa-tags'];
-        var hash = 0;
-        for (var i = 0; i < key.length; i++) {
-            hash = (hash + key.charCodeAt(i)) % 997;
-        }
-        if (!meta.record_type) meta.record_type = item.tableName || item.tableSysid || 'record';
-        if (!meta.displayName) meta.displayName = item.name || item.tableName || (item.category + ' item');
-        if (!meta.icon) meta.icon = icons[hash % icons.length];
-        if (!meta.color) meta.color = palette[hash % palette.length];
-
-        item.metadata = JSON.stringify(meta);
-        return item;
+        return ruleIds.join(',');
     },
 
-    /**
-     * Build structured result object
-     * @private
-     * @param {Object} config - Analysis configuration
-     * @param {Object} result - Analysis result from engine
-     * @returns {Object} Structured result
-     */
     _buildResultStructure: function(config, result) {
         return {
             configuration: {
@@ -232,13 +137,9 @@ FHAnalyzer.prototype = {
                 },
                 verification_items: (config.verification_items || []).map(function(vi) {
                     return {
-                        sys_id: vi.sys_id,
-                        name: vi.name,
-                        category: vi.category,
-                        table_name: vi.tableName,
-                        query_type: vi.query_type,
-                        query_value: vi.query_value,
-                        issue_rules: vi.issue_rules
+                        sys_id: vi.sys_id, name: vi.name, category: vi.category,
+                        table_name: vi.tableName, query_type: vi.query_type,
+                        query_value: vi.query_value, issue_rules: vi.issue_rules
                     };
                 })
             },
@@ -256,14 +157,8 @@ FHAnalyzer.prototype = {
         };
     },
 
-    /**
-     * Save analysis result to database
-     * @private
-     * @param {Object} structuredResult - Structured result object
-     * @returns {String} Result sys_id
-     */
     _saveResult: function(structuredResult) {
-        var gr = new GlideRecord(this.resultsTable);
+        var gr = new GlideRecord(this.TABLES.RESULTS);
         gr.initialize();
         gr.setValue('state', 'Completed');
         gr.setValue('details', JSON.stringify(structuredResult));
@@ -276,13 +171,13 @@ FHAnalyzer.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-02 20:33:51</sys_created_on>
         <sys_id>f27265808316321083e1b4a6feaad33d</sys_id>
-        <sys_mod_count>114</sys_mod_count>
+        <sys_mod_count>112</sys_mod_count>
         <sys_name>FHAnalyzer</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_f27265808316321083e1b4a6feaad33d</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-13 00:06:58</sys_updated_on>
+        <sys_updated_on>2026-02-12 08:23:01</sys_updated_on>
     </sys_script_include>
 </record_update>
