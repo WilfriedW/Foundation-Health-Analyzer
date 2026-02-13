@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHARuleEvaluator</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description>Apply issue rules to analyzed records</description>
+        <mobile_callable>false</mobile_callable>
+        <name>FHARuleEvaluator</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHARuleEvaluator = Class.create();
+FHARuleEvaluator.prototype = {
+    initialize: function() {
+        this._ruleCache = {}; // Cache for rule GlideRecords
+    },
+
+    /**
+     * Evaluates per-record rules
+     * @param {Object} item - Item object with {sys_id, table, values}
+     * @param {Array} rules - Rules to apply
+     * @param {Object} context - Shared context
+     * @returns {Array} - Issues found
+     */
+    evaluate: function(item, rules, context) {
+        var allIssues = [];
+
+        if (!rules || !Array.isArray(rules)) return allIssues;
+
+        var self = this;
+
+        rules.forEach(function(rule) {
+            try {
+                if (rule.execution_mode === "aggregate") return;
+
+                var params = self._parseParams(rule.params);
+                var issues = self._runScriptSafe(rule, item, params, context);
+
+                if (issues && Array.isArray(issues)) {
+                    allIssues = allIssues.concat(issues);
+                }
+            } catch (error) {
+                gs.error(
+                    "[FHARuleEvaluator] Error in rule " +
+                    rule.code +
+                    ": " +
+                    error.message,
+                );
+            }
+        });
+
+        return allIssues;
+    },
+
+    /**
+     * Evaluates aggregate rules (executed ONCE per table)
+     * @param {String} tableName - Table to analyze
+     * @param {Array} rules - Aggregate rules
+     * @param {Object} context - Shared context
+     * @returns {Array} - Issues found
+     */
+    evaluateAggregate: function(tableName, rules, context) {
+        var allIssues = [];
+
+        if (!rules || !Array.isArray(rules)) return allIssues;
+
+        var self = this;
+
+        rules.forEach(function(rule) {
+            try {
+                if (rule.execution_mode !== "aggregate") return;
+
+                var params = self._parseParams(rule.params);
+                var issues = self._runAggregateScript(rule, tableName, params, context);
+
+                if (issues && Array.isArray(issues)) {
+                    allIssues = allIssues.concat(issues);
+                }
+            } catch (error) {
+                gs.error(
+                    "[FHARuleEvaluator] Error in aggregate rule " +
+                    rule.code +
+                    ": " +
+                    error.message,
+                );
+            }
+        });
+
+        return allIssues;
+    },
+
+    /**
+     * Executes per-record rule script
+     */
+    _runScriptSafe: function(rule, item, params, context) {
+        var issues = [];
+
+        try {
+            var ruleGr = this._getRuleGlideRecord(rule.sys_id);
+            if (!ruleGr) {
+                gs.error("[FHARuleEvaluator] Rule not found: " + rule.sys_id);
+                return issues;
+            }
+
+            var evaluator = new GlideScopedEvaluator();
+
+            var ruleObj = {
+                sys_id: rule.sys_id,
+                code: rule.code,
+                name: rule.name,
+                severity: rule.severity || rule.default_severity || "medium",
+                message_template: rule.message_template,
+                table: rule.table,
+            };
+
+            // Inject variables
+            evaluator.putVariable("params", params);
+            evaluator.putVariable("rule", ruleObj);
+            evaluator.putVariable("item", item);
+            evaluator.putVariable("context", context || {});
+            evaluator.putVariable("issues", issues);
+
+            evaluator.evaluateScript(ruleGr, "script");
+
+            // Retrieve issues
+            var retrievedIssues = evaluator.getVariable("issues");
+
+            if (retrievedIssues && Array.isArray(retrievedIssues)) {
+                issues = retrievedIssues;
+            }
+        } catch (error) {
+            gs.error(
+                "[FHARuleEvaluator] Script error in " +
+                rule.code +
+                ": " +
+                error.message,
+            );
+        }
+
+        return issues;
+    },
+
+    /**
+     * Executes aggregate rule script
+     * FIXED: Uses GlideRecord for evaluateScript()
+     */
+    _runAggregateScript: function(rule, tableName, params, context) {
+        var issues = [];
+
+        try {
+            var ruleGr = this._getRuleGlideRecord(rule.sys_id);
+            var evaluator = new GlideScopedEvaluator();
+
+            var ruleObj = {
+                sys_id: rule.sys_id,
+                code: rule.code,
+                name: rule.name,
+                severity: rule.severity || rule.default_severity || "medium",
+                message_template: rule.message_template,
+                table: rule.table,
+            };
+
+            // Inject variables for aggregate mode
+            evaluator.putVariable("tableName", tableName);
+            evaluator.putVariable("params", params);
+            evaluator.putVariable("rule", ruleObj);
+            evaluator.putVariable("context", context || {});
+            evaluator.putVariable("issues", issues);
+
+            evaluator.evaluateScript(ruleGr, "script");
+
+            var retrievedIssues = evaluator.getVariable("issues");
+
+            if (retrievedIssues && Array.isArray(retrievedIssues)) {
+                issues = retrievedIssues;
+            }
+        } catch (error) {
+            gs.error(
+                "[FHARuleEvaluator] Aggregate script error in " +
+                rule.code +
+                ": " +
+                error.message,
+            );
+        }
+
+        return issues;
+    },
+
+    /**
+     * Gets rule GlideRecord from cache or DB
+     * Optimization: Cache to avoid multiple queries for same rule
+     */
+    _getRuleGlideRecord: function(ruleSysId) {
+        // Check cache first
+        if (this._ruleCache[ruleSysId]) {
+            return this._ruleCache[ruleSysId];
+        }
+
+        // Load from DB
+        var gr = new GlideRecord("x_1310794_founda_0_issue_rules");
+        if (gr.get(ruleSysId)) {
+            // Cache for reuse
+            this._ruleCache[ruleSysId] = gr;
+            return gr;
+        }
+
+        return null;
+    },
+
+    _parseParams: function(paramsStr) {
+        try {
+            var parsed = JSON.parse(paramsStr);
+            return parsed;
+        } catch (e) {
+            gs.error("[FHARuleEvaluator]   - Error: " + e.message);
+            return {};
+        }
+    },
+
+    type: "FHARuleEvaluator",
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-12 23:56:45</sys_created_on>
+        <sys_id>f35ad5555303b610c7233ee0a0490e3d</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHARuleEvaluator</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_f35ad5555303b610c7233ee0a0490e3d</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-12 23:56:45</sys_updated_on>
+    </sys_script_include>
+</record_update>
