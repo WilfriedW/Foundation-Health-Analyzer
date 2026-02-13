@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element db_object_id="703c215c53873210c7233ee0a0490ee8" label="Verification Items" max_length="40" name="x_1310794_founda_0_verification_items" type="collection">
+        <element attributes="edge_encryption_enabled=true,encode_utf8=false" label="Issue Rules" max_length="32" name="issue_rules" reference="x_1310794_founda_0_issue_rules" type="reference"/>
+        <element label="Template" max_length="32" name="template" reference="x_1310794_founda_0_analysis_templates" type="reference"/>
+        <element default="true" label="Active" max_length="40" name="active" type="boolean"/>
+        <element attributes="edge_encryption_enabled=true" display="true" label="Name" max_length="40" name="name" type="string"/>
+        <element label="Query Value" max_length="400" name="query_value" type="string"/>
+        <element choice="1" label="Category" max_length="40" name="category" type="string">
+            <choice>
+                <element inactive_on_update="false" label="Automation" value="automation"/>
+                <element inactive_on_update="false" label="Integration" value="integration"/>
+                <element inactive_on_update="false" label="All Categories" value="all"/>
+                <element inactive_on_update="false" label="Performance" value="performance"/>
+                <element inactive_on_update="false" label="Security" value="security"/>
+                <element inactive_on_update="false" label="Quality" value="quality"/>
+            </choice>
+        </element>
+        <element label="Table" max_length="32" name="table" reference="sys_db_object" type="reference"/>
+        <index name="index">
+            <element name="issue_rules"/>
+        </index>
+        <index name="index2">
+            <element name="table"/>
+        </index>
+        <index name="index3">
+            <element name="template"/>
+        </index>
+    </element>
+</database>
