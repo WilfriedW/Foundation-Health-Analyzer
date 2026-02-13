@@ -1,0 +1,716 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[api.controller=function() {
+  var c = this;
+  
+  // Initialize
+  c.data.loading = true;
+  c.data.refreshing = false;
+  c.data.trendingDays = 30;
+  c.data.lastUpdate = new Date();
+  
+  // Chart instances
+  var healthDistributionChart = null;
+  var trendingChart = null;
+  
+  /**
+   * Initialize dashboard on load
+   */
+  c.$onInit = function() {
+    c.loadDashboardData();
+  };
+  
+  /**
+   * Load dashboard data from server
+   */
+  c.loadDashboardData = function() {
+    c.data.loading = true;
+    c.data.error = null;
+    
+    c.server.get({
+      trendingDays: c.data.trendingDays
+    }).then(function(response) {
+      if (response.data.success) {
+        // Update data
+        c.data.metrics = response.data.metrics;
+        c.data.distribution = response.data.distribution;
+        c.data.trending = response.data.trending;
+        c.data.topTables = response.data.topTables;
+        c.data.categories = response.data.categories;
+        c.data.lastUpdate = new Date();
+        
+        // Render charts after DOM update
+        $timeout(function() {
+          c.renderCharts();
+        }, 100);
+      } else {
+        c.data.error = response.data.error || c.data.i18n.errorLoadingData;
+      }
+    }).catch(function(error) {
+      c.data.error = c.data.i18n.errorLoadingData + ': ' + (error.message || 'Unknown error');
+    }).finally(function() {
+      c.data.loading = false;
+      c.data.refreshing = false;
+    });
+  };
+  
+  /**
+   * Refresh dashboard
+   */
+  c.refreshDashboard = function() {
+    c.data.refreshing = true;
+    c.loadDashboardData();
+  };
+  
+  /**
+   * Change trending period
+   */
+  c.changeTrendingPeriod = function(days) {
+    if (c.data.trendingDays === days) return;
+    c.data.trendingDays = days;
+    c.refreshDashboard();
+  };
+  
+  /**
+   * Get health score CSS class
+   */
+  c.getHealthScoreClass = function(score) {
+    if (score >= 90) return 'kpi-excellent';
+    if (score >= 70) return 'kpi-good';
+    if (score >= 50) return 'kpi-fair';
+    if (score >= 30) return 'kpi-poor';
+    return 'kpi-danger';
+  };
+  
+  /**
+   * Get health score progress bar class
+   */
+  c.getHealthScoreProgressClass = function(score) {
+    if (score >= 90) return 'progress-bar-excellent';
+    if (score >= 70) return 'progress-bar-good';
+    if (score >= 50) return 'progress-bar-fair';
+    if (score >= 30) return 'progress-bar-poor';
+    return 'progress-bar-critical';
+  };
+  
+  /**
+   * Render all charts
+   */
+  c.renderCharts = function() {
+    c.renderHealthDistributionChart();
+    c.renderTrendingChart();
+  };
+  
+  /**
+   * Render Health Score Distribution Donut Chart
+   */
+  c.renderHealthDistributionChart = function() {
+    var canvasId = 'health-distribution-chart-' + c.widget.options.id;
+    var canvas = document.getElementById(canvasId);
+    
+    if (!canvas) {
+      console.error('Canvas not found: ' + canvasId);
+      return;
+    }
+    
+    var ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (healthDistributionChart) {
+      healthDistributionChart.destroy();
+    }
+    
+    var distribution = c.data.distribution || {
+      excellent: 0,
+      good: 0,
+      fair: 0,
+      poor: 0,
+      critical: 0
+    };
+    
+    healthDistributionChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: [
+          c.data.i18n.excellent + ' (90-100%)',
+          c.data.i18n.good + ' (70-89%)',
+          c.data.i18n.fair + ' (50-69%)',
+          c.data.i18n.poor + ' (30-49%)',
+          c.data.i18n.critical + ' (0-29%)'
+        ],
+        datasets: [{
+          data: [
+            distribution.excellent,
+            distribution.good,
+            distribution.fair,
+            distribution.poor,
+            distribution.critical
+          ],
+          backgroundColor: [
+            '#16a34a',  // Excellent - Green
+            '#4ade80',  // Good - Light Green
+            '#fbbf24',  // Fair - Yellow
+            '#f97316',  // Poor - Orange
+            '#dc2626'   // Critical - Red
+          ],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              padding: 15,
+              font: {
+                size: 12
+              },
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.label || '';
+                var value = context.parsed || 0;
+                var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                var percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                return label + ': ' + value + ' (' + percentage + '%)';
+              }
+            }
+          }
+        },
+        cutout: '60%'
+      }
+    });
+  };
+  
+  /**
+   * Render Trending Line Chart
+   */
+  c.renderTrendingChart = function() {
+    var canvasId = 'trending-chart-' + c.widget.options.id;
+    var canvas = document.getElementById(canvasId);
+    
+    if (!canvas) {
+      console.error('Canvas not found: ' + canvasId);
+      return;
+    }
+    
+    var ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (trendingChart) {
+      trendingChart.destroy();
+    }
+    
+    var trending = c.data.trending || [];
+    
+    var labels = trending.map(function(item) {
+      return item.date;
+    });
+    
+    var healthScores = trending.map(function(item) {
+      return item.avg_health_score;
+    });
+    
+    var issuesCounts = trending.map(function(item) {
+      return item.total_issues;
+    });
+    
+    trendingChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: c.data.i18n.avgHealthScore,
+            data: healthScores,
+            borderColor: '#0c63d4',
+            backgroundColor: 'rgba(12, 99, 212, 0.1)',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'y-health'
+          },
+          {
+            label: c.data.i18n.totalIssues,
+            data: issuesCounts,
+            borderColor: '#dc2626',
+            backgroundColor: 'rgba(220, 38, 38, 0.1)',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'y-issues'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              padding: 15,
+              font: {
+                size: 12
+              },
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: {
+              size: 13
+            },
+            bodyFont: {
+              size: 12
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              font: {
+                size: 10
+              }
+            }
+          },
+          'y-health': {
+            type: 'linear',
+            position: 'left',
+            min: 0,
+            max: 100,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            },
+            ticks: {
+              callback: function(value) {
+                return value + '%';
+              },
+              font: {
+                size: 11
+              }
+            },
+            title: {
+              display: true,
+              text: c.data.i18n.healthScore,
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          },
+          'y-issues': {
+            type: 'linear',
+            position: 'right',
+            min: 0,
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: {
+                size: 11
+              }
+            },
+            title: {
+              display: true,
+              text: c.data.i18n.issues,
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          }
+        }
+      }
+    });
+  };
+  
+  /**
+   * Cleanup on destroy
+   */
+  c.$onDestroy = function() {
+    if (healthDistributionChart) {
+      healthDistributionChart.destroy();
+    }
+    if (trendingChart) {
+      trendingChart.destroy();
+    }
+  };
+};]]></client_script>
+        <controller_as>c</controller_as>
+        <css/>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>fha_executive_dashboard</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]></link>
+        <name>Executive Dashboard</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[// ===================================================
+// FHA Executive Dashboard Widget - Server Script
+// ===================================================
+
+(function() {
+  
+  // Initialize data object
+  data.metrics = {};
+  data.distribution = {};
+  data.trending = [];
+  data.topTables = [];
+  data.categories = {};
+  data.success = false;
+  data.error = null;
+  
+  // Internationalization (i18n)
+  data.i18n = {
+    title: gs.getMessage('Executive Dashboard'),
+    loading: gs.getMessage('Loading dashboard...'),
+    refresh: gs.getMessage('Refresh'),
+    lastUpdate: gs.getMessage('Last updated'),
+    totalAnalyses: gs.getMessage('Total Analyses'),
+    avgHealthScore: gs.getMessage('Avg Health Score'),
+    totalIssues: gs.getMessage('Total Issues'),
+    tablesAnalyzed: gs.getMessage('Tables Analyzed'),
+    successRate: gs.getMessage('Success Rate'),
+    last30Days: gs.getMessage('last 30 days'),
+    activeConfigs: gs.getMessage('active configs'),
+    healthScoreDistribution: gs.getMessage('Health Score Distribution'),
+    healthScoreTrend: gs.getMessage('Health Score Trend'),
+    topProblematicTables: gs.getMessage('Top 10 Most Problematic Tables'),
+    viewAll: gs.getMessage('View All'),
+    viewDetails: gs.getMessage('View Details'),
+    noProblematicTables: gs.getMessage('No problematic tables found!'),
+    errorLoadingData: gs.getMessage('Error loading dashboard data'),
+    excellent: gs.getMessage('Excellent'),
+    good: gs.getMessage('Good'),
+    fair: gs.getMessage('Fair'),
+    poor: gs.getMessage('Poor'),
+    critical: gs.getMessage('Critical'),
+    healthScore: gs.getMessage('Health Score'),
+    issues: gs.getMessage('Issues')
+  };
+  
+  /**
+   * Load dashboard data on initialization
+   */
+  function loadDashboardData() {
+    try {
+      var metricsEngine = new x_1310794_founda_0.FHMetricsEngine();
+      
+      // Get trending days from input (default: 30)
+      var trendingDays = input && input.trendingDays ? parseInt(input.trendingDays) : 30;
+      
+      // Get global metrics
+      data.metrics = metricsEngine.getGlobalMetrics();
+      
+      // Get health score distribution
+      data.distribution = metricsEngine.getHealthScoreDistribution();
+      
+      // Get trending data
+      data.trending = metricsEngine.getTrendingData(trendingDays);
+      
+      // Get top 10 problematic tables
+      data.topTables = metricsEngine.getTop10ProblematicTables();
+      
+      // Get category metrics
+      data.categories = metricsEngine.getCategoryMetrics();
+      
+      data.success = true;
+      
+    } catch (error) {
+      gs.error('[FHA Executive Dashboard Widget] Error loading data: ' + error.message);
+      data.error = error.message;
+      data.success = false;
+    }
+  }
+  
+  // Load data on server init
+  loadDashboardData();
+  
+})();
+]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 23:57:15</sys_created_on>
+        <sys_id>f2116b345326be10c7233ee0a0490e1d</sys_id>
+        <sys_mod_count>7</sys_mod_count>
+        <sys_name>Executive Dashboard</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_widget_f2116b345326be10c7233ee0a0490e1d</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-18 09:31:39</sys_updated_on>
+        <template><![CDATA[
+<div class="fha-executive-dashboard">
+  
+  <!-- Loading State -->
+  <div ng-if="c.data.loading" class="loading-container">
+    <i class="fa fa-spinner fa-spin fa-3x"></i>
+    <p>{{::c.data.i18n.loading}}</p>
+  </div>
+
+  <!-- Error State -->
+  <div ng-if="c.data.error" class="alert alert-danger">
+    <i class="fa fa-exclamation-triangle"></i>
+    {{c.data.error}}
+  </div>
+
+  <!-- Dashboard Content -->
+  <div ng-if="!c.data.loading && !c.data.error">
+    
+    <!-- Header -->
+    <div class="dashboard-header">
+      <h2>
+        <i class="fa fa-dashboard"></i>
+        {{::c.data.i18n.title}}
+      </h2>
+      <div class="header-actions">
+        <button class="btn btn-default btn-sm" ng-click="c.refreshDashboard()">
+          <i class="fa fa-refresh" ng-class="{'fa-spin': c.data.refreshing}"></i>
+          {{::c.data.i18n.refresh}}
+        </button>
+        <span class="last-update">
+          {{::c.data.i18n.lastUpdate}}: {{c.data.lastUpdate | date:'short'}}
+        </span>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-cards-container">
+      
+      <!-- Total Analyses -->
+      <div class="kpi-card kpi-primary">
+        <div class="kpi-icon">
+          <i class="fa fa-line-chart"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">{{c.data.metrics.total_analyses | number:0}}</div>
+          <div class="kpi-label">{{::c.data.i18n.totalAnalyses}}</div>
+          <div class="kpi-sublabel">
+            <span class="badge badge-info">{{c.data.metrics.analyses_last_30_days}} {{::c.data.i18n.last30Days}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Average Health Score -->
+      <div class="kpi-card" ng-class="c.getHealthScoreClass(c.data.metrics.avg_health_score)">
+        <div class="kpi-icon">
+          <i class="fa fa-heartbeat"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">{{c.data.metrics.avg_health_score}}%</div>
+          <div class="kpi-label">{{::c.data.i18n.avgHealthScore}}</div>
+          <div class="kpi-progress">
+            <div class="progress">
+              <div class="progress-bar" 
+                   ng-class="c.getHealthScoreProgressClass(c.data.metrics.avg_health_score)"
+                   ng-style="{'width': c.data.metrics.avg_health_score + '%'}">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Issues -->
+      <div class="kpi-card kpi-warning">
+        <div class="kpi-icon">
+          <i class="fa fa-exclamation-circle"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">{{c.data.metrics.total_issues | number:0}}</div>
+          <div class="kpi-label">{{::c.data.i18n.totalIssues}}</div>
+          <div class="kpi-breakdown">
+            <span class="issue-badge critical" ng-if="c.data.metrics.critical_issues > 0">
+              <i class="fa fa-times-circle"></i> {{c.data.metrics.critical_issues}}
+            </span>
+            <span class="issue-badge high" ng-if="c.data.metrics.high_severity_issues > 0">
+              <i class="fa fa-exclamation-triangle"></i> {{c.data.metrics.high_severity_issues}}
+            </span>
+            <span class="issue-badge medium" ng-if="c.data.metrics.medium_severity_issues > 0">
+              <i class="fa fa-exclamation"></i> {{c.data.metrics.medium_severity_issues}}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tables Analyzed -->
+      <div class="kpi-card kpi-info">
+        <div class="kpi-icon">
+          <i class="fa fa-database"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">{{c.data.metrics.tables_analyzed}}</div>
+          <div class="kpi-label">{{::c.data.i18n.tablesAnalyzed}}</div>
+          <div class="kpi-sublabel">
+            <span class="badge badge-success">{{c.data.metrics.active_configurations}} {{::c.data.i18n.activeConfigs}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Success Rate -->
+      <div class="kpi-card kpi-success">
+        <div class="kpi-icon">
+          <i class="fa fa-check-circle"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">{{c.data.metrics.success_rate}}%</div>
+          <div class="kpi-label">{{::c.data.i18n.successRate}}</div>
+          <div class="kpi-progress">
+            <div class="progress">
+              <div class="progress-bar progress-bar-success" 
+                   ng-style="{'width': c.data.metrics.success_rate + '%'}">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+      
+      <!-- Health Score Distribution (Donut Chart) -->
+      <div class="chart-card chart-half">
+        <div class="chart-header">
+          <h3>
+            <i class="fa fa-pie-chart"></i>
+            {{::c.data.i18n.healthScoreDistribution}}
+          </h3>
+        </div>
+        <div class="chart-body">
+          <canvas id="health-distribution-chart-{{c.widget.options.id}}" height="250"></canvas>
+        </div>
+      </div>
+
+      <!-- Trending Chart (Line Chart) -->
+      <div class="chart-card chart-half">
+        <div class="chart-header">
+          <h3>
+            <i class="fa fa-area-chart"></i>
+            {{::c.data.i18n.healthScoreTrend}}
+          </h3>
+          <div class="chart-controls">
+            <button class="btn btn-xs" 
+                    ng-class="{'btn-primary': c.data.trendingDays == 7, 'btn-default': c.data.trendingDays != 7}"
+                    ng-click="c.changeTrendingPeriod(7)">
+              7d
+            </button>
+            <button class="btn btn-xs" 
+                    ng-class="{'btn-primary': c.data.trendingDays == 30, 'btn-default': c.data.trendingDays != 30}"
+                    ng-click="c.changeTrendingPeriod(30)">
+              30d
+            </button>
+            <button class="btn btn-xs" 
+                    ng-class="{'btn-primary': c.data.trendingDays == 60, 'btn-default': c.data.trendingDays != 60}"
+                    ng-click="c.changeTrendingPeriod(60)">
+              60d
+            </button>
+            <button class="btn btn-xs" 
+                    ng-class="{'btn-primary': c.data.trendingDays == 90, 'btn-default': c.data.trendingDays != 90}"
+                    ng-click="c.changeTrendingPeriod(90)">
+              90d
+            </button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="trending-chart-{{c.widget.options.id}}" height="250"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Top 10 Problematic Tables -->
+    <div class="tables-section">
+      <div class="section-header">
+        <h3>
+          <i class="fa fa-warning"></i>
+          {{::c.data.i18n.topProblematicTables}}
+        </h3>
+        <a href="/fha-tables" class="view-all-link">
+          {{::c.data.i18n.viewAll}} <i class="fa fa-arrow-right"></i>
+        </a>
+      </div>
+      
+      <div class="tables-grid" ng-if="c.data.topTables.length > 0">
+        <div class="table-card" ng-repeat="table in c.data.topTables track by table.table_name">
+          <div class="table-card-header">
+            <div class="table-info">
+              <h4>{{table.table_label}}</h4>
+              <small class="text-muted">{{table.table_name}}</small>
+            </div>
+            <div class="table-score" ng-class="c.getHealthScoreClass(table.health_score)">
+              <span class="score-value">{{table.health_score}}%</span>
+            </div>
+          </div>
+          <div class="table-card-body">
+            <div class="issue-summary">
+              <span class="issue-count critical" ng-if="table.critical > 0" title="Critical">
+                <i class="fa fa-times-circle"></i> {{table.critical}}
+              </span>
+              <span class="issue-count high" ng-if="table.high > 0" title="High">
+                <i class="fa fa-exclamation-triangle"></i> {{table.high}}
+              </span>
+              <span class="issue-count medium" ng-if="table.medium > 0" title="Medium">
+                <i class="fa fa-exclamation"></i> {{table.medium}}
+              </span>
+              <span class="issue-count low" ng-if="table.low > 0" title="Low">
+                <i class="fa fa-info-circle"></i> {{table.low}}
+              </span>
+            </div>
+            <div class="total-issues">
+              <strong>{{table.total_issues}}</strong> {{::c.data.i18n.totalIssues}}
+            </div>
+            <div class="last-analysis">
+              <i class="fa fa-clock-o"></i>
+              {{table.last_analysis | date:'short'}}
+            </div>
+          </div>
+          <div class="table-card-footer">
+            <a href="/fha?table={{table.table_name}}" class="btn btn-sm btn-default">
+              {{::c.data.i18n.viewDetails}}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-state" ng-if="c.data.topTables.length === 0">
+        <i class="fa fa-check-circle fa-3x"></i>
+        <p>{{::c.data.i18n.noProblematicTables}}</p>
+      </div>
+    </div>
+
+  </div>
+
+</div>]]></template>
+    </sp_widget>
+</record_update>
