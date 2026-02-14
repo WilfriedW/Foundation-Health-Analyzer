@@ -9,21 +9,7 @@
         <mobile_callable>false</mobile_callable>
         <name>FHAnalysisEngine</name>
         <sandbox_callable>false</sandbox_callable>
-        <script><![CDATA[// =====================================================================
-// SCRIPT: FHAnalysisEngine - Standardized Version
-// =====================================================================
-// Description: Updated version with standardized issue structure support
-// Date: 2026-02-12
-// =====================================================================
-// CHANGES:
-// - Added _normalizeIssue() to ensure consistent issue structure
-// - Updated _analyzeResults() to use normalization
-// - Ensures record_table is at level 1 of issue object
-// - Auto-fills missing contextual fields
-// - Backward compatible with old rule formats
-// =====================================================================
-
-var FHAnalysisEngine = Class.create();
+        <script><![CDATA[var FHAnalysisEngine = Class.create();
 FHAnalysisEngine.prototype = {
     TABLES: {
         RESULTS: 'x_1310794_founda_0_results',
@@ -498,13 +484,13 @@ FHAnalysisEngine.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-01-07 01:18:57</sys_created_on>
         <sys_id>033a4751531a3610c7233ee0a0490e0f</sys_id>
-        <sys_mod_count>112</sys_mod_count>
+        <sys_mod_count>113</sys_mod_count>
         <sys_name>FHAnalysisEngine</sys_name>
         <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_update_name>sys_script_include_033a4751531a3610c7233ee0a0490e0f</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-12 18:15:06</sys_updated_on>
+        <sys_updated_on>2026-02-13 08:40:38</sys_updated_on>
     </sys_script_include>
 </record_update>

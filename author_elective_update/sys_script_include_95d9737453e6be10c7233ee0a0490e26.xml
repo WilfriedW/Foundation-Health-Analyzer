@@ -497,14 +497,25 @@ FHMetricsEngine.prototype = {
         <sys_updated_by>admin</sys_updated_by>
         <sys_updated_on>2026-01-18 01:45:44</sys_updated_on>
     </sys_script_include>
-    <sys_update_version action="INSERT_OR_UPDATE">
+<sys_update_version action="INSERT_OR_UPDATE">
         <action>DELETE</action>
         <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
         <file_path/>
         <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
         <instance_name>dev329251</instance_name>
         <name>sys_script_include_95d9737453e6be10c7233ee0a0490e26</name>
-        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;&lt;sys_script_include action="INSERT_OR_UPDATE"&gt;&lt;access&gt;package_private&lt;/access&gt;&lt;active&gt;true&lt;/active&gt;&lt;api_name&gt;x_1310794_founda_0.FHMetricsEngine&lt;/api_name&gt;&lt;caller_access/&gt;&lt;client_callable&gt;false&lt;/client_callable&gt;&lt;description/&gt;&lt;mobile_callable&gt;false&lt;/mobile_callable&gt;&lt;name&gt;FHMetricsEngine&lt;/name&gt;&lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;&lt;script&gt;&lt;![CDATA[var FHMetricsEngine = Class.create();
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;
+    &lt;sys_script_include action="INSERT_OR_UPDATE"&gt;
+        &lt;access&gt;package_private&lt;/access&gt;
+        &lt;active&gt;true&lt;/active&gt;
+        &lt;api_name&gt;x_1310794_founda_0.FHMetricsEngine&lt;/api_name&gt;
+        &lt;caller_access/&gt;
+        &lt;client_callable&gt;false&lt;/client_callable&gt;
+        &lt;description/&gt;
+        &lt;mobile_callable&gt;false&lt;/mobile_callable&gt;
+        &lt;name&gt;FHMetricsEngine&lt;/name&gt;
+        &lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;
+        &lt;script&gt;&lt;![CDATA[var FHMetricsEngine = Class.create();
 FHMetricsEngine.prototype = {
     initialize: function() {
         this.resultsTable = 'x_1310794_founda_0_results';
@@ -978,29 +989,43 @@ FHMetricsEngine.prototype = {
     },
 
     type: 'FHMetricsEngine'
-};]]&gt;&lt;/script&gt;&lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;&lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;&lt;sys_created_on&gt;2026-01-18 01:45:44&lt;/sys_created_on&gt;&lt;sys_id&gt;95d9737453e6be10c7233ee0a0490e26&lt;/sys_id&gt;&lt;sys_mod_count&gt;0&lt;/sys_mod_count&gt;&lt;sys_name&gt;FHMetricsEngine&lt;/sys_name&gt;&lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;&lt;sys_policy&gt;read&lt;/sys_policy&gt;&lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;&lt;sys_update_name&gt;sys_script_include_95d9737453e6be10c7233ee0a0490e26&lt;/sys_update_name&gt;&lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;&lt;sys_updated_on&gt;2026-01-18 01:45:44&lt;/sys_updated_on&gt;&lt;/sys_script_include&gt;&lt;/record_update&gt;</payload>
-        <payload_hash>1709717666</payload_hash>
+};]]&gt;&lt;/script&gt;
+        &lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;
+        &lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;
+        &lt;sys_created_on&gt;2026-01-18 01:45:44&lt;/sys_created_on&gt;
+        &lt;sys_id&gt;95d9737453e6be10c7233ee0a0490e26&lt;/sys_id&gt;
+        &lt;sys_mod_count&gt;0&lt;/sys_mod_count&gt;
+        &lt;sys_name&gt;FHMetricsEngine&lt;/sys_name&gt;
+        &lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;
+        &lt;sys_policy&gt;read&lt;/sys_policy&gt;
+        &lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;
+        &lt;sys_update_name&gt;sys_script_include_95d9737453e6be10c7233ee0a0490e26&lt;/sys_update_name&gt;
+        &lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;
+        &lt;sys_updated_on&gt;2026-01-18 01:45:44&lt;/sys_updated_on&gt;
+    &lt;/sys_script_include&gt;
+&lt;/record_update&gt;</payload>
+        <payload_hash>-1581334570</payload_hash>
         <record_name>FHMetricsEngine</record_name>
         <reverted_from/>
-        <source>60974bf05322be10c7233ee0a0490e89</source>
-        <source_table>sys_update_set</source_table>
+        <source>72de8fd553cfb610c7233ee0a0490e75</source>
+        <source_table>sys_upgrade_history</source_table>
         <state>previous</state>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-01-18 01:45:44</sys_created_on>
-        <sys_id>f6f9b77453e6be10c7233ee0a0490e0c</sys_id>
+        <sys_created_on>2026-02-13 08:25:55</sys_created_on>
+        <sys_id>daee4b1953cfb610c7233ee0a0490ed0</sys_id>
         <sys_mod_count>0</sys_mod_count>
-        <sys_recorded_at>19bcec795170000001</sys_recorded_at>
+        <sys_recorded_at>19c561b4d110000001</sys_recorded_at>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-01-18 01:45:44</sys_updated_on>
+        <sys_updated_on>2026-02-13 08:25:55</sys_updated_on>
         <type>Script Include</type>
-        <update_guid>b6f9b774f6e6be10a68ba0072767770b</update_guid>
-        <update_guid_history>b6f9b774f6e6be10a68ba0072767770b:1709717666</update_guid_history>
+        <update_guid>16ee4b1905cfb61062d53580084cfdd0</update_guid>
+        <update_guid_history>16ee4b1905cfb61062d53580084cfdd0:0,114ad1556603b6106ac6431913333567:-524909202,b6f9b774f6e6be10a68ba0072767770b:1709717666</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
         <sys_audit_delete/>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-02-12 23:56:18</sys_created_on>
+        <sys_created_on>2026-02-13 08:29:48</sys_created_on>
         <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
         <sys_id>19c529adfa144fae8fc52eb77767e751</sys_id>
         <sys_metadata>95d9737453e6be10c7233ee0a0490e26</sys_metadata>
@@ -1012,8 +1037,8 @@ FHMetricsEngine.prototype = {
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
         <sys_update_name>sys_script_include_95d9737453e6be10c7233ee0a0490e26</sys_update_name>
-        <sys_update_version display_value="sys_script_include_95d9737453e6be10c7233ee0a0490e26">f6f9b77453e6be10c7233ee0a0490e0c</sys_update_version>
+        <sys_update_version display_value="sys_script_include_95d9737453e6be10c7233ee0a0490e26">daee4b1953cfb610c7233ee0a0490ed0</sys_update_version>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-12 23:56:18</sys_updated_on>
+        <sys_updated_on>2026-02-13 08:29:48</sys_updated_on>
     </sys_metadata_delete>
 </record_update>

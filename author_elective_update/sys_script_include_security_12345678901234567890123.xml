@@ -263,25 +263,25 @@ FHCheckSecurity.prototype = {
         <payload_hash>-157420525</payload_hash>
         <record_name>FHCheckSecurity</record_name>
         <reverted_from/>
-        <source>79f7d99053833210c7233ee0a0490e5f</source>
+        <source>72de8fd553cfb610c7233ee0a0490e75</source>
         <source_table>sys_upgrade_history</source_table>
         <state>previous</state>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-02-09 21:12:43</sys_created_on>
-        <sys_id>ff0895d053833210c7233ee0a0490e9a</sys_id>
+        <sys_created_on>2026-02-13 08:25:56</sys_created_on>
+        <sys_id>62ee8b1953cfb610c7233ee0a0490e02</sys_id>
         <sys_mod_count>0</sys_mod_count>
-        <sys_recorded_at>19c443fe2710000001</sys_recorded_at>
+        <sys_recorded_at>19c561b4e5f0000001</sys_recorded_at>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-09 21:12:43</sys_updated_on>
+        <sys_updated_on>2026-02-13 08:25:56</sys_updated_on>
         <type>Script Include</type>
-        <update_guid>3b0895d01b833210d99a98be51fc1d9a</update_guid>
-        <update_guid_history>3b0895d01b833210d99a98be51fc1d9a:0,918857f0a4e2be10d98069979e455c1d:-245217531,910dea38da6e7e105ad0d799b51c8f04:0,c383a234242e7e104b27a6668f2438ab:2307840,019ec2b04d9232107cf9557b4467fb65:0,68a06ba0bbd2761050229268b06626e1:-1289417452,022e0ba07b5276100c0d5a92a42f56e1:1583892973,28326960d8163610de12aa32ad837cd4:-1052380103,c0806d6ceed23610562971e8d875720c:-656224979,80806d6c6ad236100dabaa54666aea09:-39240164,459ec2b039923210b20cec51b043be58:-1997929484</update_guid_history>
+        <update_guid>aaee8b1912cfb610d169256cf7925601</update_guid>
+        <update_guid_history>aaee8b1912cfb610d169256cf7925601:0,655a55559003b610549c8734236178d8:-759667308,3b0895d01b833210d99a98be51fc1d9a:0,918857f0a4e2be10d98069979e455c1d:-245217531,910dea38da6e7e105ad0d799b51c8f04:0,c383a234242e7e104b27a6668f2438ab:2307840,019ec2b04d9232107cf9557b4467fb65:0,68a06ba0bbd2761050229268b06626e1:-1289417452,022e0ba07b5276100c0d5a92a42f56e1:1583892973,28326960d8163610de12aa32ad837cd4:-1052380103,c0806d6ceed23610562971e8d875720c:-656224979,80806d6c6ad236100dabaa54666aea09:-39240164,459ec2b039923210b20cec51b043be58:-1997929484</update_guid_history>
     </sys_update_version>
     <sys_metadata_delete action="INSERT_OR_UPDATE">
         <sys_audit_delete/>
         <sys_class_name>sys_metadata_delete</sys_class_name>
         <sys_created_by>admin</sys_created_by>
-        <sys_created_on>2026-02-12 23:56:36</sys_created_on>
+        <sys_created_on>2026-02-13 08:30:12</sys_created_on>
         <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
         <sys_id>0c42c5ba8f93445a872538a52ef212e4</sys_id>
         <sys_metadata>security_12345678901234567890123</sys_metadata>
@@ -293,8 +293,8 @@ FHCheckSecurity.prototype = {
         <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
         <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
         <sys_update_name>sys_script_include_security_12345678901234567890123</sys_update_name>
-        <sys_update_version display_value="sys_script_include_security_12345678901234567890123">ff0895d053833210c7233ee0a0490e9a</sys_update_version>
+        <sys_update_version display_value="sys_script_include_security_12345678901234567890123">62ee8b1953cfb610c7233ee0a0490e02</sys_update_version>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-12 23:56:36</sys_updated_on>
+        <sys_updated_on>2026-02-13 08:30:12</sys_updated_on>
     </sys_metadata_delete>
 </record_update>
