@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_operation">
+    <sys_ws_operation action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <consumes>application/json</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_operation_uri/>
+        <enforce_acl/>
+        <http_method>GET</http_method>
+        <name>Get Statistics</name>
+        <operation_script><![CDATA[(function process(request, response) {
+    try {
+        var metricsEngine = new x_1310794_founda_0.FHMetricsEngine();
+        
+        // Check if specific metrics requested via query params
+        var queryParams = request.queryParams;
+        var type = queryParams.type || 'comprehensive'; // Options: global, category, top_tables, trending, distribution, coverage, comprehensive
+        
+        var result = {};
+        
+        switch(type.toLowerCase()) {
+            case 'global':
+                result = metricsEngine.getGlobalMetrics();
+                break;
+                
+            case 'category':
+                result = metricsEngine.getCategoryMetrics();
+                break;
+                
+            case 'top_tables':
+                var limit = parseInt(queryParams.limit) || 10;
+                var tables = metricsEngine.getTop10ProblematicTables();
+                result = tables.slice(0, limit);
+                break;
+                
+            case 'trending':
+                var days = parseInt(queryParams.days) || 30;
+                result = metricsEngine.getTrendingData(days);
+                break;
+                
+            case 'distribution':
+                result = metricsEngine.getHealthScoreDistribution();
+                break;
+                
+            case 'coverage':
+                result = metricsEngine.getAnalysisCoverage();
+                break;
+                
+            case 'comprehensive':
+            default:
+                result = metricsEngine.getComprehensiveStatistics();
+                break;
+        }
+        
+        response.setStatus(200);
+        response.setBody({
+            success: true,
+            type: type,
+            data: result,
+            timestamp: new GlideDateTime().getDisplayValue()
+        });
+        
+    } catch (error) {
+        gs.error('[FHA API] Error in /statistics: ' + error.message);
+        response.setStatus(500);
+        response.setBody({
+            success: false,
+            error: error.message,
+            timestamp: new GlideDateTime().getDisplayValue()
+        });
+    }
+})(request, response);
+]]></operation_script>
+        <operation_uri>/api/x_1310794_founda_0/fha/statistics</operation_uri>
+        <produces>application/json</produces>
+        <produces_customized>false</produces_customized>
+        <relative_path>/statistics</relative_path>
+        <request_example>// GET /api/x_1310794_founda_0/fha/statistics
+// 
+// Query Parameters (optional):
+// - type: Type of statistics to retrieve
+//   Options: global, category, top_tables, trending, distribution, coverage, comprehensive (default)
+// - days: Number of days for trending data (default: 30)
+// - limit: Limit for top tables (default: 10)
+//
+// Examples:
+//
+// 1. Get all statistics (comprehensive):
+// GET /api/x_1310794_founda_0/fha/statistics
+//
+// 2. Get only global metrics:
+// GET /api/x_1310794_founda_0/fha/statistics?type=global
+//
+// 3. Get trending data for last 60 days:
+// GET /api/x_1310794_founda_0/fha/statistics?type=trending&amp;days=60
+//
+// 4. Get top 5 problematic tables:
+// GET /api/x_1310794_founda_0/fha/statistics?type=top_tables&amp;limit=5
+//
+// Success Response (200):
+// {
+//   "success": true,
+//   "type": "comprehensive",
+//   "data": {
+//     "global_metrics": {
+//       "total_analyses": 145,
+//       "total_issues": 328,
+//       "avg_health_score": 72,
+//       "critical_issues": 12,
+//       "high_severity_issues": 45,
+//       "medium_severity_issues": 156,
+//       "low_severity_issues": 115,
+//       "tables_analyzed": 25,
+//       "active_configurations": 18,
+//       "analyses_last_30_days": 42,
+//       "success_rate": 98
+//     },
+//     "category_metrics": {
+//       "automation": {
+//         "name": "automation",
+//         "total_issues": 125,
+//         "critical": 5,
+//         "high": 20,
+//         "medium": 65,
+//         "low": 35,
+//         "affected_tables_count": 12
+//       },
+//       "security": { ... },
+//       "integration": { ... }
+//     },
+//     "top_problematic_tables": [
+//       {
+//         "table_name": "incident",
+//         "table_label": "Incident",
+//         "total_issues": 45,
+//         "critical": 2,
+//         "high": 12,
+//         "medium": 20,
+//         "low": 11,
+//         "health_score": 65,
+//         "last_analysis": "2026-01-17 10:30:00"
+//       }
+//     ],
+//     "health_score_distribution": {
+//       "excellent": 25,
+//       "good": 45,
+//       "fair": 30,
+//       "poor": 15,
+//       "critical": 5
+//     },
+//     "analysis_coverage": {
+//       "total_tables_in_instance": 120,
+//       "tables_with_configurations": 18,
+//       "tables_analyzed": 25,
+//       "coverage_percentage": 21
+//     },
+//     "trending_30_days": [
+//       {
+//         "date": "2026-01-01",
+//         "analyses_count": 3,
+//         "total_issues": 25,
+//         "avg_health_score": 75,
+//         "critical_issues": 1,
+//         "high_issues": 5,
+//         "medium_issues": 12,
+//         "low_issues": 7
+//       }
+//     ]
+//   },
+//   "timestamp": "2026-01-17 10:30:00"
+// }</request_example>
+        <requires_acl_authorization>true</requires_acl_authorization>
+        <requires_authentication>true</requires_authentication>
+        <requires_snc_internal_role>false</requires_snc_internal_role>
+        <short_description>Get comprehensive statistics and metrics for Foundation Health Analyzer dashboar</short_description>
+        <sys_class_name>sys_ws_operation</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 00:00:00</sys_created_on>
+        <sys_id>cccccccccccccccccccccccccccccccc</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Get Statistics</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_ws_operation_statistics</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 00:00:00</sys_updated_on>
+        <web_service_definition display_value="Foundation Health Analyzer API">8add5d0883d2321083e1b4a6feaad355</web_service_definition>
+        <web_service_version/>
+    </sys_ws_operation>
+</record_update>
