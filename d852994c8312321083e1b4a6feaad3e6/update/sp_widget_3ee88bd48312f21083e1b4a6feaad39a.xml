@@ -5,6 +5,12 @@
     var c = this;
 
     // ============================================================
+    // SHARED CONSTANTS (aligned with FHAUtils.SCORE_THRESHOLDS)
+    // ============================================================
+    var THRESHOLDS = { EXCELLENT: 90, GOOD: 70, FAIR: 50, POOR: 30 };
+    var SEVERITY_ICONS = { critical: 'exclamation-circle', high: 'exclamation-triangle', medium: 'info-circle', low: 'check-circle' };
+
+    // ============================================================
     // INITIALISATION
     // ============================================================
     c.activeTab = 'dashboard';
@@ -239,54 +245,31 @@
       return grouped;
     };
     
-    c.getCategoryStats = function() {
-      var byCategory = c.getIssuesByCategory();
-      var stats = [];
-      var total = c.getTotalIssues();
-      
-      for (var catName in byCategory) {
-        var issues = byCategory[catName];
-        stats.push({
-          name: catName,
-          count: issues.length,
-          percentage: total > 0 ? Math.round((issues.length / total) * 100) : 0
-        });
-      }
-      
-      stats.sort(function(a, b) {
-        return b.count - a.count;
-      });
-      
-      return stats;
-    };
-        
     c.getHealthLabel = function() {
       if (!c.result) return 'N/A';
-      var score = c.result.health_score;
-      
-      if (score >= 90) return 'Excellent';
-      if (score >= 70) return 'Good';
-      if (score >= 50) return 'Fair';
-      return 'Poor';
+      var s = c.result.health_score;
+      if (s >= THRESHOLDS.EXCELLENT) return 'Excellent';
+      if (s >= THRESHOLDS.GOOD) return 'Good';
+      if (s >= THRESHOLDS.FAIR) return 'Fair';
+      if (s >= THRESHOLDS.POOR) return 'Poor';
+      return 'Critical';
     };
-    
+
     c.getHealthClass = function() {
       if (!c.result) return '';
-      var score = c.result.health_score;
-      
-      if (score >= 90) return 'health-excellent';
-      if (score >= 70) return 'health-good';
-      if (score >= 50) return 'health-fair';
+      var s = c.result.health_score;
+      if (s >= THRESHOLDS.EXCELLENT) return 'health-excellent';
+      if (s >= THRESHOLDS.GOOD) return 'health-good';
+      if (s >= THRESHOLDS.FAIR) return 'health-fair';
       return 'health-poor';
     };
-    
+
     c.getHealthDescription = function() {
       if (!c.result) return '';
-      var score = c.result.health_score;
-      
-      if (score >= 90) return 'Your system is in excellent condition with minimal issues.';
-      if (score >= 70) return 'Your system is in good condition with some minor issues to address.';
-      if (score >= 50) return 'Your system has several issues that should be addressed soon.';
+      var s = c.result.health_score;
+      if (s >= THRESHOLDS.EXCELLENT) return 'Your system is in excellent condition with minimal issues.';
+      if (s >= THRESHOLDS.GOOD) return 'Your system is in good condition with some minor issues to address.';
+      if (s >= THRESHOLDS.FAIR) return 'Your system has several issues that should be addressed soon.';
       return 'Your system has critical issues that require immediate attention.';
     };
     
@@ -356,14 +339,7 @@
     };
     
     c.getSeverityIcon = function(severity) {
-      var sev = (severity || '').toLowerCase();
-      var icons = {
-        'critical': 'exclamation-circle',
-        'high': 'exclamation-triangle',
-        'medium': 'info-circle',
-        'low': 'check-circle'
-      };
-      return icons[sev] || 'question-circle';
+      return SEVERITY_ICONS[(severity || '').toLowerCase()] || 'question-circle';
     };
    
     if (c.data && c.data.result) 

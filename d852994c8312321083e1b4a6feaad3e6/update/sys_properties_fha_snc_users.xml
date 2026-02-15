@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_properties">
+    <sys_properties action="INSERT_OR_UPDATE">
+        <choices/>
+        <description>Comma-separated list of ServiceNow out-of-box user names used to detect OOTB records. Used by FHAUtils.isSncRecord() to distinguish custom records from platform records.</description>
+        <ignore_cache>false</ignore_cache>
+        <is_private>false</is_private>
+        <name>x_1310794_founda_0.snc_users</name>
+        <read_roles/>
+        <suffix/>
+        <sys_class_name>sys_properties</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-14 10:00:00</sys_created_on>
+        <sys_id>aaa0000000000000000000000000sncu</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>x_1310794_founda_0.snc_users</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_properties_fha_snc_users</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-14 10:00:00</sys_updated_on>
+        <type>string</type>
+        <value>admin,glide.maint,guest,system,maint,don goodliffe,chris.henson,pat casey,fred luddy</value>
+        <write_roles>admin</write_roles>
+    </sys_properties>
+    <sys_translated_text action="delete_multiple" query="documentkey=aaa0000000000000000000000000sncu"/>
+</record_update>
