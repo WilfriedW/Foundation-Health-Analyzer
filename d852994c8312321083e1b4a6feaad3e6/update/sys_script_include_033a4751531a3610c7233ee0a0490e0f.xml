@@ -59,9 +59,10 @@ FHAnalysisEngine.prototype = {
         }
 
         var rulesMap = this._loadIssueRules(configRecord.verification_items || []);
-        var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
+        var self = this;
+        result.issues = [];
 
-        configRecord.verification_items.forEach(item => {
+        configRecord.verification_items.forEach(function(item) {
             try {
                 // Extract configuration parameters
                 var tableName = item.tableName;
@@ -70,9 +71,7 @@ FHAnalysisEngine.prototype = {
                 var queryScript = item.query_script || '';
 
                 // Apply deep_scan option to fields
-                var fields = this._determineFields(item);
-
-                var category = item.category;
+                var fields = self._determineFields(item);
 
                 // Build the query based on type
                 var gr = new GlideRecord(tableName);
@@ -86,12 +85,12 @@ FHAnalysisEngine.prototype = {
                             result.errors.push("Query script error: " + eScript.message);
                             gs.error("[FHAnalysisEngine] Query script error: " + eScript.message);
                         }
-                        var ids = this._flattenIds(scriptResults);
+                        var ids = self._flattenIds(scriptResults);
                         if (ids.length > 0) {
                             gr.addQuery('sys_id', 'IN', ids.join(','));
                         } else {
                             result.success = true;
-                            return result;
+                            return;
                         }
                     }
                 } else {
@@ -99,18 +98,23 @@ FHAnalysisEngine.prototype = {
                 }
 
                 // Apply configuration options
-                this._applyConfigurationOptions(gr, tableName);
+                self._applyConfigurationOptions(gr, tableName);
 
-                // Execute query and process records
+                // Execute query and collect records for THIS VI only
+                var itemRecords = [];
                 gr.query();
 
                 while (gr.next()) {
-                    var record = this._processRecord(gr, fields, item);
+                    var record = self._processRecord(gr, fields, item);
                     record._rules = rulesMap[item.sys_id] || [];
-                    result.data.push(record);
+                    itemRecords.push(record);
                 }
 
-                result = this._analyzeResults(result);
+                // Add to global result
+                result.data = result.data.concat(itemRecords);
+
+                // Analyze ONLY records from this VI (avoids cumulative re-analysis)
+                self._analyzeItemResults(result, itemRecords, item);
                 result.success = true;
 
             } catch (e) {
@@ -306,48 +310,78 @@ FHAnalysisEngine.prototype = {
     // ============================================================
 
     /**
-     * Analyzes records to detect issues (e.g., inactive Flows, stale records)
-     * Uses standardized issue structure with normalization
-     * @param {Object} result - Current result object
-     * @returns {Object} - Updated result with issues
+     * Analyzes records for a single verification item
+     * Handles both per-record and aggregate rules
+     * @param {Object} result - Global result object (issues array is appended to)
+     * @param {Array} itemRecords - Records from this VI only
+     * @param {Object} item - The verification item config
      */
-    _analyzeResults: function(result) {
+    _analyzeItemResults: function(result, itemRecords, item) {
         try {
             var self = this;
 
-            // Context for aggregate-aware rules
+            // Context scoped to this VI's records
             var context = {
-                totalCount: result.data.length,
+                totalCount: itemRecords.length,
                 _dupsSeen: {},
                 options: this.options
             };
 
-            result.data.forEach(function(it) {
+            itemRecords.forEach(function(it) {
                 var key = (it.values.name || '') + '|' + (it.values.code || '');
                 if (!context._dupsSeen[key]) context._dupsSeen[key] = it.sys_id;
             });
 
             var ruleEval = new x_1310794_founda_0.FHARuleEvaluator();
-            var aggregatedIssues = [];
+            var allRules = (itemRecords.length > 0 && itemRecords[0]._rules) || [];
 
-            result.data.forEach(function(item) {
-                var rules = item._rules || [];
-                var rawIssues = ruleEval.evaluate(item, rules, context) || [];
+            // 1. Per-record rules: execute per record
+            itemRecords.forEach(function(record) {
+                var rules = record._rules || [];
+                var rawIssues = ruleEval.evaluate(record, rules, context) || [];
 
-                // Normalize and validate each issue
-                item.issues = [];
+                record.issues = [];
                 rawIssues.forEach(function(issue) {
-                    var normalized = self._normalizeIssue(issue, item);
+                    var normalized = self._normalizeIssue(issue, record);
                     if (normalized) {
-                        item.issues.push(normalized);
+                        record.issues.push(normalized);
 
-                        // Aggregate issues at result level for portal/widget
-                        aggregatedIssues.push({
+                        result.issues.push({
                             code: normalized.code,
                             message: normalized.message,
                             severity: normalized.severity,
                             record: normalized.record,
-                            record_table: normalized.record_table,  // LEVEL 1 - for widget
+                            record_table: normalized.record_table,
+                            record_sys_id: normalized.details.record_sys_id || '',
+                            record_name: normalized.details.record_name || '',
+                            record_filter: normalized.details.record_filter || '',
+                            category: record.category || '',
+                            details: normalized.details
+                        });
+                    }
+                });
+            });
+
+            // 2. Aggregate rules: execute once per table/VI
+            if (allRules.length > 0) {
+                var tableName = item.tableName || '';
+                var aggregateIssues = ruleEval.evaluateAggregate(tableName, allRules, context) || [];
+
+                aggregateIssues.forEach(function(issue) {
+                    var placeholder = {
+                        table: tableName,
+                        sys_id: '',
+                        values: {},
+                        category: item.category
+                    };
+                    var normalized = self._normalizeIssue(issue, placeholder);
+                    if (normalized) {
+                        result.issues.push({
+                            code: normalized.code,
+                            message: normalized.message,
+                            severity: normalized.severity,
+                            record: normalized.record,
+                            record_table: normalized.record_table,
                             record_sys_id: normalized.details.record_sys_id || '',
                             record_name: normalized.details.record_name || '',
                             record_filter: normalized.details.record_filter || '',
@@ -356,14 +390,11 @@ FHAnalysisEngine.prototype = {
                         });
                     }
                 });
-            });
-
-            result.issues = aggregatedIssues;
+            }
 
         } catch (error) {
-            gs.error("[FHAnalysisEngine] _analyzeResults: " + error.message);
+            gs.error("[FHAnalysisEngine] _analyzeItemResults: " + error.message);
         }
-        return result;
     },
 
     /**
@@ -477,6 +508,7 @@ FHAnalysisEngine.prototype = {
                 name: gr.getValue('name') || '',
                 code: gr.getValue('code') || '',
                 type: gr.getValue('type') || '',
+                execution_mode: gr.getValue('execution_mode') || 'per_record',
                 default_severity: gr.getValue('default_severity') || 'medium',
                 params: gr.getValue('params') || '{}',
                 script: gr.getValue('script') || ''
