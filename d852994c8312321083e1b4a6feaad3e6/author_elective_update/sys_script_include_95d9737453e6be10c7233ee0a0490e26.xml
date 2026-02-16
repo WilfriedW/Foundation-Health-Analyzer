@@ -1,0 +1,1044 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="DELETE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_1310794_founda_0.FHMetricsEngine</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHMetricsEngine</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var FHMetricsEngine = Class.create();
+FHMetricsEngine.prototype = {
+    initialize: function() {
+        this.resultsTable = 'x_1310794_founda_0_results';
+        this.configurationsTable = 'x_1310794_founda_0_configurations';
+    },
+
+    /**
+     * Get global metrics for the application
+     * @returns {Object} Global metrics
+     */
+    getGlobalMetrics: function() {
+        var metrics = {
+            total_analyses: 0,
+            total_issues: 0,
+            avg_health_score: 0,
+            critical_issues: 0,
+            high_severity_issues: 0,
+            medium_severity_issues: 0,
+            low_severity_issues: 0,
+            tables_analyzed: 0,
+            active_configurations: 0,
+            analyses_last_30_days: 0,
+            success_rate: 0
+        };
+
+        try {
+            // Count total analyses
+            var totalGa = new GlideAggregate(this.resultsTable);
+            totalGa.addAggregate('COUNT');
+            totalGa.query();
+            if (totalGa.next()) {
+                metrics.total_analyses = parseInt(totalGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Count completed analyses and calculate stats
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.query();
+
+            var totalHealthScore = 0;
+            var completedCount = 0;
+            var tablesSet = {};
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                
+                // Health score
+                if (details.result && details.result.health_score !== undefined) {
+                    totalHealthScore += parseFloat(details.result.health_score) || 0;
+                    completedCount++;
+                }
+
+                // Count issues by severity
+                if (details.issues && Array.isArray(details.issues)) {
+                    details.issues.forEach(function(issue) {
+                        metrics.total_issues++;
+                        var severity = (issue.severity || 'medium').toLowerCase();
+                        if (severity === 'critical') metrics.critical_issues++;
+                        else if (severity === 'high') metrics.high_severity_issues++;
+                        else if (severity === 'medium') metrics.medium_severity_issues++;
+                        else if (severity === 'low') metrics.low_severity_issues++;
+                    });
+                }
+
+                // Track unique tables
+                if (details.config && details.config.table_name) {
+                    tablesSet[details.config.table_name] = true;
+                }
+            }
+
+            // Calculate averages
+            if (completedCount > 0) {
+                metrics.avg_health_score = Math.round(totalHealthScore / completedCount);
+            }
+            metrics.tables_analyzed = Object.keys(tablesSet).length;
+
+            // Count analyses in last 30 days
+            var thirtyDaysAgo = new GlideDateTime();
+            thirtyDaysAgo.addDaysLocalTime(-30);
+            var recentGa = new GlideAggregate(this.resultsTable);
+            recentGa.addQuery('sys_created_on', '>=', thirtyDaysAgo);
+            recentGa.addAggregate('COUNT');
+            recentGa.query();
+            if (recentGa.next()) {
+                metrics.analyses_last_30_days = parseInt(recentGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Count active configurations
+            var configGa = new GlideAggregate(this.configurationsTable);
+            configGa.addQuery('active', true);
+            configGa.addAggregate('COUNT');
+            configGa.query();
+            if (configGa.next()) {
+                metrics.active_configurations = parseInt(configGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Calculate success rate
+            var errorGa = new GlideAggregate(this.resultsTable);
+            errorGa.addQuery('state', 'Error');
+            errorGa.addAggregate('COUNT');
+            errorGa.query();
+            var errorCount = 0;
+            if (errorGa.next()) {
+                errorCount = parseInt(errorGa.getAggregate('COUNT')) || 0;
+            }
+            if (metrics.total_analyses > 0) {
+                metrics.success_rate = Math.round(((metrics.total_analyses - errorCount) / metrics.total_analyses) * 100);
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getGlobalMetrics: ' + e.message);
+        }
+
+        return metrics;
+    },
+
+    /**
+     * Get metrics by category (automation, security, integration, etc.)
+     * @returns {Object} Metrics grouped by category
+     */
+    getCategoryMetrics: function() {
+        var categories = {};
+
+        try {
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.setLimit(1000); // Limit to recent analyses
+            resultsGr.query();
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+
+                if (details.issues && Array.isArray(details.issues)) {
+                    details.issues.forEach(function(issue) {
+                        var category = issue.category || 'general';
+                        
+                        if (!categories[category]) {
+                            categories[category] = {
+                                name: category,
+                                total_issues: 0,
+                                critical: 0,
+                                high: 0,
+                                medium: 0,
+                                low: 0,
+                                affected_tables: {}
+                            };
+                        }
+
+                        categories[category].total_issues++;
+                        var severity = (issue.severity || 'medium').toLowerCase();
+                        if (severity === 'critical') categories[category].critical++;
+                        else if (severity === 'high') categories[category].high++;
+                        else if (severity === 'medium') categories[category].medium++;
+                        else if (severity === 'low') categories[category].low++;
+
+                        // Track affected tables
+                        if (issue.record_table) {
+                            categories[category].affected_tables[issue.record_table] = true;
+                        }
+                    });
+                }
+            }
+
+            // Convert affected_tables to count
+            for (var cat in categories) {
+                categories[cat].affected_tables_count = Object.keys(categories[cat].affected_tables).length;
+                delete categories[cat].affected_tables;
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getCategoryMetrics: ' + e.message);
+        }
+
+        return categories;
+    },
+
+    /**
+     * Get top 10 most problematic tables
+     * @returns {Array} Array of tables with their issue counts
+     */
+    getTop10ProblematicTables: function() {
+        var tablesMap = {};
+
+        try {
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.setLimit(100); // Check recent analyses
+            resultsGr.query();
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                
+                if (details.config && details.config.table_name) {
+                    var tableName = details.config.table_name;
+                    var tableLabel = details.config.table_label || tableName;
+                    
+                    if (!tablesMap[tableName]) {
+                        tablesMap[tableName] = {
+                            table_name: tableName,
+                            table_label: tableLabel,
+                            total_issues: 0,
+                            critical: 0,
+                            high: 0,
+                            medium: 0,
+                            low: 0,
+                            health_score: 0,
+                            last_analysis: resultsGr.getValue('sys_created_on')
+                        };
+                    }
+
+                    // Get latest health score
+                    if (details.result && details.result.health_score !== undefined) {
+                        tablesMap[tableName].health_score = parseFloat(details.result.health_score) || 0;
+                    }
+
+                    // Count issues
+                    if (details.issues && Array.isArray(details.issues)) {
+                        details.issues.forEach(function(issue) {
+                            tablesMap[tableName].total_issues++;
+                            var severity = (issue.severity || 'medium').toLowerCase();
+                            if (severity === 'critical') tablesMap[tableName].critical++;
+                            else if (severity === 'high') tablesMap[tableName].high++;
+                            else if (severity === 'medium') tablesMap[tableName].medium++;
+                            else if (severity === 'low') tablesMap[tableName].low++;
+                        });
+                    }
+                }
+            }
+
+            // Convert to array and sort
+            var tablesArray = [];
+            for (var tableName in tablesMap) {
+                tablesArray.push(tablesMap[tableName]);
+            }
+
+            // Sort by total issues (descending), then by health score (ascending)
+            tablesArray.sort(function(a, b) {
+                if (b.total_issues !== a.total_issues) {
+                    return b.total_issues - a.total_issues;
+                }
+                return a.health_score - b.health_score;
+            });
+
+            // Return top 10
+            return tablesArray.slice(0, 10);
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getTop10ProblematicTables: ' + e.message);
+            return [];
+        }
+    },
+
+    /**
+     * Get trending data for a specific period
+     * @param {Number} days - Number of days to look back
+     * @returns {Array} Array of daily metrics
+     */
+    getTrendingData: function(days) {
+        days = days || 30;
+        var trendingData = [];
+
+        try {
+            var startDate = new GlideDateTime();
+            startDate.addDaysLocalTime(-days);
+
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.addQuery('sys_created_on', '>=', startDate);
+            resultsGr.orderBy('sys_created_on');
+            resultsGr.query();
+
+            var dailyData = {};
+
+            while (resultsGr.next()) {
+                var dateStr = resultsGr.sys_created_on.getDisplayValue().split(' ')[0]; // YYYY-MM-DD
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+
+                if (!dailyData[dateStr]) {
+                    dailyData[dateStr] = {
+                        date: dateStr,
+                        analyses_count: 0,
+                        total_issues: 0,
+                        avg_health_score: 0,
+                        health_scores: [],
+                        critical_issues: 0,
+                        high_issues: 0,
+                        medium_issues: 0,
+                        low_issues: 0
+                    };
+                }
+
+                dailyData[dateStr].analyses_count++;
+
+                // Health score
+                if (details.result && details.result.health_score !== undefined) {
+                    dailyData[dateStr].health_scores.push(parseFloat(details.result.health_score) || 0);
+                }
+
+                // Issues
+                if (details.issues && Array.isArray(details.issues)) {
+                    details.issues.forEach(function(issue) {
+                        dailyData[dateStr].total_issues++;
+                        var severity = (issue.severity || 'medium').toLowerCase();
+                        if (severity === 'critical') dailyData[dateStr].critical_issues++;
+                        else if (severity === 'high') dailyData[dateStr].high_issues++;
+                        else if (severity === 'medium') dailyData[dateStr].medium_issues++;
+                        else if (severity === 'low') dailyData[dateStr].low_issues++;
+                    });
+                }
+            }
+
+            // Calculate averages and convert to array
+            for (var date in dailyData) {
+                var day = dailyData[date];
+                if (day.health_scores.length > 0) {
+                    var sum = day.health_scores.reduce(function(a, b) { return a + b; }, 0);
+                    day.avg_health_score = Math.round(sum / day.health_scores.length);
+                }
+                delete day.health_scores;
+                trendingData.push(day);
+            }
+
+            // Sort by date
+            trendingData.sort(function(a, b) {
+                return a.date.localeCompare(b.date);
+            });
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getTrendingData: ' + e.message);
+        }
+
+        return trendingData;
+    },
+
+    /**
+     * Get health score distribution
+     * @returns {Object} Distribution of health scores
+     */
+    getHealthScoreDistribution: function() {
+        var distribution = {
+            excellent: 0,    // 90-100
+            good: 0,         // 70-89
+            fair: 0,         // 50-69
+            poor: 0,         // 30-49
+            critical: 0      // 0-29
+        };
+
+        try {
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.setLimit(500);
+            resultsGr.query();
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                
+                if (details.result && details.result.health_score !== undefined) {
+                    var score = parseFloat(details.result.health_score) || 0;
+                    
+                    if (score >= 90) distribution.excellent++;
+                    else if (score >= 70) distribution.good++;
+                    else if (score >= 50) distribution.fair++;
+                    else if (score >= 30) distribution.poor++;
+                    else distribution.critical++;
+                }
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getHealthScoreDistribution: ' + e.message);
+        }
+
+        return distribution;
+    },
+
+    /**
+     * Get analysis coverage (which tables have been analyzed)
+     * @returns {Object} Coverage statistics
+     */
+    getAnalysisCoverage: function() {
+        var coverage = {
+            total_tables_in_instance: 0,
+            tables_with_configurations: 0,
+            tables_analyzed: 0,
+            coverage_percentage: 0
+        };
+
+        try {
+            // Count total custom tables (excluding ServiceNow OOTB)
+            var tablesGa = new GlideAggregate('sys_db_object');
+            tablesGa.addQuery('name', 'STARTSWITH', 'u_')
+                .addOrCondition('name', 'STARTSWITH', 'x_');
+            tablesGa.addAggregate('COUNT');
+            tablesGa.query();
+            if (tablesGa.next()) {
+                coverage.total_tables_in_instance = parseInt(tablesGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Count tables with configurations
+            var configGr = new GlideRecord(this.configurationsTable);
+            configGr.addQuery('active', true);
+            configGr.query();
+            
+            var tablesWithConfigs = {};
+            while (configGr.next()) {
+                var tableRef = configGr.table.getRefRecord();
+                if (tableRef && tableRef.getValue('name')) {
+                    tablesWithConfigs[tableRef.getValue('name')] = true;
+                }
+            }
+            coverage.tables_with_configurations = Object.keys(tablesWithConfigs).length;
+
+            // Count tables actually analyzed
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.query();
+            
+            var analyzedTables = {};
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                if (details.config && details.config.table_name) {
+                    analyzedTables[details.config.table_name] = true;
+                }
+            }
+            coverage.tables_analyzed = Object.keys(analyzedTables).length;
+
+            // Calculate coverage percentage
+            if (coverage.total_tables_in_instance > 0) {
+                coverage.coverage_percentage = Math.round(
+                    (coverage.tables_analyzed / coverage.total_tables_in_instance) * 100
+                );
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getAnalysisCoverage: ' + e.message);
+        }
+
+        return coverage;
+    },
+
+    /**
+     * Get comprehensive statistics (all metrics combined)
+     * @returns {Object} All statistics
+     */
+    getComprehensiveStatistics: function() {
+        return {
+            global_metrics: this.getGlobalMetrics(),
+            category_metrics: this.getCategoryMetrics(),
+            top_problematic_tables: this.getTop10ProblematicTables(),
+            health_score_distribution: this.getHealthScoreDistribution(),
+            analysis_coverage: this.getAnalysisCoverage(),
+            trending_30_days: this.getTrendingData(30)
+        };
+    },
+
+    /**
+     * Safe JSON parse with fallback
+     * @param {String} str - JSON string
+     * @param {Object} fallback - Fallback value
+     * @returns {Object} Parsed object or fallback
+     */
+    _safeJSONParse: function(str, fallback) {
+        try {
+            return JSON.parse(str || '{}');
+        } catch (e) {
+            return fallback || {};
+        }
+    },
+
+    type: 'FHMetricsEngine'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-18 01:45:44</sys_created_on>
+        <sys_id>95d9737453e6be10c7233ee0a0490e26</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHMetricsEngine</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_95d9737453e6be10c7233ee0a0490e26</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-18 01:45:44</sys_updated_on>
+    </sys_script_include>
+<sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_script_include_95d9737453e6be10c7233ee0a0490e26</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;
+    &lt;sys_script_include action="INSERT_OR_UPDATE"&gt;
+        &lt;access&gt;package_private&lt;/access&gt;
+        &lt;active&gt;true&lt;/active&gt;
+        &lt;api_name&gt;x_1310794_founda_0.FHMetricsEngine&lt;/api_name&gt;
+        &lt;caller_access/&gt;
+        &lt;client_callable&gt;false&lt;/client_callable&gt;
+        &lt;description/&gt;
+        &lt;mobile_callable&gt;false&lt;/mobile_callable&gt;
+        &lt;name&gt;FHMetricsEngine&lt;/name&gt;
+        &lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;
+        &lt;script&gt;&lt;![CDATA[var FHMetricsEngine = Class.create();
+FHMetricsEngine.prototype = {
+    initialize: function() {
+        this.resultsTable = 'x_1310794_founda_0_results';
+        this.configurationsTable = 'x_1310794_founda_0_configurations';
+    },
+
+    /**
+     * Get global metrics for the application
+     * @returns {Object} Global metrics
+     */
+    getGlobalMetrics: function() {
+        var metrics = {
+            total_analyses: 0,
+            total_issues: 0,
+            avg_health_score: 0,
+            critical_issues: 0,
+            high_severity_issues: 0,
+            medium_severity_issues: 0,
+            low_severity_issues: 0,
+            tables_analyzed: 0,
+            active_configurations: 0,
+            analyses_last_30_days: 0,
+            success_rate: 0
+        };
+
+        try {
+            // Count total analyses
+            var totalGa = new GlideAggregate(this.resultsTable);
+            totalGa.addAggregate('COUNT');
+            totalGa.query();
+            if (totalGa.next()) {
+                metrics.total_analyses = parseInt(totalGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Count completed analyses and calculate stats
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.query();
+
+            var totalHealthScore = 0;
+            var completedCount = 0;
+            var tablesSet = {};
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                
+                // Health score
+                if (details.result &amp;&amp; details.result.health_score !== undefined) {
+                    totalHealthScore += parseFloat(details.result.health_score) || 0;
+                    completedCount++;
+                }
+
+                // Count issues by severity
+                if (details.issues &amp;&amp; Array.isArray(details.issues)) {
+                    details.issues.forEach(function(issue) {
+                        metrics.total_issues++;
+                        var severity = (issue.severity || 'medium').toLowerCase();
+                        if (severity === 'critical') metrics.critical_issues++;
+                        else if (severity === 'high') metrics.high_severity_issues++;
+                        else if (severity === 'medium') metrics.medium_severity_issues++;
+                        else if (severity === 'low') metrics.low_severity_issues++;
+                    });
+                }
+
+                // Track unique tables
+                if (details.config &amp;&amp; details.config.table_name) {
+                    tablesSet[details.config.table_name] = true;
+                }
+            }
+
+            // Calculate averages
+            if (completedCount &gt; 0) {
+                metrics.avg_health_score = Math.round(totalHealthScore / completedCount);
+            }
+            metrics.tables_analyzed = Object.keys(tablesSet).length;
+
+            // Count analyses in last 30 days
+            var thirtyDaysAgo = new GlideDateTime();
+            thirtyDaysAgo.addDaysLocalTime(-30);
+            var recentGa = new GlideAggregate(this.resultsTable);
+            recentGa.addQuery('sys_created_on', '&gt;=', thirtyDaysAgo);
+            recentGa.addAggregate('COUNT');
+            recentGa.query();
+            if (recentGa.next()) {
+                metrics.analyses_last_30_days = parseInt(recentGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Count active configurations
+            var configGa = new GlideAggregate(this.configurationsTable);
+            configGa.addQuery('active', true);
+            configGa.addAggregate('COUNT');
+            configGa.query();
+            if (configGa.next()) {
+                metrics.active_configurations = parseInt(configGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Calculate success rate
+            var errorGa = new GlideAggregate(this.resultsTable);
+            errorGa.addQuery('state', 'Error');
+            errorGa.addAggregate('COUNT');
+            errorGa.query();
+            var errorCount = 0;
+            if (errorGa.next()) {
+                errorCount = parseInt(errorGa.getAggregate('COUNT')) || 0;
+            }
+            if (metrics.total_analyses &gt; 0) {
+                metrics.success_rate = Math.round(((metrics.total_analyses - errorCount) / metrics.total_analyses) * 100);
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getGlobalMetrics: ' + e.message);
+        }
+
+        return metrics;
+    },
+
+    /**
+     * Get metrics by category (automation, security, integration, etc.)
+     * @returns {Object} Metrics grouped by category
+     */
+    getCategoryMetrics: function() {
+        var categories = {};
+
+        try {
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.setLimit(1000); // Limit to recent analyses
+            resultsGr.query();
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+
+                if (details.issues &amp;&amp; Array.isArray(details.issues)) {
+                    details.issues.forEach(function(issue) {
+                        var category = issue.category || 'general';
+                        
+                        if (!categories[category]) {
+                            categories[category] = {
+                                name: category,
+                                total_issues: 0,
+                                critical: 0,
+                                high: 0,
+                                medium: 0,
+                                low: 0,
+                                affected_tables: {}
+                            };
+                        }
+
+                        categories[category].total_issues++;
+                        var severity = (issue.severity || 'medium').toLowerCase();
+                        if (severity === 'critical') categories[category].critical++;
+                        else if (severity === 'high') categories[category].high++;
+                        else if (severity === 'medium') categories[category].medium++;
+                        else if (severity === 'low') categories[category].low++;
+
+                        // Track affected tables
+                        if (issue.record_table) {
+                            categories[category].affected_tables[issue.record_table] = true;
+                        }
+                    });
+                }
+            }
+
+            // Convert affected_tables to count
+            for (var cat in categories) {
+                categories[cat].affected_tables_count = Object.keys(categories[cat].affected_tables).length;
+                delete categories[cat].affected_tables;
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getCategoryMetrics: ' + e.message);
+        }
+
+        return categories;
+    },
+
+    /**
+     * Get top 10 most problematic tables
+     * @returns {Array} Array of tables with their issue counts
+     */
+    getTop10ProblematicTables: function() {
+        var tablesMap = {};
+
+        try {
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.setLimit(100); // Check recent analyses
+            resultsGr.query();
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                
+                if (details.config &amp;&amp; details.config.table_name) {
+                    var tableName = details.config.table_name;
+                    var tableLabel = details.config.table_label || tableName;
+                    
+                    if (!tablesMap[tableName]) {
+                        tablesMap[tableName] = {
+                            table_name: tableName,
+                            table_label: tableLabel,
+                            total_issues: 0,
+                            critical: 0,
+                            high: 0,
+                            medium: 0,
+                            low: 0,
+                            health_score: 0,
+                            last_analysis: resultsGr.getValue('sys_created_on')
+                        };
+                    }
+
+                    // Get latest health score
+                    if (details.result &amp;&amp; details.result.health_score !== undefined) {
+                        tablesMap[tableName].health_score = parseFloat(details.result.health_score) || 0;
+                    }
+
+                    // Count issues
+                    if (details.issues &amp;&amp; Array.isArray(details.issues)) {
+                        details.issues.forEach(function(issue) {
+                            tablesMap[tableName].total_issues++;
+                            var severity = (issue.severity || 'medium').toLowerCase();
+                            if (severity === 'critical') tablesMap[tableName].critical++;
+                            else if (severity === 'high') tablesMap[tableName].high++;
+                            else if (severity === 'medium') tablesMap[tableName].medium++;
+                            else if (severity === 'low') tablesMap[tableName].low++;
+                        });
+                    }
+                }
+            }
+
+            // Convert to array and sort
+            var tablesArray = [];
+            for (var tableName in tablesMap) {
+                tablesArray.push(tablesMap[tableName]);
+            }
+
+            // Sort by total issues (descending), then by health score (ascending)
+            tablesArray.sort(function(a, b) {
+                if (b.total_issues !== a.total_issues) {
+                    return b.total_issues - a.total_issues;
+                }
+                return a.health_score - b.health_score;
+            });
+
+            // Return top 10
+            return tablesArray.slice(0, 10);
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getTop10ProblematicTables: ' + e.message);
+            return [];
+        }
+    },
+
+    /**
+     * Get trending data for a specific period
+     * @param {Number} days - Number of days to look back
+     * @returns {Array} Array of daily metrics
+     */
+    getTrendingData: function(days) {
+        days = days || 30;
+        var trendingData = [];
+
+        try {
+            var startDate = new GlideDateTime();
+            startDate.addDaysLocalTime(-days);
+
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.addQuery('sys_created_on', '&gt;=', startDate);
+            resultsGr.orderBy('sys_created_on');
+            resultsGr.query();
+
+            var dailyData = {};
+
+            while (resultsGr.next()) {
+                var dateStr = resultsGr.sys_created_on.getDisplayValue().split(' ')[0]; // YYYY-MM-DD
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+
+                if (!dailyData[dateStr]) {
+                    dailyData[dateStr] = {
+                        date: dateStr,
+                        analyses_count: 0,
+                        total_issues: 0,
+                        avg_health_score: 0,
+                        health_scores: [],
+                        critical_issues: 0,
+                        high_issues: 0,
+                        medium_issues: 0,
+                        low_issues: 0
+                    };
+                }
+
+                dailyData[dateStr].analyses_count++;
+
+                // Health score
+                if (details.result &amp;&amp; details.result.health_score !== undefined) {
+                    dailyData[dateStr].health_scores.push(parseFloat(details.result.health_score) || 0);
+                }
+
+                // Issues
+                if (details.issues &amp;&amp; Array.isArray(details.issues)) {
+                    details.issues.forEach(function(issue) {
+                        dailyData[dateStr].total_issues++;
+                        var severity = (issue.severity || 'medium').toLowerCase();
+                        if (severity === 'critical') dailyData[dateStr].critical_issues++;
+                        else if (severity === 'high') dailyData[dateStr].high_issues++;
+                        else if (severity === 'medium') dailyData[dateStr].medium_issues++;
+                        else if (severity === 'low') dailyData[dateStr].low_issues++;
+                    });
+                }
+            }
+
+            // Calculate averages and convert to array
+            for (var date in dailyData) {
+                var day = dailyData[date];
+                if (day.health_scores.length &gt; 0) {
+                    var sum = day.health_scores.reduce(function(a, b) { return a + b; }, 0);
+                    day.avg_health_score = Math.round(sum / day.health_scores.length);
+                }
+                delete day.health_scores;
+                trendingData.push(day);
+            }
+
+            // Sort by date
+            trendingData.sort(function(a, b) {
+                return a.date.localeCompare(b.date);
+            });
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getTrendingData: ' + e.message);
+        }
+
+        return trendingData;
+    },
+
+    /**
+     * Get health score distribution
+     * @returns {Object} Distribution of health scores
+     */
+    getHealthScoreDistribution: function() {
+        var distribution = {
+            excellent: 0,    // 90-100
+            good: 0,         // 70-89
+            fair: 0,         // 50-69
+            poor: 0,         // 30-49
+            critical: 0      // 0-29
+        };
+
+        try {
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.orderByDesc('sys_created_on');
+            resultsGr.setLimit(500);
+            resultsGr.query();
+
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                
+                if (details.result &amp;&amp; details.result.health_score !== undefined) {
+                    var score = parseFloat(details.result.health_score) || 0;
+                    
+                    if (score &gt;= 90) distribution.excellent++;
+                    else if (score &gt;= 70) distribution.good++;
+                    else if (score &gt;= 50) distribution.fair++;
+                    else if (score &gt;= 30) distribution.poor++;
+                    else distribution.critical++;
+                }
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getHealthScoreDistribution: ' + e.message);
+        }
+
+        return distribution;
+    },
+
+    /**
+     * Get analysis coverage (which tables have been analyzed)
+     * @returns {Object} Coverage statistics
+     */
+    getAnalysisCoverage: function() {
+        var coverage = {
+            total_tables_in_instance: 0,
+            tables_with_configurations: 0,
+            tables_analyzed: 0,
+            coverage_percentage: 0
+        };
+
+        try {
+            // Count total custom tables (excluding ServiceNow OOTB)
+            var tablesGa = new GlideAggregate('sys_db_object');
+            tablesGa.addQuery('name', 'STARTSWITH', 'u_')
+                .addOrCondition('name', 'STARTSWITH', 'x_');
+            tablesGa.addAggregate('COUNT');
+            tablesGa.query();
+            if (tablesGa.next()) {
+                coverage.total_tables_in_instance = parseInt(tablesGa.getAggregate('COUNT')) || 0;
+            }
+
+            // Count tables with configurations
+            var configGr = new GlideRecord(this.configurationsTable);
+            configGr.addQuery('active', true);
+            configGr.query();
+            
+            var tablesWithConfigs = {};
+            while (configGr.next()) {
+                var tableRef = configGr.table.getRefRecord();
+                if (tableRef &amp;&amp; tableRef.getValue('name')) {
+                    tablesWithConfigs[tableRef.getValue('name')] = true;
+                }
+            }
+            coverage.tables_with_configurations = Object.keys(tablesWithConfigs).length;
+
+            // Count tables actually analyzed
+            var resultsGr = new GlideRecord(this.resultsTable);
+            resultsGr.addQuery('state', 'Completed');
+            resultsGr.query();
+            
+            var analyzedTables = {};
+            while (resultsGr.next()) {
+                var details = this._safeJSONParse(resultsGr.getValue('details'), {});
+                if (details.config &amp;&amp; details.config.table_name) {
+                    analyzedTables[details.config.table_name] = true;
+                }
+            }
+            coverage.tables_analyzed = Object.keys(analyzedTables).length;
+
+            // Calculate coverage percentage
+            if (coverage.total_tables_in_instance &gt; 0) {
+                coverage.coverage_percentage = Math.round(
+                    (coverage.tables_analyzed / coverage.total_tables_in_instance) * 100
+                );
+            }
+
+        } catch (e) {
+            gs.error('[FHMetricsEngine] Error in getAnalysisCoverage: ' + e.message);
+        }
+
+        return coverage;
+    },
+
+    /**
+     * Get comprehensive statistics (all metrics combined)
+     * @returns {Object} All statistics
+     */
+    getComprehensiveStatistics: function() {
+        return {
+            global_metrics: this.getGlobalMetrics(),
+            category_metrics: this.getCategoryMetrics(),
+            top_problematic_tables: this.getTop10ProblematicTables(),
+            health_score_distribution: this.getHealthScoreDistribution(),
+            analysis_coverage: this.getAnalysisCoverage(),
+            trending_30_days: this.getTrendingData(30)
+        };
+    },
+
+    /**
+     * Safe JSON parse with fallback
+     * @param {String} str - JSON string
+     * @param {Object} fallback - Fallback value
+     * @returns {Object} Parsed object or fallback
+     */
+    _safeJSONParse: function(str, fallback) {
+        try {
+            return JSON.parse(str || '{}');
+        } catch (e) {
+            return fallback || {};
+        }
+    },
+
+    type: 'FHMetricsEngine'
+};]]&gt;&lt;/script&gt;
+        &lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;
+        &lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;
+        &lt;sys_created_on&gt;2026-01-18 01:45:44&lt;/sys_created_on&gt;
+        &lt;sys_id&gt;95d9737453e6be10c7233ee0a0490e26&lt;/sys_id&gt;
+        &lt;sys_mod_count&gt;0&lt;/sys_mod_count&gt;
+        &lt;sys_name&gt;FHMetricsEngine&lt;/sys_name&gt;
+        &lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;
+        &lt;sys_policy&gt;read&lt;/sys_policy&gt;
+        &lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;
+        &lt;sys_update_name&gt;sys_script_include_95d9737453e6be10c7233ee0a0490e26&lt;/sys_update_name&gt;
+        &lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;
+        &lt;sys_updated_on&gt;2026-01-18 01:45:44&lt;/sys_updated_on&gt;
+    &lt;/sys_script_include&gt;
+&lt;/record_update&gt;</payload>
+        <payload_hash>-1581334570</payload_hash>
+        <record_name>FHMetricsEngine</record_name>
+        <reverted_from/>
+        <source>72de8fd553cfb610c7233ee0a0490e75</source>
+        <source_table>sys_upgrade_history</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-13 08:25:55</sys_created_on>
+        <sys_id>daee4b1953cfb610c7233ee0a0490ed0</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19c561b4d110000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-13 08:25:55</sys_updated_on>
+        <type>Script Include</type>
+        <update_guid>16ee4b1905cfb61062d53580084cfdd0</update_guid>
+        <update_guid_history>16ee4b1905cfb61062d53580084cfdd0:0,114ad1556603b6106ac6431913333567:-524909202,b6f9b774f6e6be10a68ba0072767770b:1709717666</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-13 08:29:48</sys_created_on>
+        <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
+        <sys_id>19c529adfa144fae8fc52eb77767e751</sys_id>
+        <sys_metadata>95d9737453e6be10c7233ee0a0490e26</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHMetricsEngine</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_script_include_95d9737453e6be10c7233ee0a0490e26</sys_update_name>
+        <sys_update_version display_value="sys_script_include_95d9737453e6be10c7233ee0a0490e26">daee4b1953cfb610c7233ee0a0490ed0</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-13 08:29:48</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>
