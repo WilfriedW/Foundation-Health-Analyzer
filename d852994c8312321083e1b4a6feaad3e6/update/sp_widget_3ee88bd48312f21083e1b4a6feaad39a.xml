@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[function($scope, $location, spModal) {
+        <client_script><![CDATA[function($scope, $location, $window, spModal) {
     var c = this;
 
     // ============================================================
@@ -50,7 +50,7 @@
 
       if (c.filters.category && c.filters.category !== '') {
         filtered = filtered.filter(function(issue) {
-          return (issue.category || 'Uncategorized') === c.filters.category;
+          return (c.getIssueCategory(issue) || 'Uncategorized') === c.filters.category;
         });
       }
 
@@ -255,18 +255,25 @@
     };
     
 
+    c.getIssueCategory = function(issue) {
+      return issue.category ||
+             (issue.details && issue.details.category) ||
+             (issue.details && issue.details.rule_category) ||
+             null;
+    };
+
     c.getIssuesByCategory = function() {
       if (!c.result || !c.result.issues) return {};
-      
+
       var grouped = {};
       c.result.issues.forEach(function(issue) {
-        var category = issue.category || 'Uncategorized';
+        var category = c.getIssueCategory(issue) || 'Uncategorized';
         if (!grouped[category]) {
           grouped[category] = [];
         }
         grouped[category].push(issue);
       });
-      
+
       return grouped;
     };
     
@@ -274,8 +281,9 @@
       var byCategory = c.getIssuesByCategory();
       var stats = [];
       var total = c.getTotalIssues();
-      
+
       for (var catName in byCategory) {
+        if (catName === 'Uncategorized') continue; // skip if no real categories exist
         var issues = byCategory[catName];
         stats.push({
           name: catName,
@@ -283,11 +291,21 @@
           percentage: total > 0 ? Math.round((issues.length / total) * 100) : 0
         });
       }
-      
+
+      // Only add Uncategorized if there are other real categories too
+      if (byCategory['Uncategorized'] && stats.length > 0) {
+        stats.push({
+          name: 'Uncategorized',
+          count: byCategory['Uncategorized'].length,
+          percentage: total > 0 ? Math.round((byCategory['Uncategorized'].length / total) * 100) : 0
+        });
+      }
+
+      // If ALL issues are uncategorized, show nothing (no point filtering)
       stats.sort(function(a, b) {
         return b.count - a.count;
       });
-      
+
       return stats;
     };
         
@@ -366,7 +384,12 @@
       var table = issue.record_table || issue.table;
       if (!table) return;
       var url = '/' + table + '.do?sys_id=' + issue.record;
-      window.open(url, '_blank');
+      try {
+        var w = $window.open(url, '_blank');
+        if (!w) $window.location.href = url; // fallback if popup blocked
+      } catch(e) {
+        $window.location.href = url;
+      }
     };
     
  
@@ -863,9 +886,9 @@ s -->
             <label style="display: block; font-size: 12px; font-weight: 600; color: var(--fha-text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
               <i class="fa fa-table"></i> Table
             </label>
-            <select ng-model="c.filters.table" class="fha-select">
+            <select ng-model="c.filters.table" class="fha-select"
+                    ng-options="tableItem.name as (tableItem.name + ' (' + tableItem.total + ')') for tableItem in c.getTopTables()">
               <option value="all">All Tables</option>
-              <option ng-repeat="tableItem in c.getTopTables()" value="{{tableItem.name}}">{{tableItem.name}} ({{tableItem.total}})</option>
             </select>
           </div>
           
@@ -874,11 +897,9 @@ s -->
             <label style="display: block; font-size: 12px; font-weight: 600; color: var(--fha-text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
               <i class="fa fa-tag"></i> Category
             </label>
-            <select ng-model="c.filters.category" class="fha-select">
+            <select ng-model="c.filters.category" class="fha-select"
+                    ng-options="cat.name as (cat.name + ' (' + cat.count + ')') for cat in c.getCategoryStats()">
               <option value="">All Categories</option>
-              <option ng-repeat="cat in c.getCategoryStats()" value="{{cat.name}}">
-                {{cat.name}} ({{cat.count}})
-              </option>
             </select>
           </div>
           
@@ -959,8 +980,8 @@ s -->
             <code style="background: var(--fha-gray-100); padding: 6px 12px; border-radius: 6px; font-size: 12px; color: var(--fha-anthracite); border: 1px solid var(--fha-border-color); font-weight: 600;">
               {{issue.code}}
             </code>
-            <span ng-if="issue.category" style="padding: 4px 10px; background: var(--fha-bg-section); border-radius: 12px; font-size: 11px; color: var(--fha-anthracite); border: 1px solid var(--fha-border-color); font-weight: 600;">
-              <i class="fa fa-tag" style="color: var(--fha-primary);"></i> {{issue.category}}
+            <span ng-if="c.getIssueCategory(issue)" style="padding: 4px 10px; background: var(--fha-bg-section); border-radius: 12px; font-size: 11px; color: var(--fha-anthracite); border: 1px solid var(--fha-border-color); font-weight: 600;">
+              <i class="fa fa-tag" style="color: var(--fha-primary);"></i> {{c.getIssueCategory(issue)}}
             </span>
           </div>
           
@@ -1005,14 +1026,86 @@ s -->
           </div>
           
           <!-- Details Panel (collapsible) -->
-          <div ng-if="issue.showDetails && issue.details" 
+          <div ng-if="issue.showDetails && issue.details"
                style="margin-top: 16px; background: var(--fha-bg-section); padding: 16px; border-radius: 6px; border: 1px solid var(--fha-border-color); animation: slideDown 0.3s ease;">
             <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--fha-border-color);">
               <h5 style="margin: 0; font-size: 13px; font-weight: 700; color: var(--fha-anthracite); text-transform: uppercase; letter-spacing: 0.5px;">
                 <i class="fa fa-info-circle" style="color: var(--fha-primary);"></i> Additional Details
               </h5>
             </div>
-            <pre class="fha-json-viewer" style="margin: 0; max-height: 300px; font-size: 12px;">{{issue.details | json}}</pre>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+              <!-- record_name -->
+              <div ng-if="issue.details.record_name" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-file-text-o"></i> Record Name</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.details.record_name}}</div>
+              </div>
+              <!-- field -->
+              <div ng-if="issue.details.field" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-columns"></i> Field</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.details.field}}</div>
+              </div>
+              <!-- pattern -->
+              <div ng-if="issue.details.pattern" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-search"></i> Pattern</div>
+                <code style="font-size: 12px; color: var(--fha-danger);">{{issue.details.pattern}}</code>
+              </div>
+              <!-- serial_number -->
+              <div ng-if="issue.details.serial_number" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-barcode"></i> Serial Number</div>
+                <code style="font-size: 12px; color: var(--fha-anthracite);">{{issue.details.serial_number}}</code>
+              </div>
+              <!-- created_by / updated_by -->
+              <div ng-if="issue.details.created_by" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-user"></i> Created By</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite);">{{issue.details.created_by}}</div>
+              </div>
+              <div ng-if="issue.details.updated_by" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-pencil"></i> Updated By</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite);">{{issue.details.updated_by}}</div>
+              </div>
+              <!-- days_old / threshold -->
+              <div ng-if="issue.details.days_old !== undefined" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-clock-o"></i> Age (days)</div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--fha-warning);">{{issue.details.days_old}}</div>
+              </div>
+              <div ng-if="issue.details.threshold !== undefined" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-sliders"></i> Threshold</div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--fha-anthracite);">{{issue.details.threshold}}</div>
+              </div>
+              <!-- total_count -->
+              <div ng-if="issue.details.total_count !== undefined" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-list-ol"></i> Total Count</div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--fha-primary);">{{issue.details.total_count}}</div>
+              </div>
+              <!-- operation (ACL) -->
+              <div ng-if="issue.details.operation" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-shield"></i> Operation</div>
+                <div style="font-size: 13px; color: var(--fha-danger); font-weight: 700; text-transform: uppercase;">{{issue.details.operation}}</div>
+              </div>
+              <!-- missing_fields -->
+              <div ng-if="issue.details.missing_fields" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-exclamation-circle"></i> Missing Fields</div>
+                <div style="font-size: 13px; color: var(--fha-danger); font-weight: 600;">{{issue.details.missing_fields}}</div>
+              </div>
+              <!-- state -->
+              <div ng-if="issue.details.state" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-flag"></i> State</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite);">{{issue.details.state}}</div>
+              </div>
+              <!-- date_field -->
+              <div ng-if="issue.details.date_field" style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid var(--fha-border-color);">
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"><i class="fa fa-calendar"></i> Date Field</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite);">{{issue.details.date_field}}</div>
+              </div>
+            </div>
+            <!-- Recommendation (full width) -->
+            <div ng-if="issue.details.recommendation" style="margin-top: 12px; padding: 12px 16px; background: rgba(241,196,15,0.08); border: 1px solid rgba(241,196,15,0.3); border-left: 4px solid var(--fha-warning); border-radius: 6px; display: flex; gap: 10px; align-items: flex-start;">
+              <i class="fa fa-lightbulb-o" style="color: var(--fha-warning); font-size: 18px; margin-top: 2px; flex-shrink: 0;"></i>
+              <div>
+                <div style="font-size: 10px; font-weight: 700; color: var(--fha-warning); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Recommendation</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite); line-height: 1.6;">{{issue.details.recommendation}}</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
