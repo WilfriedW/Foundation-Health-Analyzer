@@ -373,14 +373,17 @@ FHAUtils.prototype = {
     isSncRecord: function(record) {
         if (!record) return false;
 
-        // Load SNC users from system property (comma-separated), fallback to defaults
-        var sncUsers = {};
-        var propValue = gs.getProperty('x_1310794_founda_0.snc_users',
-            'admin,glide.maint,guest,system,maint,don goodliffe,chris.henson,pat casey,fred luddy');
-        propValue.split(',').forEach(function(u) {
-            var trimmed = u.trim().toLowerCase();
-            if (trimmed) sncUsers[trimmed] = true;
-        });
+        var sncUsers = {
+            'admin': true,
+            'glide.maint': true,
+            'guest': true,
+            'system': true,
+            'maint': true,
+            'don goodliffe': true,
+            'chris.henson': true,
+            'pat casey': true,
+            'fred luddy': true
+        };
 
         var created = (record.sys_created_by || '').toLowerCase();
         var updated = (record.sys_updated_by || '').toLowerCase();
