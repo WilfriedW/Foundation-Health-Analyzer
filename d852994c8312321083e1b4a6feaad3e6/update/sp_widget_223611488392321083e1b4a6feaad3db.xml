@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
-        <client_script><![CDATA[function($scope, spUtil, $location) {
+        <client_script><![CDATA[function($scope, $window, spUtil, $location) {
     var c = this;
 
     c.selectedConfig = null;
@@ -26,15 +26,15 @@
         }).then(function(response) {
             c.loading = false;
             if (response.data.success) {
-            c.result = response.data.runResult;
+                c.result = response.data.runResult;
                 c.analysisId = response.data.analysisId;
                 c.refreshRecentAnalyses();
             } else {
-                c.error = response.data.error || '${An error occurred}';
+                c.error = response.data.error || 'An error occurred';
             }
-        }, function(error) {
+        }, function() {
             c.loading = false;
-            c.error = '${Server communication error}';
+            c.error = 'Server communication error';
         });
     };
 
@@ -51,7 +51,7 @@
                 c.result = response.data.analysisResult;
                 c.analysisId = analysisId;
             } else {
-                c.error = response.data.error || '${Analysis not found}';
+                c.error = response.data.error || 'Analysis not found';
             }
         });
     };
@@ -69,26 +69,31 @@
 
     // Navigate to detailed results
     c.viewDetails = function(analysisId) {
-        window.location.href = '/fha?id=fha_analysis_detail&sys_id=' + analysisId;
+        $window.location.href = '/fha?id=fha_analysis_detail&sys_id=' + analysisId;
     };
 
     // Get severity class for styling
     c.getSeverityClass = function(severity) {
-        switch(severity) {
-            case 'high': return 'danger';
-            case 'medium': return 'warning';
-            case 'low': return 'info';
-            default: return 'default';
-        }
+        var s = (severity || '').toLowerCase();
+        if (s === 'critical') return 'danger';
+        if (s === 'high')     return 'danger';
+        if (s === 'medium')   return 'warning';
+        return 'info';
     };
 
-    // Get health score class (aligned with Executive Dashboard thresholds)
+    // Get health score class
     c.getHealthScoreClass = function(score) {
-        if (score >= 90) return 'success';
         if (score >= 70) return 'success';
-        if (score >= 50) return 'warning';
-        if (score >= 30) return 'warning';
+        if (score >= 40) return 'warning';
         return 'danger';
+    };
+
+    // Get health score label — was missing, caused template crash
+    c.getHealthScoreLabel = function(score) {
+        if (score >= 90) return 'Excellent';
+        if (score >= 70) return 'Good';
+        if (score >= 40) return 'Fair';
+        return 'Poor';
     };
 
     // Calculate health score from issues
@@ -372,34 +377,58 @@
     // Load recent analyses
     data.recentAnalyses = [];
     var resultsGr = new GlideRecord('x_1310794_founda_0_results');
-    resultsGr.addQuery('state', 'Completed');
+    // state can be 'completed' or 'Completed' depending on instance — use OR
+    var stateQ = resultsGr.addQuery('state', 'completed');
+    stateQ.addOrCondition('state', 'Completed');
     resultsGr.orderByDesc('sys_created_on');
     resultsGr.setLimit(10);
     resultsGr.query();
-    
+
     while (resultsGr.next()) {
         var detailObj = {};
         var issues = [];
         var tableDisplayName = '';
+        var healthScore = 0;
         try {
             detailObj = JSON.parse(resultsGr.getValue('details') || '{}');
-            issues = detailObj.issues || [];
-            tableDisplayName = (detailObj.config && (detailObj.config.table_label || detailObj.config.table_name)) || '';
-        } catch (e) {}
-        var healthScore = 100;
-        issues.forEach(function(issue) {
-            if (issue.severity === 'high') healthScore -= 15;
-            else if (issue.severity === 'medium') healthScore -= 5;
-            else healthScore -= 2;
-        });
-        healthScore = Math.max(0, healthScore);
-        
+            // Real structure: { configuration: {...}, result: { issues:[], health_score:N, ... } }
+            var resultData = detailObj.result || {};
+            issues = resultData.issues || [];
+            healthScore = resultData.health_score || 0;
+            var configData = detailObj.configuration || detailObj.config || {};
+            tableDisplayName = configData.table_label
+                ? (configData.table_label + ' (' + configData.table_name + ')')
+                : (configData.table_name || configData.name || '');
+        } catch (e) {
+            gs.warn('[FHA Dashboard] Failed to parse details for ' + resultsGr.getUniqueValue() + ': ' + e.message);
+        }
+
+        // Fall back to computed score if health_score not stored
+        if (!healthScore && issues.length > 0) {
+            healthScore = 100;
+            issues.forEach(function(issue) {
+                var sev = (issue.severity || '').toLowerCase();
+                if (sev === 'critical') healthScore -= 20;
+                else if (sev === 'high') healthScore -= 10;
+                else if (sev === 'medium') healthScore -= 5;
+                else healthScore -= 2;
+            });
+            healthScore = Math.max(0, healthScore);
+        }
+
         data.recentAnalyses.push({
             sys_id: resultsGr.getUniqueValue(),
             number: resultsGr.getValue('number'),
+            state: resultsGr.getValue('state'),
+            configuration_name: (detailObj.configuration || {}).name || '',
             table_name: tableDisplayName,
             health_score: healthScore,
             issue_count: issues.length,
+            issues_critical: (detailObj.result || {}).issues_critical || 0,
+            issues_high: (detailObj.result || {}).issues_high || 0,
+            issues_medium: (detailObj.result || {}).issues_medium || 0,
+            issues_low: (detailObj.result || {}).issues_low || 0,
+            record_count: (detailObj.result || {}).record_count || 0,
             created_on: resultsGr.getValue('sys_created_on')
         });
     }
@@ -411,66 +440,129 @@
                 try {
                     var analyzer = new x_1310794_founda_0.FHAnalyzer();
                     var result = analyzer.runAnalysis(input.configSysId);
-                    
+
                     if (result.success) {
                         data.success = true;
-                        data.runResult = result.details;
-                        data.analysisId = result.analysis_id;
+                        data.analysisId = result.analysis_id || result.analysisId;
+
+                        // Build a normalized runResult from the full details structure
+                        var details = result.details || {};
+                        var resultData = details.result || {};
+                        var configData = details.configuration || details.config || {};
+
+                        data.runResult = {
+                            health_score: resultData.health_score || 0,
+                            issue_count:  resultData.issue_count  || (resultData.issues ? resultData.issues.length : 0),
+                            issues_critical: resultData.issues_critical || 0,
+                            issues_high:     resultData.issues_high     || 0,
+                            issues_medium:   resultData.issues_medium   || 0,
+                            issues_low:      resultData.issues_low      || 0,
+                            record_count: resultData.record_count || 0,
+                            duration_ms:  resultData.duration_ms  || resultData.duration || null,
+                            configuration_name: configData.name  || '',
+                            table_name: configData.table_label
+                                ? (configData.table_label + ' (' + configData.table_name + ')')
+                                : (configData.table_name || '')
+                        };
                     } else {
                         data.success = false;
-                        data.error = result.error;
+                        data.error = result.error || 'Analysis failed';
                     }
                 } catch(e) {
                     data.success = false;
                     data.error = e.message;
                 }
                 break;
-                
+
             case 'get_result':
                 try {
-                    var analyzer = new x_1310794_founda_0.FHAnalyzer();
-                    var result = analyzer.getAnalysisResult(input.analysisId);
-                    data.success = result.success;
-                    data.analysisResult = result.result;
-                    data.error = result.error;
+                    var grRes = new GlideRecord('x_1310794_founda_0_results');
+                    if (grRes.get(input.analysisId)) {
+                        var detRes = {};
+                        try { detRes = JSON.parse(grRes.getValue('details') || '{}'); } catch(ex) {}
+                        var rData = detRes.result || {};
+                        var cData = detRes.configuration || detRes.config || {};
+                        var hs = rData.health_score || 0;
+                        var iss = rData.issues || [];
+                        if (!hs && iss.length > 0) {
+                            hs = 100;
+                            iss.forEach(function(i) {
+                                var s = (i.severity || '').toLowerCase();
+                                if (s === 'critical') hs -= 20;
+                                else if (s === 'high') hs -= 10;
+                                else if (s === 'medium') hs -= 5;
+                                else hs -= 2;
+                            });
+                            hs = Math.max(0, hs);
+                        }
+                        data.success = true;
+                        data.analysisResult = {
+                            health_score: hs,
+                            issue_count:  rData.issue_count  || iss.length,
+                            issues_critical: rData.issues_critical || 0,
+                            issues_high:     rData.issues_high     || 0,
+                            issues_medium:   rData.issues_medium   || 0,
+                            issues_low:      rData.issues_low      || 0,
+                            record_count: rData.record_count || 0,
+                            duration_ms:  rData.duration_ms  || rData.duration || null,
+                            configuration_name: cData.name || '',
+                            table_name: cData.table_label
+                                ? (cData.table_label + ' (' + cData.table_name + ')')
+                                : (cData.table_name || '')
+                        };
+                    } else {
+                        data.success = false;
+                        data.error = 'Analysis not found';
+                    }
                 } catch(e) {
                     data.success = false;
                     data.error = e.message;
                 }
                 break;
-                
+
             case 'get_recent_analyses':
                 data.success = true;
                 data.analyses = [];
                 var gr = new GlideRecord('x_1310794_founda_0_results');
-                gr.addQuery('state', 'Completed');
+                var grStQ = gr.addQuery('state', 'completed');
+                grStQ.addOrCondition('state', 'Completed');
                 gr.orderByDesc('sys_created_on');
                 gr.setLimit(10);
                 gr.query();
-                
+
                 while (gr.next()) {
-                    var tblName = '';
                     var det = {};
-                    var issuesList = [];
-                    try {
-                        det = JSON.parse(gr.getValue('details') || '{}');
-                        tblName = (det.config && (det.config.table_label || det.config.table_name)) || '';
-                        issuesList = det.issues || [];
-                    } catch(ex) {}
-                    var score = 100;
-                    issuesList.forEach(function(issue) {
-                        if (issue.severity === 'high') score -= 15;
-                        else if (issue.severity === 'medium') score -= 5;
-                        else score -= 2;
-                    });
-                    score = Math.max(0, score);
-                    
+                    try { det = JSON.parse(gr.getValue('details') || '{}'); } catch(ex) {}
+                    var rr = det.result || {};
+                    var cc = det.configuration || det.config || {};
+                    var sc = rr.health_score || 0;
+                    var il = rr.issues || [];
+                    if (!sc && il.length > 0) {
+                        sc = 100;
+                        il.forEach(function(i) {
+                            var sv = (i.severity || '').toLowerCase();
+                            if (sv === 'critical') sc -= 20;
+                            else if (sv === 'high') sc -= 10;
+                            else if (sv === 'medium') sc -= 5;
+                            else sc -= 2;
+                        });
+                        sc = Math.max(0, sc);
+                    }
                     data.analyses.push({
                         sys_id: gr.getUniqueValue(),
                         number: gr.getValue('number'),
-                        table_name: tblName,
-                        health_score: score,
-                        issue_count: issuesList.length,
+                        state: gr.getValue('state'),
+                        configuration_name: cc.name || '',
+                        table_name: cc.table_label
+                            ? (cc.table_label + ' (' + cc.table_name + ')')
+                            : (cc.table_name || ''),
+                        health_score: sc,
+                        issue_count: rr.issue_count || il.length,
+                        issues_critical: rr.issues_critical || 0,
+                        issues_high:     rr.issues_high     || 0,
+                        issues_medium:   rr.issues_medium   || 0,
+                        issues_low:      rr.issues_low      || 0,
+                        record_count: rr.record_count || 0,
                         created_on: gr.getValue('sys_created_on')
                     });
                 }
@@ -579,44 +671,67 @@
       </div>
 
       <!-- Results Panel -->
-      <div class="fha-card" ng-if="c.result">
-        <div class="fha-card-header">
-          <h4><i class="fa fa-chart-bar"></i> ${Analysis Results}</h4>
-          <button class="fha-btn-primary" ng-if="c.analysisId" ng-click="c.viewDetails(c.analysisId)" style="padding:8px 14px;font-size:13px;">
-            <i class="fa fa-arrow-right"></i> ${View Full Details}
+      <div class="fha-card" ng-if="c.result" style="border-left: 4px solid var(--fha-success);">
+        <div class="fha-card-header" style="background: var(--fha-success-bg);">
+          <h4 style="color: var(--fha-anthracite);"><i class="fa fa-check-circle" style="color: var(--fha-success);"></i> Analysis Complete</h4>
+          <button class="fha-btn-primary" ng-if="c.analysisId" ng-click="c.viewDetails(c.analysisId)" style="padding: 8px 14px; font-size: 13px;">
+            <i class="fa fa-arrow-right"></i> View Full Details
           </button>
         </div>
-        <div class="fha-card-body">
-          <div class="row">
-            <div class="col-sm-3">
-              <div style="text-align:center;padding:15px;">
-                <div class="fha-score-circle" ng-class="c.getHealthScoreClass(c.result.health_score)">
-                  {{c.result.health_score}}
-                </div>
-                <div class="fha-score-label">{{c.getHealthScoreLabel(c.result.health_score)}}</div>
+        <div class="fha-card-body" style="padding: 20px;">
+
+          <!-- Config context -->
+          <div ng-if="c.result.configuration_name || c.result.table_name" style="margin-bottom: 16px; padding: 10px 14px; background: var(--fha-bg-section); border-radius: 6px; font-size: 13px; color: var(--fha-text-secondary);">
+            <i class="fa fa-cog"></i> <strong style="color: var(--fha-anthracite);">{{c.result.configuration_name}}</strong>
+            <span ng-if="c.result.table_name"> — {{c.result.table_name}}</span>
+          </div>
+
+          <!-- KPI row -->
+          <div style="display: grid; grid-template-columns: 140px 1fr; gap: 16px; align-items: start;">
+
+            <!-- Health Score circle -->
+            <div style="text-align: center;">
+              <div style="width: 110px; height: 110px; border-radius: 50%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 8px solid; font-weight: 800;"
+                   ng-style="{
+                     'font-size': '28px',
+                     'color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)',
+                     'border-color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)',
+                     'background': c.result.health_score >= 70 ? 'var(--fha-success-bg)' : c.result.health_score >= 40 ? 'var(--fha-warning-bg)' : 'var(--fha-danger-bg)'
+                   }">
+                {{c.result.health_score || 0}}%
+              </div>
+              <div style="margin-top: 8px; font-size: 13px; font-weight: 700;"
+                   ng-style="{'color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)'}">
+                {{c.getHealthScoreLabel(c.result.health_score || 0)}}
               </div>
             </div>
-            <div class="col-sm-9">
-              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:15px;">
-                <div style="background:var(--fha-gray-50);padding:12px;border-radius:8px;text-align:center;">
-                  <div style="font-size:24px;font-weight:bold;color:var(--fha-danger);">{{c.result.issues_high || 0}}</div>
-                  <div style="font-size:11px;color:var(--fha-gray-500);">High Issues</div>
-                </div>
-                <div style="background:var(--fha-gray-50);padding:12px;border-radius:8px;text-align:center;">
-                  <div style="font-size:24px;font-weight:bold;color:var(--fha-warning);">{{c.result.issues_medium || 0}}</div>
-                  <div style="font-size:11px;color:var(--fha-gray-500);">Medium Issues</div>
-                </div>
-                <div style="background:var(--fha-gray-50);padding:12px;border-radius:8px;text-align:center;">
-                  <div style="font-size:24px;font-weight:bold;color:var(--fha-primary);">{{c.result.issues_low || 0}}</div>
-                  <div style="font-size:11px;color:var(--fha-gray-500);">Low Issues</div>
-                </div>
+
+            <!-- Issue counts grid -->
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+              <div style="background: var(--fha-danger-bg); border: 1px solid var(--fha-danger-light); border-radius: 8px; padding: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 800; color: var(--fha-danger);">{{c.result.issues_critical || 0}}</div>
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--fha-danger); letter-spacing: 0.5px;">Critical</div>
               </div>
-              <div style="padding:12px;background:var(--fha-gray-50);border-radius:8px;">
-                <strong>${Total Issues}:</strong> {{c.result.issue_count || 0}}<br>
-                <strong>${Records Analyzed}:</strong> {{c.result.record_count || 0}}<br>
-                <strong>${Duration}:</strong> {{c.result.duration || 'N/A'}}
+              <div style="background: #fdf2f2; border: 1px solid #f5b7b1; border-radius: 8px; padding: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 800; color: #E74C3C;">{{c.result.issues_high || 0}}</div>
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #E74C3C; letter-spacing: 0.5px;">High</div>
+              </div>
+              <div style="background: var(--fha-warning-bg); border: 1px solid var(--fha-warning-light); border-radius: 8px; padding: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 800; color: var(--fha-warning);">{{c.result.issues_medium || 0}}</div>
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--fha-warning); letter-spacing: 0.5px;">Medium</div>
+              </div>
+              <div style="background: var(--fha-info-bg); border: 1px solid var(--fha-info-light); border-radius: 8px; padding: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 800; color: #5DADE2;">{{c.result.issues_low || 0}}</div>
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #5DADE2; letter-spacing: 0.5px;">Low</div>
               </div>
             </div>
+          </div>
+
+          <!-- Summary footer -->
+          <div style="margin-top: 16px; display: flex; gap: 20px; padding: 12px 16px; background: var(--fha-bg-section); border-radius: 6px; font-size: 13px; flex-wrap: wrap;">
+            <span><i class="fa fa-list" style="color: var(--fha-primary);"></i> <strong>{{c.result.issue_count || 0}}</strong> total issues</span>
+            <span><i class="fa fa-database" style="color: var(--fha-primary);"></i> <strong>{{c.result.record_count || 0}}</strong> records scanned</span>
+            <span ng-if="c.result.duration_ms"><i class="fa fa-clock-o" style="color: var(--fha-primary);"></i> <strong>{{c.result.duration_ms}}ms</strong></span>
           </div>
         </div>
       </div>
@@ -634,29 +749,53 @@
             <i class="fa fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
             <p>${No recent analyses}</p>
           </div>
-          <table class="fha-recent-table" ng-if="c.recentAnalyses.length > 0">
+          <table class="fha-recent-table" ng-if="c.recentAnalyses.length > 0" style="width: 100%;">
             <thead>
               <tr>
-                <th>${Table}</th>
-                <th>${Score}</th>
-                <th></th>
+                <th style="padding: 10px 16px;">Analysis</th>
+                <th style="padding: 10px 16px;">Table / Config</th>
+                <th style="padding: 10px 8px; text-align: center;">Issues</th>
+                <th style="padding: 10px 8px; text-align: center;">Score</th>
+                <th style="padding: 10px 8px;"></th>
               </tr>
             </thead>
             <tbody>
-              <tr ng-repeat="analysis in c.recentAnalyses | limitTo:10">
-                <td>
-                  <strong>{{analysis.number}}</strong>
-                  <div style="font-size: 11px; color: var(--fha-gray-500);">{{analysis.table_name || 'N/A'}}</div>
+              <tr ng-repeat="analysis in c.recentAnalyses | limitTo:10"
+                  style="cursor: pointer;"
+                  ng-click="c.viewDetails(analysis.sys_id)">
+                <td style="padding: 10px 16px;">
+                  <strong style="font-family: monospace; font-size: 12px;">{{analysis.number}}</strong>
+                  <div style="font-size: 10px; color: var(--fha-text-secondary); margin-top: 2px;">{{analysis.created_on | date:'short'}}</div>
                 </td>
-                <td>
-                  <span class="fha-score-badge" 
-                        ng-class="'fha-score-' + c.getHealthScoreClass(analysis.health_score)">
-                    {{analysis.health_score}}/100
+                <td style="padding: 10px 16px; max-width: 180px;">
+                  <div style="font-size: 12px; font-weight: 600; color: var(--fha-anthracite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{analysis.table_name}}">
+                    {{analysis.configuration_name || analysis.table_name || 'N/A'}}
+                  </div>
+                  <div ng-if="analysis.configuration_name && analysis.table_name" style="font-size: 10px; color: var(--fha-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{analysis.table_name}}
+                  </div>
+                </td>
+                <td style="padding: 10px 8px; text-align: center;">
+                  <div style="display: flex; gap: 3px; justify-content: center; flex-wrap: wrap;">
+                    <span ng-if="analysis.issues_critical > 0" style="background: var(--fha-danger); color: white; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 8px;" title="Critical">{{analysis.issues_critical}}C</span>
+                    <span ng-if="analysis.issues_high > 0" style="background: #E74C3C; color: white; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 8px;" title="High">{{analysis.issues_high}}H</span>
+                    <span ng-if="analysis.issues_medium > 0" style="background: var(--fha-warning); color: white; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 8px;" title="Medium">{{analysis.issues_medium}}M</span>
+                    <span ng-if="analysis.issues_low > 0" style="background: #5DADE2; color: white; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 8px;" title="Low">{{analysis.issues_low}}L</span>
+                    <span ng-if="!analysis.issues_critical && !analysis.issues_high && !analysis.issues_medium && !analysis.issues_low" style="font-size: 11px; color: var(--fha-text-secondary);">{{analysis.issue_count}} total</span>
+                  </div>
+                </td>
+                <td style="padding: 10px 8px; text-align: center;">
+                  <span style="font-size: 13px; font-weight: 800; padding: 4px 8px; border-radius: 12px;"
+                        ng-style="{
+                          'color': analysis.health_score >= 70 ? 'var(--fha-success)' : analysis.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)',
+                          'background': analysis.health_score >= 70 ? 'var(--fha-success-bg)' : analysis.health_score >= 40 ? 'var(--fha-warning-bg)' : 'var(--fha-danger-bg)'
+                        }">
+                    {{analysis.health_score}}%
                   </span>
                 </td>
-                <td>
-                  <button class="btn btn-xs btn-default" ng-click="c.viewDetails(analysis.sys_id)" title="${View analysis details}">
-                    <i class="fa fa-eye"></i>
+                <td style="padding: 10px 8px;">
+                  <button class="fha-btn-secondary fha-btn-sm" ng-click="$event.stopPropagation(); c.viewDetails(analysis.sys_id)" title="View details" style="font-size: 11px;">
+                    <i class="fa fa-arrow-right"></i>
                   </button>
                 </td>
               </tr>
