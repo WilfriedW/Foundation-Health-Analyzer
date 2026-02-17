@@ -13,7 +13,9 @@
     c.filters = {
       search: '',
       severity: 'all',
-      table: 'all'
+      table: 'all',
+      category: '',
+      sortBy: 'severity'
     };
     
     c.tableStatsSort = 'total';
@@ -30,37 +32,63 @@
     
     c.getFilteredIssues = function() {
       if (!c.result || !c.result.issues) return [];
-      
+
       var filtered = c.result.issues;
-      
-      if (c.filters.severity !== 'all') {
+
+      if (c.filters.severity && c.filters.severity !== 'all') {
         filtered = filtered.filter(function(issue) {
-          return issue.severity === c.filters.severity;
+          return (issue.severity || '').toLowerCase() === c.filters.severity.toLowerCase();
         });
       }
-      
-      if (c.filters.table !== 'all') {
+
+      if (c.filters.table && c.filters.table !== 'all') {
         filtered = filtered.filter(function(issue) {
-          var issueTable = issue.parent_table || issue.table;
+          var issueTable = issue.record_table || issue.table;
           return issueTable === c.filters.table;
         });
       }
-      
+
+      if (c.filters.category && c.filters.category !== '') {
+        filtered = filtered.filter(function(issue) {
+          return (issue.category || 'Uncategorized') === c.filters.category;
+        });
+      }
+
       if (c.filters.search) {
         var searchLower = c.filters.search.toLowerCase();
         filtered = filtered.filter(function(issue) {
+          var recordName = (issue.details && issue.details.record_name) || '';
           var searchableText = [
             issue.message,
             issue.code,
-            issue.table,
-            issue.parent_table,
+            issue.record_table || issue.table,
             issue.record,
-            issue.field
+            recordName
           ].join(' ').toLowerCase();
           return searchableText.indexOf(searchLower) !== -1;
         });
       }
-      
+
+      // Sort
+      var sortBy = c.filters.sortBy || 'severity';
+      var severityOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
+      filtered = filtered.slice().sort(function(a, b) {
+        if (sortBy === 'severity') {
+          var aO = severityOrder[(a.severity || '').toLowerCase()];
+          var bO = severityOrder[(b.severity || '').toLowerCase()];
+          if (aO === undefined) aO = 99;
+          if (bO === undefined) bO = 99;
+          return aO - bO;
+        } else if (sortBy === 'table') {
+          return (a.record_table || a.table || '').localeCompare(b.record_table || b.table || '');
+        } else if (sortBy === 'code') {
+          return (a.code || '').localeCompare(b.code || '');
+        } else if (sortBy === 'message') {
+          return (a.message || '').localeCompare(b.message || '');
+        }
+        return 0;
+      });
+
       return filtered;
     };
     
@@ -68,7 +96,9 @@
       c.filters = {
         search: '',
         severity: 'all',
-        table: 'all'
+        table: 'all',
+        category: '',
+        sortBy: 'severity'
       };
     };
 
@@ -79,7 +109,8 @@
     c.hasActiveFilters = function() {
       return c.filters.search !== '' ||
              c.filters.severity !== 'all' ||
-             c.filters.table !== 'all';
+             c.filters.table !== 'all' ||
+             (c.filters.category && c.filters.category !== '');
     };
 
     c.expandAll = function() {
@@ -129,7 +160,7 @@
       
       var grouped = {};
       c.result.issues.forEach(function(issue) {
-        var table = issue.record_table;
+        var table = issue.record_table || issue.table || 'Unknown';
         if (!grouped[table]) {
           grouped[table] = [];
         }
@@ -177,8 +208,8 @@
       
       var tables = {};
       c.result.issues.forEach(function(issue) {
-        var table = issue.parent_table || issue.table;
-        tables[table] = true;
+        var table = issue.record_table || issue.table;
+        if (table) tables[table] = true;
       });
       
       return Object.keys(tables).sort();
@@ -331,10 +362,10 @@
     };
     
     c.viewRecord = function(issue) {
-      if (!issue || !issue.sys_id) return;
-      
-      var table = issue.parent_table || issue.table;
-      var url = '/' + table + '.do?sys_id=' + issue.sys_id;
+      if (!issue || !issue.record) return;
+      var table = issue.record_table || issue.table;
+      if (!table) return;
+      var url = '/' + table + '.do?sys_id=' + issue.record;
       window.open(url, '_blank');
     };
     
@@ -421,6 +452,9 @@
             data.result.table_name = parsedDetails.configuration.table_name;
             data.result.table_label = parsedDetails.configuration.table_label;
             data.result.scope = parsedDetails.configuration.scope;
+            data.result.template_name = parsedDetails.configuration.template_name ||
+                                        parsedDetails.configuration.template ||
+                                        null;
 
             // Extract options
             if (parsedDetails.configuration.options) {
@@ -433,11 +467,13 @@
             // Extract all issues-related data
             data.result.issues = parsedDetails.result.issues || [];
             data.result.health_score = parsedDetails.result.health_score || 0;
+            data.result.issues_critical = parsedDetails.result.issues_critical || 0;
             data.result.issues_high = parsedDetails.result.issues_high || 0;
             data.result.issues_medium = parsedDetails.result.issues_medium || 0;
             data.result.issues_low = parsedDetails.result.issues_low || 0;
             data.result.issue_count = parsedDetails.result.issue_count || 0;
             data.result.record_count = parsedDetails.result.record_count || 0;
+            data.result.duration_ms = parsedDetails.result.duration_ms || parsedDetails.result.duration || null;
             data.result.errors = parsedDetails.result.errors || [];
           }
         }
@@ -642,28 +678,24 @@ s -->
           </h3>
         </div>
         <div class="fha-card-body" style="padding: 20px;">
-          <div ng-repeat="(table, issues) in c.getTopTables(5)" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--fha-bg-section); margin-bottom: 8px; border-radius: 6px; border-left: 3px solid var(--fha-primary); transition: all 0.2s ease;" 
+          <div ng-repeat="tableItem in c.getTopTables(5)" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--fha-bg-section); margin-bottom: 8px; border-radius: 6px; border-left: 3px solid var(--fha-primary); transition: all 0.2s ease;" 
                ng-mouseenter="$event.currentTarget.style.transform='translateX(4px)'"
                ng-mouseleave="$event.currentTarget.style.transform='translateX(0)'">
             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
               <i class="fa fa-database" style="color: var(--fha-primary); font-size: 16px;"></i>
-              <span style="font-weight: 600; color: var(--fha-anthracite); font-size: 13px;">{{}}</span>
+              <span style="font-weight: 600; color: var(--fha-anthracite); font-size: 13px;">{{tableItem.name || 'Unknown'}}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
-              <span class="fha-badge fha-badge-primary" style="font-size: 11px;">{{}}</span>
+              <span class="fha-badge fha-badge-primary" style="font-size: 11px;">{{tableItem.total}}</span>
               <!-- Mini distribution -->
               <div style="display: flex; gap: 2px;">
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'critical').length > 0" 
-                      title="{{c.getIssuesBySeverityForTable(table, 'critical').length}} Critical"
+                <span ng-if="tableItem.critical > 0" title="{{tableItem.critical}} Critical"
                       style="width: 6px; height: 20px; background: var(--fha-danger); border-radius: 2px;"></span>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'high').length > 0"
-                      title="{{c.getIssuesBySeverityForTable(table, 'high').length}} High"
+                <span ng-if="tableItem.high > 0" title="{{tableItem.high}} High"
                       style="width: 6px; height: 20px; background: #E74C3C; border-radius: 2px;"></span>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'medium').length > 0"
-                      title="{{c.getIssuesBySeverityForTable(table, 'medium').length}} Medium"
+                <span ng-if="tableItem.medium > 0" title="{{tableItem.medium}} Medium"
                       style="width: 6px; height: 20px; background: var(--fha-warning); border-radius: 2px;"></span>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'low').length > 0"
-                      title="{{c.getIssuesBySeverityForTable(table, 'low').length}} Low"
+                <span ng-if="tableItem.low > 0" title="{{tableItem.low}} Low"
                       style="width: 6px; height: 20px; background: #5DADE2; border-radius: 2px;"></span>
               </div>
             </div>
@@ -836,9 +868,7 @@ s -->
             </label>
             <select ng-model="c.filters.table" class="fha-select">
               <option value="">All Tables</option>
-              <option ng-repeat="(table, issues) in c.getIssuesByTable()" value="{{table}}">
-                {{table}} ({{issues.length}})
-              </option>
+              <option ng-repeat="tableItem in c.getTopTables()" value="{{tableItem.name}}">{{tableItem.name}} ({{tableItem.total}})</option>
             </select>
           </div>
           
@@ -947,32 +977,17 @@ s -->
               <i class="fa fa-table" style="color: var(--fha-primary); font-size: 14px;"></i>
               <div>
                 <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Table</div>
-                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.record_table}}</div>
+                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.record_table || issue.table || 'N/A'}}</div>
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <i class="fa fa-hashtag" style="color: var(--fha-primary); font-size: 14px;"></i>
               <div>
                 <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Record</div>
-                <code style="font-size: 11px; color: var(--fha-anthracite); background: white; padding: 2px 6px; border-radius: 3px;">{{issue.record_name}}</code>
+                <code style="font-size: 11px; color: var(--fha-anthracite); background: white; padding: 2px 6px; border-radius: 3px;">{{(issue.details && issue.details.record_name) || issue.record || 'N/A'}}</code>
               </div>
             </div>
-            <div ng-if="issue.field" style="display: flex; align-items: center; gap: 8px;">
-              <i class="fa fa-edit" style="color: var(--fha-primary); font-size: 14px;"></i>
-              <div>
-                <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Recommendation</div>
-                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.details.recommendation}}</div>
-              </div>
-            </div>
-          </div>
-           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 16px; background: var(--fha-bg-section); border-radius: 6px; margin-bottom: 16px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <i class="fa fa-table" style="color: var(--fha-primary); font-size: 14px;"></i>
-              <div>
-                <div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Recommendation</div>
-                <div style="font-size: 13px; color: var(--fha-anthracite); font-weight: 600;">{{issue.details.recommendation}}</div>
-              </div>
-            </div>
+            <div ng-if="issue.details && issue.details.recommendation" style="display: flex; align-items: center; gap: 8px;"><i class="fa fa-lightbulb-o" style="color: var(--fha-warning); font-size: 14px;"></i><div><div style="font-size: 10px; color: var(--fha-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Recommendation</div><div style="font-size: 12px; color: var(--fha-anthracite); line-height: 1.4;">{{issue.details.recommendation}}</div></div></div>
           </div>
           
           <!-- Actions -->
@@ -1076,7 +1091,7 @@ s -->
             <div style="display: flex; justify-content: space-between; padding: 16px; background: var(--fha-bg-section); border-radius: 8px;">
               <span style="font-size: 13px; color: var(--fha-text-secondary); font-weight: 600;">Total Tables Affected</span>
               <span style="font-size: 20px; font-weight: 700; color: var(--fha-primary);">
-                {{Object.keys(c.getIssuesByTable()).length}}
+                {{c.getTotalTables()}}
               </span>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 16px; background: var(--fha-bg-section); border-radius: 8px;">
@@ -1088,7 +1103,7 @@ s -->
             <div style="display: flex; justify-content: space-between; padding: 16px; background: var(--fha-bg-section); border-radius: 8px;">
               <span style="font-size: 13px; color: var(--fha-text-secondary); font-weight: 600;">Most Affected Table</span>
               <span style="font-size: 14px; font-weight: 700; color: var(--fha-anthracite);">
-                {{c.getMostAffectedTable()}}
+                {{(c.getMostAffectedTable() && c.getMostAffectedTable().name) || 'N/A'}}
               </span>
             </div>
           </div>
@@ -1163,64 +1178,60 @@ s -->
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="(table, issues) in c.getIssuesByTable()">
+            <tr ng-repeat="tableItem in c.getSortedTableStats()">
               <td>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <i class="fa fa-database" style="color: var(--fha-primary);"></i>
-                  <strong>{{table}}</strong>
+                  <strong>{{tableItem.name}}</strong>
                 </div>
               </td>
               <td>
                 <span class="fha-badge fha-badge-primary" style="font-size: 13px; padding: 6px 12px;">
-                  {{issues.length}}
+                  {{tableItem.total}}
                 </span>
               </td>
               <td>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'critical').length > 0" 
+                <span ng-if="tableItem.critical > 0" 
                       class="fha-badge fha-badge-critical">
-                  {{c.getIssuesBySeverityForTable(table, 'critical').length}}
+                  {{tableItem.critical}}
                 </span>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'critical').length == 0" 
+                <span ng-if="tableItem.critical == 0" 
                       style="color: var(--fha-text-muted);">-</span>
               </td>
               <td>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'high').length > 0" 
+                <span ng-if="tableItem.high > 0" 
                       class="fha-badge fha-badge-high">
-                  {{c.getIssuesBySeverityForTable(table, 'high').length}}
+                  {{tableItem.high}}
                 </span>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'high').length == 0" 
+                <span ng-if="tableItem.high == 0" 
                       style="color: var(--fha-text-muted);">-</span>
               </td>
               <td>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'medium').length > 0" 
+                <span ng-if="tableItem.medium > 0" 
                       class="fha-badge fha-badge-medium">
-                  {{c.getIssuesBySeverityForTable(table, 'medium').length}}
+                  {{tableItem.medium}}
                 </span>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'medium').length == 0" 
+                <span ng-if="tableItem.medium == 0" 
                       style="color: var(--fha-text-muted);">-</span>
               </td>
               <td>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'low').length > 0" 
+                <span ng-if="tableItem.low > 0" 
                       class="fha-badge fha-badge-low">
-                  {{c.getIssuesBySeverityForTable(table, 'low').length}}
+                  {{tableItem.low}}
                 </span>
-                <span ng-if="c.getIssuesBySeverityForTable(table, 'low').length == 0" 
+                <span ng-if="tableItem.low == 0" 
                       style="color: var(--fha-text-muted);">-</span>
               </td>
               <td>
                 <div style="display: flex; gap: 2px; height: 24px;">
-                  <div ng-if="c.getIssuesBySeverityForTable(table, 'critical').length > 0" 
-                       style="background: var(--fha-danger); border-radius: 2px; transition: flex 0.3s ease;"
-                       ng-style="{'flex': c.getIssuesBySeverityForTable(table, 'critical').length}"></div>
-                  <div ng-if="c.getIssuesBySeverityForTable(table, 'high').length > 0" 
-                       style="background: #E74C3C; border-radius: 2px; transition: flex 0.3s ease;"
-                       ng-style="{'flex': c.getIssuesBySeverityForTable(table, 'high').length}"></div>
-                  <div ng-if="c.getIssuesBySeverityForTable(table, 'medium').length > 0" 
-                       style="background: var(--fha-warning); border-radius: 2px; transition: flex 0.3s ease;"
-                       ng-style="{'flex': c.getIssuesBySeverityForTable(table, 'medium').length}"></div>
-                  <div ng-if="c.getIssuesBySeverityForTable(table, 'low').length > 0" 
-                       style="background: #5DADE2; border-radius: 2px; transition: flex 0.3s ease;"
-                       ng-style="{'flex': c.getIssuesBySeverityForTable(table, 'low').length}"></div>
+                  <div ng-if="tableItem.critical > 0" 
+                       style="background: var(--fha-danger); border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.critical}"></div>
+                  <div ng-if="tableItem.high > 0" 
+                       style="background: #E74C3C; border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.high}"></div>
+                  <div ng-if="tableItem.medium > 0" 
+                       style="background: var(--fha-warning); border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.medium}"></div>
+                  <div ng-if="tableItem.low > 0" 
+                       style="background: #5DADE2; border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.low}"></div>
                 </div>
               </td>
             </tr>
@@ -1269,6 +1280,10 @@ s -->
             <span class="fha-info-label">Created By:</span>
             <span class="fha-info-value">{{c.result.sys_created_by || 'System'}}</span>
           </div>
+          <div class="fha-info-row" style="margin-top: 16px;">
+            <span class="fha-info-label">Duration:</span>
+            <span class="fha-info-value">{{c.getAnalysisDuration()}}</span>
+          </div>
         </div>
       </div>
 
@@ -1288,9 +1303,17 @@ s -->
             <span class="fha-info-label">Description:</span>
             <span class="fha-info-value">{{c.result.configuration_description || 'No description available'}}</span>
           </div>
+                    <div class="fha-info-row" style="margin-bottom: 16px;">
+            <span class="fha-info-label">Target Table:</span>
+            <span class="fha-info-value">{{c.result.table_label ? (c.result.table_label + \' (\' + c.result.table_name + \')\') : (c.result.table_name || \'N/A\')}}</span>
+          </div>
+          <div class="fha-info-row" style="margin-bottom: 16px;">
+            <span class="fha-info-label">Template:</span>
+            <span class="fha-info-value">{{c.result.template_name || \'N/A\'}}</span>
+          </div>
           <div class="fha-info-row">
             <span class="fha-info-label">Scope:</span>
-            <span class="fha-info-value">{{c.result.scope || 'Global'}}</span>
+            <span class="fha-info-value">{{c.result.scope || \'Global\'}}</span>
           </div>
         </div>
       </div>
@@ -1304,16 +1327,29 @@ s -->
         </div>
         <div class="fha-card-body" style="padding: 24px;">
           <div class="fha-info-row" style="margin-bottom: 16px;">
+            <span class="fha-info-label">Records Scanned:</span>
+            <span class="fha-info-value">{{c.result.record_count || \'N/A\'}}</span>
+          </div>
+          <div class="fha-info-row" style="margin-bottom: 16px;">
             <span class="fha-info-label">Total Issues:</span>
             <span class="fha-info-value">{{c.result.issues.length}}</span>
           </div>
           <div class="fha-info-row" style="margin-bottom: 16px;">
             <span class="fha-info-label">Tables Affected:</span>
-            <span class="fha-info-value">{{Object.keys(c.getIssuesByTable()).length}}</span>
+            <span class="fha-info-value">{{c.getTotalTables()}}</span>
           </div>
           <div class="fha-info-row">
             <span class="fha-info-label">Categories:</span>
-            <span class="fha-info-value">{{Object.keys(c.getIssuesByCategory()).length}}</span>
+            <span class="fha-info-value">{{c.getTotalCategories()}}</span>
+          </div>
+          <div class="fha-info-row" style="margin-top: 16px;">
+            <span class="fha-info-label">Health Score:</span>
+            <span class="fha-info-value" ng-style="{
+              \'color\': c.result.health_score >= 70 ? \'var(--fha-success)\' :
+                       c.result.health_score >= 40 ? \'var(--fha-warning)\' :
+                       \'var(--fha-danger)\',
+              \'font-weight\': \'700\'
+            }">{{c.result.health_score || 0}}% — {{c.getHealthLabel()}}</span>
           </div>
         </div>
       </div>
