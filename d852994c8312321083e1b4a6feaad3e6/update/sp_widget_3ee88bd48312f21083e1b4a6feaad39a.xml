@@ -599,231 +599,297 @@
     <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'analytics'}" ng-click="c.setActiveTab('analytics')">
       <i class="fa fa-bar-chart"></i> Analytics
     </button>
-    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'details'}" ng-click="c.setActiveTab('details')">
-      <i class="fa fa-info-circle"></i> Details
-    </button>
     <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'data'}" ng-click="c.setActiveTab('data')">
       <i class="fa fa-database"></i> Raw Data
     </button>
   </div>
 
   <!-- ============================================================
-       TAB: DASHBOARD (Vue d'ensemble complète)
+       TAB: DASHBOARD
        ============================================================ -->
   <div ng-if="c.activeTab == 'dashboard'">
-    
-    <!-- Grid 3 colonnes -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px; margin-bottom: 24px;">
-      
-      <!-- Card: Issues Distribution -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-pie-chart" style="color: var(--fha-primary);"></i> Issues Distribution
-          </h3>
+
+    <!-- ── ROW 1 : KPI Tiles ───────────────────────────────────── -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px;">
+
+      <!-- Health Score tile -->
+      <div class="fha-card" style="text-align: center; padding: 20px 12px;"
+           ng-style="{'border-top': '4px solid ' + (c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)')}">
+        <div style="font-size: 36px; font-weight: 800; line-height: 1;"
+             ng-style="{'color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)'}">
+          {{c.result.health_score || 0}}%
         </div>
-        <div class="fha-card-body" style="padding: 20px;">
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            
-            <!-- Critical -->
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="flex: 0 0 80px; font-size: 12px; font-weight: 600; color: var(--fha-danger);">CRITICAL</div>
-              <div style="flex: 1; height: 24px; background: var(--fha-gray-100); border-radius: 12px; overflow: hidden; position: relative;">
-                <div style="height: 100%; background: linear-gradient(90deg, var(--fha-danger), var(--fha-danger-light)); border-radius: 12px; transition: width 0.6s ease;"
-                     ng-style="{'width': (c.getIssuesBySeverity('critical').length / c.result.issues.length * 100) + '%'}">
-                </div>
-                <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; color: var(--fha-anthracite);">
-                  {{c.getIssuesBySeverity('critical').length}}
-                </span>
-              </div>
-              <div style="flex: 0 0 50px; text-align: right; font-size: 13px; font-weight: 700; color: var(--fha-danger);">
-                {{(c.getIssuesBySeverity('critical').length / c.result.issues.length * 100) | number:0}}%
-              </div>
-            </div>
-            
-            <!-- High -->
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="flex: 0 0 80px; font-size: 12px; font-weight: 600; color: #E74C3C;">HIGH</div>
-              <div style="flex: 1; height: 24px; background: var(--fha-gray-100); border-radius: 12px; overflow: hidden; position: relative;">
-                <div style="height: 100%; background: linear-gradient(90deg, #E74C3C, #EC7063); border-radius: 12px; transition: width 0.6s ease;"
-                     ng-style="{'width': (c.getIssuesBySeverity('high').length / c.result.issues.length * 100) + '%'}">
-                </div>
-                <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; color: var(--fha-anthracite);">
-                  {{c.getIssuesBySeverity('high').length}}
-                </span>
-              </div>
-              <div style="flex: 0 0 50px; text-align: right; font-size: 13px; font-weight: 700; color: #E74C3C;">
-                {{(c.getIssuesBySeverity('high').length / c.result.issues.length * 100) | number:0}}%
-              </div>
-            </div>
-            
-            <!-- Medium -->
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="flex: 0 0 80px; font-size: 12px; font-weight: 600; color: var(--fha-warning);">MEDIUM</div>
-              <div style="flex: 1; height: 24px; background: var(--fha-gray-100); border-radius: 12px; overflow: hidden; position: relative;">
-                <div style="height: 100%; background: linear-gradient(90deg, var(--fha-warning), var(--fha-warning-light)); border-radius: 12px; transition: width 0.6s ease;"
-                     ng-style="{'width': (c.getIssuesBySeverity('medium').length / c.result.issues.length * 100) + '%'}">
-                </div>
-                <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; color: var(--fha-anthracite);">
-                  {{c.getIssuesBySeverity('medium').length}}
-                </span>
-              </div>
-              <div style="flex: 0 0 50px; text-align: right; font-size: 13px; font-weight: 700; color: var(--fha-warning);">
-                {{(c.getIssuesBySeverity('medium').length / c.result.issues.length * 100) | number:0}}%
-              </div>
-            </div>
-            
-            <!-- Low -->
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="flex: 0 0 80px; font-size: 12px; font-weight: 600; color: #2E86C1;">LOW</div>
-              <div style="flex: 1; height: 24px; background: var(--fha-gray-100); border-radius: 12px; overflow: hidden; position: relative;">
-                <div style="height: 100%; background: linear-gradient(90deg, #2E86C1, #5DADE2); border-radius: 12px; transition: width 0.6s ease;"
-                     ng-style="{'width': (c.getIssuesBySeverity('low').length / c.result.issues.length * 100) + '%'}">
-                </div>
-                <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; color: var(--fha-anthracite);">
-                  {{c.getIssuesBySeverity('low').length}}
-                </span>
-              </div>
-              <div style="flex: 0 0 50px; text-align: right; font-size: 13px; font-weight: 700; color: #2E86C1;">
-                {{(c.getIssuesBySeverity('low').length / c.result.issues.length * 100) | number:0}}%
-              </div>
-            </div>
-          </div>
+        <div style="font-size: 12px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px;">Health Score</div>
+        <div style="font-size: 11px; margin-top: 4px; font-weight: 600;"
+             ng-style="{'color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)'}">
+          {{c.getHealthLabel()}}
         </div>
       </div>
-      
-      <!-- Card: Top 5 Affected 
-s -->
+
+      <!-- Total Issues tile -->
+      <div class="fha-card" style="text-align: center; padding: 20px 12px; border-top: 4px solid var(--fha-primary);">
+        <div style="font-size: 36px; font-weight: 800; color: var(--fha-primary); line-height: 1;">{{c.result.issues.length}}</div>
+        <div style="font-size: 12px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px;">Total Issues</div>
+        <div style="font-size: 11px; color: var(--fha-text-secondary); margin-top: 4px;">{{c.getTotalTables()}} table(s) affected</div>
+      </div>
+
+      <!-- Critical tile -->
+      <div class="fha-card" style="text-align: center; padding: 20px 12px; border-top: 4px solid var(--fha-danger);">
+        <div style="font-size: 36px; font-weight: 800; color: var(--fha-danger); line-height: 1;">{{c.getIssuesBySeverity('critical').length}}</div>
+        <div style="font-size: 12px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px;">Critical</div>
+        <div style="font-size: 11px; color: var(--fha-text-secondary); margin-top: 4px;">{{c.getPercentageBySeverity('critical')}}% of total</div>
+      </div>
+
+      <!-- High tile -->
+      <div class="fha-card" style="text-align: center; padding: 20px 12px; border-top: 4px solid #E74C3C;">
+        <div style="font-size: 36px; font-weight: 800; color: #E74C3C; line-height: 1;">{{c.getIssuesBySeverity('high').length}}</div>
+        <div style="font-size: 12px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px;">High</div>
+        <div style="font-size: 11px; color: var(--fha-text-secondary); margin-top: 4px;">{{c.getPercentageBySeverity('high')}}% of total</div>
+      </div>
+
+      <!-- Medium tile -->
+      <div class="fha-card" style="text-align: center; padding: 20px 12px; border-top: 4px solid var(--fha-warning);">
+        <div style="font-size: 36px; font-weight: 800; color: var(--fha-warning); line-height: 1;">{{c.getIssuesBySeverity('medium').length}}</div>
+        <div style="font-size: 12px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px;">Medium</div>
+        <div style="font-size: 11px; color: var(--fha-text-secondary); margin-top: 4px;">{{c.getPercentageBySeverity('medium')}}% of total</div>
+      </div>
+
+      <!-- Low tile -->
+      <div class="fha-card" style="text-align: center; padding: 20px 12px; border-top: 4px solid #5DADE2;">
+        <div style="font-size: 36px; font-weight: 800; color: #5DADE2; line-height: 1;">{{c.getIssuesBySeverity('low').length}}</div>
+        <div style="font-size: 12px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px;">Low</div>
+        <div style="font-size: 11px; color: var(--fha-text-secondary); margin-top: 4px;">{{c.getPercentageBySeverity('low')}}% of total</div>
+      </div>
+    </div>
+
+    <!-- ── ROW 2 : Critical Issues alert (if any) ──────────────── -->
+    <div ng-if="c.getIssuesBySeverity('critical').length > 0" class="fha-card" style="margin-bottom: 24px; border-left: 5px solid var(--fha-danger);">
+      <div class="fha-card-header" style="background: var(--fha-danger-bg);">
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-danger);">
+          <i class="fa fa-exclamation-triangle"></i> Critical Issues — Immediate Attention Required
+        </h3>
+        <button class="fha-btn-secondary fha-btn-sm" ng-click="c.setActiveTab('issues'); c.filters.severity = 'critical'">
+          View all <i class="fa fa-arrow-right"></i>
+        </button>
+      </div>
+      <div class="fha-card-body" style="padding: 16px 20px;">
+        <div ng-repeat="issue in c.getIssuesBySeverity('critical') | limitTo:3"
+             style="display: flex; gap: 12px; align-items: flex-start; padding: 12px; background: white; border: 1px solid var(--fha-danger-light); border-radius: 6px; margin-bottom: 10px;">
+          <i class="fa fa-exclamation-circle" style="color: var(--fha-danger); font-size: 18px; margin-top: 2px; flex-shrink: 0;"></i>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">
+              <code style="background: var(--fha-gray-100); padding: 2px 8px; border-radius: 4px; font-size: 11px; color: var(--fha-anthracite); font-weight: 700; flex-shrink: 0;">{{issue.code}}</code>
+              <span style="font-size: 12px; color: var(--fha-text-secondary);"><i class="fa fa-table"></i> {{issue.record_table || issue.table}}</span>
+            </div>
+            <p style="margin: 0; font-size: 13px; color: var(--fha-text-primary); line-height: 1.5;">{{issue.message}}</p>
+          </div>
+          <button class="fha-btn-secondary fha-btn-sm" ng-click="c.viewRecord(issue)" style="flex-shrink: 0; font-size: 11px;">
+            <i class="fa fa-external-link"></i>
+          </button>
+        </div>
+        <div ng-if="c.getIssuesBySeverity('critical').length > 3"
+             style="text-align: center; padding: 8px; font-size: 12px; color: var(--fha-danger); font-weight: 600;">
+          + {{c.getIssuesBySeverity('critical').length - 3}} more critical issue(s)
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROW 3 : Top Tables + Categories + Severity Distribution ── -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 24px;">
+
+      <!-- Top Affected Tables -->
       <div class="fha-card">
         <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
             <i class="fa fa-table" style="color: var(--fha-primary);"></i> Top Affected Tables
           </h3>
+          <button class="fha-btn-secondary fha-btn-sm" ng-click="c.setActiveTab('analytics')">
+            Full view <i class="fa fa-arrow-right"></i>
+          </button>
         </div>
-        <div class="fha-card-body" style="padding: 20px;">
-          <div ng-repeat="tableItem in c.getTopTables(5)" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--fha-bg-section); margin-bottom: 8px; border-radius: 6px; border-left: 3px solid var(--fha-primary); transition: all 0.2s ease;" 
-               ng-mouseenter="$event.currentTarget.style.transform='translateX(4px)'"
-               ng-mouseleave="$event.currentTarget.style.transform='translateX(0)'">
-            <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-              <i class="fa fa-database" style="color: var(--fha-primary); font-size: 16px;"></i>
-              <span style="font-weight: 600; color: var(--fha-anthracite); font-size: 13px;">{{tableItem.name || 'Unknown'}}</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <span class="fha-badge fha-badge-primary" style="font-size: 11px;">{{tableItem.total}}</span>
-              <!-- Mini distribution -->
-              <div style="display: flex; gap: 2px;">
-                <span ng-if="tableItem.critical > 0" title="{{tableItem.critical}} Critical"
-                      style="width: 6px; height: 20px; background: var(--fha-danger); border-radius: 2px;"></span>
-                <span ng-if="tableItem.high > 0" title="{{tableItem.high}} High"
-                      style="width: 6px; height: 20px; background: #E74C3C; border-radius: 2px;"></span>
-                <span ng-if="tableItem.medium > 0" title="{{tableItem.medium}} Medium"
-                      style="width: 6px; height: 20px; background: var(--fha-warning); border-radius: 2px;"></span>
-                <span ng-if="tableItem.low > 0" title="{{tableItem.low}} Low"
-                      style="width: 6px; height: 20px; background: #5DADE2; border-radius: 2px;"></span>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <div ng-if="c.getTopTables(5).length == 0" style="text-align: center; padding: 20px; color: var(--fha-text-secondary); font-size: 13px;">
+            <i class="fa fa-check-circle" style="font-size: 28px; color: var(--fha-success); display: block; margin-bottom: 8px;"></i>No issues by table
+          </div>
+          <div ng-repeat="tableItem in c.getTopTables(5)"
+               style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--fha-border-color);"
+               ng-style="{'border-bottom': $last ? 'none' : '1px solid var(--fha-border-color)'}">
+            <i class="fa fa-database" style="color: var(--fha-primary); font-size: 14px; flex-shrink: 0;"></i>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 13px; font-weight: 700; color: var(--fha-anthracite); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{tableItem.name}}</div>
+              <div style="display: flex; gap: 4px; margin-top: 4px;">
+                <span ng-if="tableItem.critical > 0" style="font-size: 10px; background: var(--fha-danger); color: white; padding: 1px 6px; border-radius: 8px; font-weight: 700;">{{tableItem.critical}}C</span>
+                <span ng-if="tableItem.high > 0" style="font-size: 10px; background: #E74C3C; color: white; padding: 1px 6px; border-radius: 8px; font-weight: 700;">{{tableItem.high}}H</span>
+                <span ng-if="tableItem.medium > 0" style="font-size: 10px; background: var(--fha-warning); color: white; padding: 1px 6px; border-radius: 8px; font-weight: 700;">{{tableItem.medium}}M</span>
+                <span ng-if="tableItem.low > 0" style="font-size: 10px; background: #5DADE2; color: white; padding: 1px 6px; border-radius: 8px; font-weight: 700;">{{tableItem.low}}L</span>
               </div>
             </div>
-          </div>
-          <div ng-if="Object.keys(c.getIssuesByTable()).length == 0" style="text-align: center; padding: 20px; color: var(--fha-text-secondary);">
-            <i class="fa fa-check-circle" style="font-size: 32px; color: var(--fha-success); margin-bottom: 8px;"></i>
-            <p style="margin: 0; font-size: 13px;">No issues by table</p>
+            <span class="fha-badge fha-badge-primary" style="font-size: 13px; font-weight: 800; flex-shrink: 0;">{{tableItem.total}}</span>
           </div>
         </div>
       </div>
-      
-      <!-- Card: Categories Overview -->
+
+      <!-- Severity Distribution (stacked bar) -->
       <div class="fha-card">
         <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+            <i class="fa fa-bar-chart" style="color: var(--fha-primary);"></i> Severity Distribution
+          </h3>
+        </div>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <!-- Stacked bar -->
+          <div style="display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin-bottom: 20px; gap: 2px;">
+            <div ng-if="c.getIssuesBySeverity('critical').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('critical').length}"
+                 style="background: var(--fha-danger);" title="Critical"></div>
+            <div ng-if="c.getIssuesBySeverity('high').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('high').length}"
+                 style="background: #E74C3C;" title="High"></div>
+            <div ng-if="c.getIssuesBySeverity('medium').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('medium').length}"
+                 style="background: var(--fha-warning);" title="Medium"></div>
+            <div ng-if="c.getIssuesBySeverity('low').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('low').length}"
+                 style="background: #5DADE2;" title="Low"></div>
+          </div>
+          <!-- Per-severity rows -->
+          <div ng-repeat="sev in [{label:'Critical', key:'critical', color:'var(--fha-danger)'},{label:'High', key:'high', color:'#E74C3C'},{label:'Medium', key:'medium', color:'var(--fha-warning)'},{label:'Low', key:'low', color:'#5DADE2'}]"
+               style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <div style="flex: 0 0 68px; font-size: 11px; font-weight: 700; text-transform: uppercase;"
+                 ng-style="{'color': sev.color}">{{sev.label}}</div>
+            <div style="flex: 1; height: 8px; background: var(--fha-gray-100); border-radius: 4px; overflow: hidden;">
+              <div style="height: 100%; border-radius: 4px; transition: width 0.5s ease;"
+                   ng-style="{'width': (c.getIssuesBySeverity(sev.key).length / c.result.issues.length * 100) + '%', 'background': sev.color}"></div>
+            </div>
+            <div style="flex: 0 0 28px; text-align: right; font-size: 13px; font-weight: 700;"
+                 ng-style="{'color': sev.color}">{{c.getIssuesBySeverity(sev.key).length}}</div>
+            <div style="flex: 0 0 36px; text-align: right; font-size: 11px; color: var(--fha-text-secondary);">
+              {{c.getPercentageBySeverity(sev.key)}}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="fha-card" ng-if="c.getCategoryStats().length > 0">
+        <div class="fha-card-header">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
             <i class="fa fa-tags" style="color: var(--fha-primary);"></i> Categories
           </h3>
         </div>
-        <div class="fha-card-body" style="padding: 20px;">
-          <div ng-repeat="(category, issues) in c.getIssuesByCategory()" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--fha-bg-section); margin-bottom: 8px; border-radius: 6px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <i class="fa fa-tag" style="color: var(--fha-primary); font-size: 14px;"></i>
-              <span style="font-weight: 600; color: var(--fha-anthracite); font-size: 13px;">{{category}}</span>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <div ng-repeat="cat in c.getCategoryStats()"
+               style="display: flex; align-items: center; gap: 10px; padding: 10px 0;"
+               ng-style="{'border-bottom': $last ? 'none' : '1px solid var(--fha-border-color)'}">
+            <i class="fa fa-tag" style="color: var(--fha-primary); font-size: 13px; flex-shrink: 0;"></i>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 13px; font-weight: 700; color: var(--fha-anthracite);">{{cat.name}}</div>
+              <div style="height: 4px; background: var(--fha-gray-100); border-radius: 2px; margin-top: 4px; overflow: hidden;">
+                <div style="height: 100%; background: var(--fha-primary); border-radius: 2px;"
+                     ng-style="{'width': cat.percentage + '%'}"></div>
+              </div>
             </div>
-            <span class="fha-badge fha-badge-primary">{{issues.length}}</span>
-          </div>
-          <div ng-if="Object.keys(c.getIssuesByCategory()).length == 0" style="text-align: center; padding: 20px; color: var(--fha-text-secondary);">
-            <i class="fa fa-info-circle" style="font-size: 32px; color: var(--fha-info); margin-bottom: 8px;"></i>
-            <p style="margin: 0; font-size: 13px;">No categories defined</p>
+            <span class="fha-badge fha-badge-primary" style="flex-shrink: 0;">{{cat.count}}</span>
+            <span style="font-size: 11px; color: var(--fha-text-secondary); flex-shrink: 0; min-width: 32px; text-align: right;">{{cat.percentage}}%</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Recent Critical Issues (si > 0) -->
-    <div ng-if="c.getIssuesBySeverity('critical').length > 0" class="fha-card" style="margin-bottom: 24px;">
-      <div class="fha-card-header">
-        <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-danger);">
-          <i class="fa fa-exclamation-triangle"></i> Critical Issues Requiring Immediate Attention
-        </h3>
-      </div>
-      <div class="fha-card-body" style="padding: 20px;">
-        <div ng-repeat="issue in c.getIssuesBySeverity('critical') | limitTo:5" 
-             style="background: var(--fha-danger-bg); border: 1px solid var(--fha-danger-light); border-left: 4px solid var(--fha-danger); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-          <div style="display: flex; gap: 12px; margin-bottom: 8px; align-items: center;">
-            <span class="issue-badge critical">CRITICAL</span>
-            <code style="background: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; border: 1px solid var(--fha-danger);">{{issue.code}}</code>
-          </div>
-          <p style="margin: 0 0 8px 0; color: var(--fha-text-primary); font-size: 14px; font-weight: 500;">
-            <i class="fa fa-exclamation-circle" style="color: var(--fha-danger); margin-right: 6px;"></i>
-            {{issue.message}}
-          </p>
-          <div style="display: flex; gap: 16px; font-size: 12px; color: var(--fha-text-secondary);">
-            <span><i class="fa fa-table"></i> {{issue.parent_table || issue.table}}</span>
-            <span><i class="fa fa-hashtag"></i> {{issue.record}}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- ── ROW 4 : Analysis Details (configuration + metadata) ─── -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
 
-    <!-- Analysis Info Grid -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
-      
-      <!-- Configuration Details -->
+      <!-- Configuration -->
       <div class="fha-card">
         <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
             <i class="fa fa-cog" style="color: var(--fha-primary);"></i> Configuration
           </h3>
         </div>
-        <div class="fha-card-body" style="padding: 20px;">
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Name:</span>
-            <span class="fha-info-value">{{c.result.configuration_name || 'N/A'}}</span>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Name</span>
+            <span class="fha-info-value" style="font-weight: 700;">{{c.result.configuration_name || 'N/A'}}</span>
           </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Description:</span>
-            <span class="fha-info-value">{{c.result.configuration_description || 'No description'}}</span>
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Target Table</span>
+            <span class="fha-info-value">
+              {{c.result.table_label ? (c.result.table_label + ' (' + c.result.table_name + ')') : (c.result.table_name || 'N/A')}}
+            </span>
+          </div>
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Template</span>
+            <span class="fha-info-value">{{c.result.template_name || 'N/A'}}</span>
+          </div>
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Scope</span>
+            <span class="fha-info-value">{{c.result.scope || 'Global'}}</span>
           </div>
           <div class="fha-info-row">
-            <span class="fha-info-label">Scope:</span>
-            <span class="fha-info-value">{{c.result.scope || 'Global'}}</span>
+            <span class="fha-info-label">Description</span>
+            <span class="fha-info-value" style="font-style: italic; color: var(--fha-text-secondary);">{{c.result.configuration_description || 'No description'}}</span>
           </div>
         </div>
       </div>
 
-      <!-- Timeline -->
+      <!-- Execution Metadata -->
       <div class="fha-card">
         <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-clock" style="color: var(--fha-primary);"></i> Timeline
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+            <i class="fa fa-clock-o" style="color: var(--fha-primary);"></i> Execution
           </h3>
         </div>
-        <div class="fha-card-body" style="padding: 20px;">
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Created:</span>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Analysis #</span>
+            <span class="fha-info-value" style="font-weight: 700; font-family: monospace;">{{c.result.number}}</span>
+          </div>
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Status</span>
+            <span class="fha-status-badge" ng-class="{'badge-completed': c.result.state == 'completed', 'badge-in-progress': c.result.state == 'in_progress', 'badge-pending': c.result.state == 'pending'}">
+              {{c.result.state | uppercase}}
+            </span>
+          </div>
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Started</span>
             <span class="fha-info-value">{{c.result.sys_created_on | date:'medium'}}</span>
           </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Updated:</span>
-            <span class="fha-info-value">{{c.result.sys_updated_on | date:'medium'}}</span>
+          <div class="fha-info-row" style="margin-bottom: 14px;">
+            <span class="fha-info-label">Duration</span>
+            <span class="fha-info-value" style="font-weight: 700;">{{c.getAnalysisDuration()}}</span>
           </div>
           <div class="fha-info-row">
-            <span class="fha-info-label">Duration:</span>
-            <span class="fha-info-value">{{c.getAnalysisDuration()}}</span>
+            <span class="fha-info-label">Run by</span>
+            <span class="fha-info-value">{{c.result.sys_created_by || 'System'}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+            <i class="fa fa-tachometer" style="color: var(--fha-primary);"></i> Quick Stats
+          </h3>
+        </div>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="background: var(--fha-bg-section); border-radius: 8px; padding: 14px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 800; color: var(--fha-primary);">{{c.result.record_count || 0}}</div>
+              <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Records Scanned</div>
+            </div>
+            <div style="background: var(--fha-bg-section); border-radius: 8px; padding: 14px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 800; color: var(--fha-anthracite);">{{c.result.issues.length}}</div>
+              <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Issues Found</div>
+            </div>
+            <div style="background: var(--fha-bg-section); border-radius: 8px; padding: 14px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 800; color: var(--fha-anthracite);">{{c.getTotalTables()}}</div>
+              <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Tables Affected</div>
+            </div>
+            <div style="background: var(--fha-bg-section); border-radius: 8px; padding: 14px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 800; color: var(--fha-anthracite);">{{c.getTotalCategories()}}</div>
+              <div style="font-size: 10px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Categories</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1113,142 +1179,141 @@ s -->
   </div>
 
   <!-- ============================================================
-       TAB: ANALYTICS (Statistiques avancées)
+       TAB: ANALYTICS
        ============================================================ -->
   <div ng-if="c.activeTab == 'analytics'">
-    
-    <!-- Stats Grid -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
-      
-      <!-- Card: Severity Breakdown -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-pie-chart" style="color: var(--fha-primary);"></i> Severity Breakdown
-          </h3>
-        </div>
-        <div class="fha-card-body" style="padding: 24px;">
-          <div style="display: flex; flex-direction: column; gap: 16px;">
-            <div ng-repeat="sev in ['critical', 'high', 'medium', 'low']" 
-                 style="padding: 16px; background: var(--fha-bg-section); border-radius: 8px; border-left: 4px solid;"
-                 ng-style="{
-                   'border-left-color': sev == 'critical' ? 'var(--fha-danger)' :
-                                       sev == 'high' ? '#E74C3C' :
-                                       sev == 'medium' ? 'var(--fha-warning)' :
-                                       '#5DADE2'
-                 }">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;"
-                      ng-style="{'color': sev == 'critical' ? 'var(--fha-danger)' :
-                                         sev == 'high' ? '#E74C3C' :
-                                         sev == 'medium' ? 'var(--fha-warning)' :
-                                         '#2E86C1'}">
-                  {{sev}}
-                </span>
-                <span style="font-size: 24px; font-weight: 700;"
-                      ng-style="{'color': sev == 'critical' ? 'var(--fha-danger)' :
-                                         sev == 'high' ? '#E74C3C' :
-                                         sev == 'medium' ? 'var(--fha-warning)' :
-                                         '#2E86C1'}">
-                  {{c.getIssuesBySeverity(sev).length}}
-                </span>
-              </div>
-              <div style="height: 8px; background: var(--fha-gray-100); border-radius: 4px; overflow: hidden;">
-                <div style="height: 100%; border-radius: 4px; transition: width 0.6s ease;"
-                     ng-style="{
-                       'width': (c.getIssuesBySeverity(sev).length / c.result.issues.length * 100) + '%',
-                       'background': sev == 'critical' ? 'var(--fha-danger)' :
-                                    sev == 'high' ? '#E74C3C' :
-                                    sev == 'medium' ? 'var(--fha-warning)' :
-                                    '#5DADE2'
-                     }">
-                </div>
-              </div>
-              <div style="margin-top: 8px; font-size: 12px; color: var(--fha-text-secondary); text-align: right;">
-                {{(c.getIssuesBySeverity(sev).length / c.result.issues.length * 100) | number:1}}% of total
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Card: Tables Summary -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-database" style="color: var(--fha-primary);"></i> Tables Summary
-          </h3>
-        </div>
-        <div class="fha-card-body" style="padding: 24px;">
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="display: flex; justify-content: space-between; padding: 16px; background: var(--fha-bg-section); border-radius: 8px;">
-              <span style="font-size: 13px; color: var(--fha-text-secondary); font-weight: 600;">Total Tables Affected</span>
-              <span style="font-size: 20px; font-weight: 700; color: var(--fha-primary);">
-                {{c.getTotalTables()}}
-              </span>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 16px; background: var(--fha-bg-section); border-radius: 8px;">
-              <span style="font-size: 13px; color: var(--fha-text-secondary); font-weight: 600;">Avg Issues per Table</span>
-              <span style="font-size: 20px; font-weight: 700; color: var(--fha-anthracite);">
-                {{c.getAvgIssuesPerTable() | number:1}}
-              </span>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 16px; background: var(--fha-bg-section); border-radius: 8px;">
-              <span style="font-size: 13px; color: var(--fha-text-secondary); font-weight: 600;">Most Affected Table</span>
-              <span style="font-size: 14px; font-weight: 700; color: var(--fha-anthracite);">
-                {{(c.getMostAffectedTable() && c.getMostAffectedTable().name) || 'N/A'}}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- ── ROW 1 : Health Score + Key Metrics ──────────────────── -->
+    <div style="display: grid; grid-template-columns: 240px 1fr; gap: 24px; margin-bottom: 24px;">
 
-      <!-- Card: Health Score -->
-      <div class="fha-card" ng-if="c.result.health_score">
+      <!-- Health Score -->
+      <div class="fha-card" style="text-align: center;" ng-if="c.result.health_score !== undefined">
         <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite); width: 100%; text-align: left;">
             <i class="fa fa-heartbeat" style="color: var(--fha-primary);"></i> Health Score
           </h3>
         </div>
-        <div class="fha-card-body" style="padding: 24px; text-align: center;">
-          <div style="width: 120px; height: 120px; margin: 0 auto 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700; border: 8px solid; box-shadow: var(--fha-shadow-lg);"
-               ng-class="{
-                 'fha-score-excellent': c.result.health_score >= 90,
-                 'fha-score-good': c.result.health_score >= 70 && c.result.health_score < 90,
-                 'fha-score-medium': c.result.health_score >= 40 && c.result.health_score < 70,
-                 'fha-score-poor': c.result.health_score < 40
-               }"
+        <div class="fha-card-body" style="padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+          <div style="width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; border: 8px solid; box-shadow: 0 4px 20px rgba(0,0,0,0.1);"
                ng-style="{
-                 'color': c.result.health_score >= 90 ? 'var(--fha-success)' :
-                         c.result.health_score >= 70 ? '#2E86C1' :
-                         c.result.health_score >= 40 ? 'var(--fha-warning)' :
-                         'var(--fha-danger)',
-                 'border-color': c.result.health_score >= 90 ? 'var(--fha-success)' :
-                                c.result.health_score >= 70 ? '#2E86C1' :
-                                c.result.health_score >= 40 ? 'var(--fha-warning)' :
-                                'var(--fha-danger)',
-                 'background': c.result.health_score >= 90 ? 'var(--fha-success-bg)' :
-                              c.result.health_score >= 70 ? 'var(--fha-info-bg)' :
-                              c.result.health_score >= 40 ? 'var(--fha-warning-bg)' :
-                              'var(--fha-danger-bg)'
+                 'color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)',
+                 'border-color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)',
+                 'background': c.result.health_score >= 70 ? 'var(--fha-success-bg)' : c.result.health_score >= 40 ? 'var(--fha-warning-bg)' : 'var(--fha-danger-bg)'
                }">
             {{c.result.health_score}}%
           </div>
-          <h4 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: var(--fha-anthracite);">
-            {{c.getHealthLabel()}}
-          </h4>
-          <p style="margin: 0; font-size: 13px; color: var(--fha-text-secondary);">
-            {{c.getHealthDescription()}}
-          </p>
+          <div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--fha-anthracite);">{{c.getHealthLabel()}}</div>
+            <div style="font-size: 12px; color: var(--fha-text-secondary); margin-top: 4px; line-height: 1.5;">{{c.getHealthDescription()}}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Metrics grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; align-content: start;">
+        <div class="fha-card" style="padding: 16px; text-align: center;">
+          <div style="font-size: 28px; font-weight: 800; color: var(--fha-primary);">{{c.result.record_count || 0}}</div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Records Scanned</div>
+        </div>
+        <div class="fha-card" style="padding: 16px; text-align: center;">
+          <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.result.issues.length}}</div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Total Issues</div>
+        </div>
+        <div class="fha-card" style="padding: 16px; text-align: center;">
+          <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.getTotalTables()}}</div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Tables Affected</div>
+        </div>
+        <div class="fha-card" style="padding: 16px; text-align: center;">
+          <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.getAvgIssuesPerTable() | number:1}}</div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Avg / Table</div>
+        </div>
+        <div class="fha-card" style="padding: 16px; text-align: center;">
+          <div style="font-size: 28px; font-weight: 800; color: var(--fha-danger);">{{c.getIssuesBySeverity('critical').length}}</div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Critical</div>
+        </div>
+        <div class="fha-card" style="padding: 16px; text-align: center;">
+          <div style="font-size: 28px; font-weight: 800; color: #E74C3C;">{{c.getIssuesBySeverity('high').length}}</div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">High</div>
         </div>
       </div>
     </div>
 
-    <!-- Detailed Table Stats -->
+    <!-- ── ROW 2 : Severity Breakdown + Category Breakdown ──────── -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 24px;">
+
+      <!-- Severity Breakdown -->
+      <div class="fha-card">
+        <div class="fha-card-header">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+            <i class="fa fa-pie-chart" style="color: var(--fha-primary);"></i> Severity Breakdown
+          </h3>
+        </div>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <!-- Stacked bar -->
+          <div style="display: flex; height: 24px; border-radius: 6px; overflow: hidden; margin-bottom: 20px; gap: 2px;">
+            <div ng-if="c.getIssuesBySeverity('critical').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('critical').length}"
+                 style="background: var(--fha-danger);"></div>
+            <div ng-if="c.getIssuesBySeverity('high').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('high').length}"
+                 style="background: #E74C3C;"></div>
+            <div ng-if="c.getIssuesBySeverity('medium').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('medium').length}"
+                 style="background: var(--fha-warning);"></div>
+            <div ng-if="c.getIssuesBySeverity('low').length > 0"
+                 ng-style="{'flex': c.getIssuesBySeverity('low').length}"
+                 style="background: #5DADE2;"></div>
+          </div>
+          <div ng-repeat="sev in [{label:'Critical',key:'critical',color:'var(--fha-danger)'},{label:'High',key:'high',color:'#E74C3C'},{label:'Medium',key:'medium',color:'var(--fha-warning)'},{label:'Low',key:'low',color:'#5DADE2'}]"
+               style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer;"
+               ng-click="c.setActiveTab('issues'); c.filters.severity = sev.key">
+            <div style="flex: 0 0 70px; font-size: 11px; font-weight: 700; text-transform: uppercase;"
+                 ng-style="{'color': sev.color}">{{sev.label}}</div>
+            <div style="flex: 1; height: 20px; background: var(--fha-gray-100); border-radius: 10px; overflow: hidden;">
+              <div style="height: 100%; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px;"
+                   ng-style="{'width': (c.getIssuesBySeverity(sev.key).length / c.result.issues.length * 100) + '%', 'background': sev.color, 'min-width': c.getIssuesBySeverity(sev.key).length > 0 ? '20px' : '0'}">
+                <span ng-if="c.getIssuesBySeverity(sev.key).length > 0" style="font-size: 10px; font-weight: 700; color: white;">{{c.getIssuesBySeverity(sev.key).length}}</span>
+              </div>
+            </div>
+            <div style="flex: 0 0 36px; text-align: right; font-size: 12px; color: var(--fha-text-secondary);">
+              {{c.getPercentageBySeverity(sev.key)}}%
+            </div>
+          </div>
+          <div style="text-align: right; margin-top: 4px; font-size: 11px; color: var(--fha-text-secondary); font-style: italic;">Click a row to filter issues</div>
+        </div>
+      </div>
+
+      <!-- Category Breakdown -->
+      <div class="fha-card" ng-if="c.getCategoryStats().length > 0">
+        <div class="fha-card-header">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+            <i class="fa fa-tags" style="color: var(--fha-primary);"></i> Category Breakdown
+          </h3>
+        </div>
+        <div class="fha-card-body" style="padding: 16px 20px;">
+          <div ng-repeat="cat in c.getCategoryStats()"
+               style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer;"
+               ng-click="c.setActiveTab('issues'); c.filters.category = cat.name">
+            <i class="fa fa-tag" style="color: var(--fha-primary); flex-shrink: 0; font-size: 12px;"></i>
+            <div style="flex: 0 0 90px; font-size: 12px; font-weight: 700; color: var(--fha-anthracite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{cat.name}}">{{cat.name}}</div>
+            <div style="flex: 1; height: 20px; background: var(--fha-gray-100); border-radius: 10px; overflow: hidden;">
+              <div style="height: 100%; background: var(--fha-primary); border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px;"
+                   ng-style="{'width': cat.percentage + '%', 'min-width': cat.count > 0 ? '20px' : '0'}">
+                <span style="font-size: 10px; font-weight: 700; color: white;">{{cat.count}}</span>
+              </div>
+            </div>
+            <div style="flex: 0 0 36px; text-align: right; font-size: 12px; color: var(--fha-text-secondary);">{{cat.percentage}}%</div>
+          </div>
+          <div style="text-align: right; margin-top: 4px; font-size: 11px; color: var(--fha-text-secondary); font-style: italic;">Click a row to filter issues</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROW 3 : Full Table Breakdown (sortable) ──────────────── -->
     <div class="fha-card">
       <div class="fha-card-header">
-        <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-          <i class="fa fa-table" style="color: var(--fha-primary);"></i> Detailed Table Analysis
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+          <i class="fa fa-table" style="color: var(--fha-primary);"></i> Table Breakdown
         </h3>
       </div>
       <div class="fha-card-body" style="padding: 0;">
@@ -1260,18 +1325,20 @@ s -->
                 <i class="fa" ng-class="{'fa-sort-up': c.tableStatsSort == 'name' && c.tableStatsSortDir == 'asc', 'fa-sort-down': c.tableStatsSort == 'name' && c.tableStatsSortDir == 'desc', 'fa-sort': c.tableStatsSort != 'name'}"></i>
               </th>
               <th class="fha-th-sortable" ng-click="c.sortTableStats('total')">
-                Total Issues
+                Total
                 <i class="fa" ng-class="{'fa-sort-up': c.tableStatsSort == 'total' && c.tableStatsSortDir == 'asc', 'fa-sort-down': c.tableStatsSort == 'total' && c.tableStatsSortDir == 'desc', 'fa-sort': c.tableStatsSort != 'total'}"></i>
               </th>
-              <th>Critical</th>
-              <th>High</th>
-              <th>Medium</th>
-              <th>Low</th>
+              <th class="fha-th-sortable" ng-click="c.sortTableStats('critical')" style="color: var(--fha-danger);">Critical</th>
+              <th class="fha-th-sortable" ng-click="c.sortTableStats('high')" style="color: #E74C3C;">High</th>
+              <th class="fha-th-sortable" ng-click="c.sortTableStats('medium')" style="color: var(--fha-warning);">Medium</th>
+              <th class="fha-th-sortable" ng-click="c.sortTableStats('low')" style="color: #5DADE2;">Low</th>
               <th>Distribution</th>
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="tableItem in c.getSortedTableStats()">
+            <tr ng-repeat="tableItem in c.getSortedTableStats()"
+                style="cursor: pointer;"
+                ng-click="c.setActiveTab('issues'); c.filters.table = tableItem.name">
               <td>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <i class="fa fa-database" style="color: var(--fha-primary);"></i>
@@ -1279,175 +1346,43 @@ s -->
                 </div>
               </td>
               <td>
-                <span class="fha-badge fha-badge-primary" style="font-size: 13px; padding: 6px 12px;">
-                  {{tableItem.total}}
-                </span>
+                <span class="fha-badge fha-badge-primary" style="font-size: 13px; padding: 5px 10px; font-weight: 800;">{{tableItem.total}}</span>
               </td>
               <td>
-                <span ng-if="tableItem.critical > 0" 
-                      class="fha-badge fha-badge-critical">
-                  {{tableItem.critical}}
-                </span>
-                <span ng-if="tableItem.critical == 0" 
-                      style="color: var(--fha-text-muted);">-</span>
+                <span ng-if="tableItem.critical > 0" class="fha-badge fha-badge-critical">{{tableItem.critical}}</span>
+                <span ng-if="tableItem.critical == 0" style="color: var(--fha-text-muted);">—</span>
               </td>
               <td>
-                <span ng-if="tableItem.high > 0" 
-                      class="fha-badge fha-badge-high">
-                  {{tableItem.high}}
-                </span>
-                <span ng-if="tableItem.high == 0" 
-                      style="color: var(--fha-text-muted);">-</span>
+                <span ng-if="tableItem.high > 0" class="fha-badge fha-badge-high">{{tableItem.high}}</span>
+                <span ng-if="tableItem.high == 0" style="color: var(--fha-text-muted);">—</span>
               </td>
               <td>
-                <span ng-if="tableItem.medium > 0" 
-                      class="fha-badge fha-badge-medium">
-                  {{tableItem.medium}}
-                </span>
-                <span ng-if="tableItem.medium == 0" 
-                      style="color: var(--fha-text-muted);">-</span>
+                <span ng-if="tableItem.medium > 0" class="fha-badge fha-badge-medium">{{tableItem.medium}}</span>
+                <span ng-if="tableItem.medium == 0" style="color: var(--fha-text-muted);">—</span>
               </td>
               <td>
-                <span ng-if="tableItem.low > 0" 
-                      class="fha-badge fha-badge-low">
-                  {{tableItem.low}}
-                </span>
-                <span ng-if="tableItem.low == 0" 
-                      style="color: var(--fha-text-muted);">-</span>
+                <span ng-if="tableItem.low > 0" class="fha-badge fha-badge-low">{{tableItem.low}}</span>
+                <span ng-if="tableItem.low == 0" style="color: var(--fha-text-muted);">—</span>
               </td>
               <td>
-                <div style="display: flex; gap: 2px; height: 24px;">
-                  <div ng-if="tableItem.critical > 0" 
-                       style="background: var(--fha-danger); border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.critical}"></div>
-                  <div ng-if="tableItem.high > 0" 
-                       style="background: #E74C3C; border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.high}"></div>
-                  <div ng-if="tableItem.medium > 0" 
-                       style="background: var(--fha-warning); border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.medium}"></div>
-                  <div ng-if="tableItem.low > 0" 
-                       style="background: #5DADE2; border-radius: 2px; transition: flex 0.3s ease;" ng-style="{\'flex\': tableItem.low}"></div>
+                <div style="display: flex; gap: 2px; height: 20px; min-width: 80px;">
+                  <div ng-if="tableItem.critical > 0" style="background: var(--fha-danger); border-radius: 2px;" ng-style="{'flex': tableItem.critical}"></div>
+                  <div ng-if="tableItem.high > 0" style="background: #E74C3C; border-radius: 2px;" ng-style="{'flex': tableItem.high}"></div>
+                  <div ng-if="tableItem.medium > 0" style="background: var(--fha-warning); border-radius: 2px;" ng-style="{'flex': tableItem.medium}"></div>
+                  <div ng-if="tableItem.low > 0" style="background: #5DADE2; border-radius: 2px;" ng-style="{'flex': tableItem.low}"></div>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================
-       TAB: DETAILS (Analysis metadata)
-       ============================================================ -->
-  <div ng-if="c.activeTab == 'details'">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px;">
-      
-      <!-- General Info -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-info-circle" style="color: var(--fha-primary);"></i> General Information
-          </h3>
-        </div>
-        <div class="fha-card-body" style="padding: 24px;">
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Analysis Number:</span>
-            <span class="fha-info-value"><strong>{{c.result.number}}</strong></span>
-          </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">State:</span>
-            <span class="fha-status-badge" ng-class="{
-              'badge-completed': c.result.state == 'completed',
-              'badge-in-progress': c.result.state == 'in_progress'
-            }">
-              {{c.result.state | uppercase}}
-            </span>
-          </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Created:</span>
-            <span class="fha-info-value">{{c.result.sys_created_on | date:'medium'}}</span>
-          </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Updated:</span>
-            <span class="fha-info-value">{{c.result.sys_updated_on | date:'medium'}}</span>
-          </div>
-          <div class="fha-info-row">
-            <span class="fha-info-label">Created By:</span>
-            <span class="fha-info-value">{{c.result.sys_created_by || 'System'}}</span>
-          </div>
-          <div class="fha-info-row" style="margin-top: 16px;">
-            <span class="fha-info-label">Duration:</span>
-            <span class="fha-info-value">{{c.getAnalysisDuration()}}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Configuration -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-cog" style="color: var(--fha-primary);"></i> Configuration
-          </h3>
-        </div>
-        <div class="fha-card-body" style="padding: 24px;">
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Name:</span>
-            <span class="fha-info-value">{{c.result.configuration_name || 'N/A'}}</span>
-          </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Description:</span>
-            <span class="fha-info-value">{{c.result.configuration_description || 'No description available'}}</span>
-          </div>
-                    <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Target Table:</span>
-            <span class="fha-info-value">{{c.result.table_label ? (c.result.table_label + \' (\' + c.result.table_name + \')\') : (c.result.table_name || \'N/A\')}}</span>
-          </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Template:</span>
-            <span class="fha-info-value">{{c.result.template_name || \'N/A\'}}</span>
-          </div>
-          <div class="fha-info-row">
-            <span class="fha-info-label">Scope:</span>
-            <span class="fha-info-value">{{c.result.scope || \'Global\'}}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Statistics -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--fha-anthracite);">
-            <i class="fa fa-chart-bar" style="color: var(--fha-primary);"></i> Statistics
-          </h3>
-        </div>
-        <div class="fha-card-body" style="padding: 24px;">
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Records Scanned:</span>
-            <span class="fha-info-value">{{c.result.record_count || \'N/A\'}}</span>
-          </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Total Issues:</span>
-            <span class="fha-info-value">{{c.result.issues.length}}</span>
-          </div>
-          <div class="fha-info-row" style="margin-bottom: 16px;">
-            <span class="fha-info-label">Tables Affected:</span>
-            <span class="fha-info-value">{{c.getTotalTables()}}</span>
-          </div>
-          <div class="fha-info-row">
-            <span class="fha-info-label">Categories:</span>
-            <span class="fha-info-value">{{c.getTotalCategories()}}</span>
-          </div>
-          <div class="fha-info-row" style="margin-top: 16px;">
-            <span class="fha-info-label">Health Score:</span>
-            <span class="fha-info-value" ng-style="{
-              \'color\': c.result.health_score >= 70 ? \'var(--fha-success)\' :
-                       c.result.health_score >= 40 ? \'var(--fha-warning)\' :
-                       \'var(--fha-danger)\',
-              \'font-weight\': \'700\'
-            }">{{c.result.health_score || 0}}% — {{c.getHealthLabel()}}</span>
-          </div>
+        <div style="padding: 12px 20px; text-align: right; font-size: 11px; color: var(--fha-text-secondary); font-style: italic; border-top: 1px solid var(--fha-border-color);">
+          Click a row to filter issues by table
         </div>
       </div>
     </div>
   </div>
+
+
 
   <!-- ============================================================
        TAB: RAW DATA (JSON)
