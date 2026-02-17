@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_choice action="INSERT_OR_UPDATE" field="execution_mode" table="x_1310794_founda_0_issue_rules" version="3">
+        <sys_choice_set action="INSERT_OR_UPDATE">
+            <element>execution_mode</element>
+            <name>x_1310794_founda_0_issue_rules</name>
+            <sys_class_name>sys_choice_set</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-02-13 08:25:45</sys_created_on>
+            <sys_id>b3de431953cfb610c7233ee0a0490ede</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>execution_mode</sys_name>
+            <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+            <sys_update_name>sys_choice_x_1310794_founda_0_issue_rules_execution_mode</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-02-13 08:25:45</sys_updated_on>
+        </sys_choice_set>
+        <sys_choice action="INSERT_OR_UPDATE">
+            <dependent_value/>
+            <element>execution_mode</element>
+            <hint/>
+            <inactive>false</inactive>
+            <label>Aggregate (per table)</label>
+            <language>en</language>
+            <name>x_1310794_founda_0_issue_rules</name>
+            <sequence/>
+            <synonyms/>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-02-13 08:25:45</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>fbde431953cfb610c7233ee0a0490edd</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-02-13 08:25:45</sys_updated_on>
+            <value>aggregate</value>
+        </sys_choice>
+        <sys_choice action="INSERT_OR_UPDATE">
+            <dependent_value/>
+            <element>execution_mode</element>
+            <hint/>
+            <inactive>false</inactive>
+            <label>Per record</label>
+            <language>en</language>
+            <name>x_1310794_founda_0_issue_rules</name>
+            <sequence/>
+            <synonyms/>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-02-13 08:25:45</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>bbde431953cfb610c7233ee0a0490edd</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-02-13 08:25:45</sys_updated_on>
+            <value>per_record</value>
+        </sys_choice>
+    </sys_choice>
+</record_update>
