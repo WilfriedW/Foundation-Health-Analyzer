@@ -123,6 +123,7 @@ FHARuleEvaluator.prototype = {
             evaluator.putVariable("item", item);
             evaluator.putVariable("context", context || {});
             evaluator.putVariable("issues", issues);
+            evaluator.putVariable("buildIssue", this._buildIssueFactory(ruleObj, item));
 
             evaluator.evaluateScript(ruleGr, "script");
 
@@ -170,6 +171,7 @@ FHARuleEvaluator.prototype = {
             evaluator.putVariable("rule", ruleObj);
             evaluator.putVariable("context", context || {});
             evaluator.putVariable("issues", issues);
+            evaluator.putVariable("buildIssue", this._buildIssueFactory(ruleObj, { sys_id: '', table: tableName }));
 
             evaluator.evaluateScript(ruleGr, "script");
 
@@ -209,6 +211,39 @@ FHARuleEvaluator.prototype = {
         }
 
         return null;
+    },
+
+    /**
+     * Creates a buildIssue helper function bound to current rule/item context.
+     * Injected into rule scripts via evaluator.putVariable("buildIssue", ...).
+     * Usage in rule: issues.push(buildIssue(gr, 'message', { details }));
+     * @param {Object} ruleObj - Rule object {sys_id, code, name, severity, ...}
+     * @param {Object} itemObj - Item object {sys_id, table, values, ...}
+     * @returns {Function} buildIssue(gr, message, details) function
+     */
+    _buildIssueFactory: function(ruleObj, itemObj) {
+        return function(gr, message, details) {
+            var recordName = '';
+            if (gr && typeof gr.getValue === 'function') {
+                recordName = gr.getValue('name') || gr.getValue('user_name') || gr.getValue('title') || gr.getUniqueValue();
+            } else if (typeof gr === 'string') {
+                recordName = gr;
+            }
+
+            var issueDetails = details || {};
+            if (!issueDetails.record_name) {
+                issueDetails.record_name = recordName || 'N/A';
+            }
+
+            return {
+                code: ruleObj.code,
+                message: message || 'Issue detected',
+                severity: ruleObj.severity || 'medium',
+                record: itemObj.sys_id,
+                record_table: itemObj.table,
+                details: issueDetails
+            };
+        };
     },
 
     _parseParams: function(paramsStr) {
