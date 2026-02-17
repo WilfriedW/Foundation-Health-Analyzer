@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="DELETE">
+        <category>custom</category>
+        <client_script><![CDATA[api.controller = function($scope, spUtil, $timeout, $location, $routeParams) {
+   var c = this;
+   
+
+};]]></client_script>
+        <controller_as>c</controller_as>
+        <css/>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>fha_dashb_v2</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]></link>
+        <name>FHA Dashb V2</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function() {
+    if (input && input.action) {
+        if (input.action === 'getTables') {
+            var analyzer = new FHAnalyzer();
+            var tables = analyzer.getAvailableTables();
+            data.tables = tables;
+        }
+        
+        if (input.action === 'analyze' && input.table_name) {
+            var analyzer = new FHAnalyzer();
+            var result = analyzer.analyzeTable(input.table_name);
+            data.success = result.success;
+            data.analysis_id = result.analysis_id;
+            data.error = result.error;
+        }
+    }
+})();
+]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 21:46:32</sys_created_on>
+        <sys_id>a06375448396321083e1b4a6feaad334</sys_id>
+        <sys_mod_count>2</sys_mod_count>
+        <sys_name>FHA Dashb V2</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sp_widget_a06375448396321083e1b4a6feaad334</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-02 21:48:37</sys_updated_on>
+        <template><![CDATA[<div class="container">
+  <h2>]]>🏥<![CDATA[ Foundation Health Analyzer</h2>
+  
+  <div class="card">
+    <h3>]]>📊<![CDATA[ Table Analysis</h3>
+    
+    <div class="form-group">
+      <label for="tableSelect">Select Table:</label>
+      <select id="tableSelect" class="form-control">
+        <option value="">-- Select a table --</option>
+      </select>
+    </div>
+    
+    <button id="analyzeBtn" class="btn btn-primary" onclick="analyzeTable()">
+      <i class="fa fa-play"></i> Analyze Table
+    </button>
+    
+    <div id="loading" style="display:none;">
+      <i class="fa fa-spinner fa-spin"></i> Analyzing...
+    </div>
+  </div>
+  
+  <div id="results" style="display:none;"></div>
+</div>
+
+<style>
+.container { max-width: 800px; margin: 20px auto; }
+.card { background: #fff; border: 1px solid #ddd; padding: 20px; margin: 20px 0; }
+.btn { padding: 10px 20px; background: #0378b8; color: white; border: none; cursor: pointer; }
+.btn:hover { background: #035b8a; }
+.form-group { margin: 15px 0; }
+.form-control { width: 100%; padding: 8px; }
+</style>
+
+<script>
+// Load available tables
+function loadTables() {
+  c.server.get({
+    action: 'getTables'
+  }).then(function(response) {
+    var select = document.getElementById('tableSelect');
+    select.innerHTML = '<option value="">-- Select a table --</option>';
+    
+    if (response.data && response.data.tables) {
+      response.data.tables.forEach(function(table) {
+        var option = document.createElement('option');
+        option.value = table.name;
+        option.textContent = table.label + ' (' + table.name + ')';
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+// Analyze selected table
+function analyzeTable() {
+  var tableSelect = document.getElementById('tableSelect');
+  var tableName = tableSelect.value;
+  
+  if (!tableName) {
+    alert('Please select a table');
+    return;
+  }
+  
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('loading').style.display = 'block';
+  
+  c.server.get({
+    action: 'analyze',
+    table_name: tableName
+  }).then(function(response) {
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('loading').style.display = 'none';
+    
+    if (response.data.success) {
+      // Redirect to results widget
+      window.location = '?id=fha_results&analysis_id=' + response.data.analysis_id;
+    } else {
+      alert('Error: ' + response.data.error);
+    }
+  });
+}
+
+// Initialize
+loadTables();
+</script>
+]]></template>
+    </sp_widget>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>615a31611b9ab59ce84d2f8dee4bcb52</instance_id>
+        <instance_name>dev203401</instance_name>
+        <name>sp_widget_a06375448396321083e1b4a6feaad334</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sp_widget"&gt;&lt;sp_widget action="INSERT_OR_UPDATE"&gt;&lt;category&gt;custom&lt;/category&gt;&lt;client_script&gt;&lt;![CDATA[api.controller = function($scope, spUtil, $timeout, $location, $routeParams) {
+   var c = this;
+   
+
+};]]&gt;&lt;/client_script&gt;&lt;controller_as&gt;c&lt;/controller_as&gt;&lt;css/&gt;&lt;data_table&gt;sp_instance&lt;/data_table&gt;&lt;demo_data/&gt;&lt;description/&gt;&lt;docs/&gt;&lt;field_list/&gt;&lt;has_preview&gt;false&lt;/has_preview&gt;&lt;id&gt;fha_dashb_v2&lt;/id&gt;&lt;internal&gt;false&lt;/internal&gt;&lt;link&gt;&lt;![CDATA[function link(scope, element, attrs, controller) {
+  
+}]]&gt;&lt;/link&gt;&lt;name&gt;FHA Dashb V2&lt;/name&gt;&lt;option_schema/&gt;&lt;public&gt;false&lt;/public&gt;&lt;roles/&gt;&lt;script&gt;&lt;![CDATA[(function() {
+    if (input &amp;&amp; input.action) {
+        if (input.action === 'getTables') {
+            var analyzer = new FHAnalyzer();
+            var tables = analyzer.getAvailableTables();
+            data.tables = tables;
+        }
+        
+        if (input.action === 'analyze' &amp;&amp; input.table_name) {
+            var analyzer = new FHAnalyzer();
+            var result = analyzer.analyzeTable(input.table_name);
+            data.success = result.success;
+            data.analysis_id = result.analysis_id;
+            data.error = result.error;
+        }
+    }
+})();
+]]&gt;&lt;/script&gt;&lt;servicenow&gt;false&lt;/servicenow&gt;&lt;sys_class_name&gt;sp_widget&lt;/sys_class_name&gt;&lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;&lt;sys_created_on&gt;2026-01-02 21:46:32&lt;/sys_created_on&gt;&lt;sys_id&gt;a06375448396321083e1b4a6feaad334&lt;/sys_id&gt;&lt;sys_mod_count&gt;2&lt;/sys_mod_count&gt;&lt;sys_name&gt;FHA Dashb V2&lt;/sys_name&gt;&lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;&lt;sys_policy/&gt;&lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;&lt;sys_update_name&gt;sp_widget_a06375448396321083e1b4a6feaad334&lt;/sys_update_name&gt;&lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;&lt;sys_updated_on&gt;2026-01-02 21:48:37&lt;/sys_updated_on&gt;&lt;template&gt;&lt;![CDATA[&lt;div class="container"&gt;
+  &lt;h2&gt;]]&gt;🏥&lt;![CDATA[ Foundation Health Analyzer&lt;/h2&gt;
+  
+  &lt;div class="card"&gt;
+    &lt;h3&gt;]]&gt;📊&lt;![CDATA[ Table Analysis&lt;/h3&gt;
+    
+    &lt;div class="form-group"&gt;
+      &lt;label for="tableSelect"&gt;Select Table:&lt;/label&gt;
+      &lt;select id="tableSelect" class="form-control"&gt;
+        &lt;option value=""&gt;-- Select a table --&lt;/option&gt;
+      &lt;/select&gt;
+    &lt;/div&gt;
+    
+    &lt;button id="analyzeBtn" class="btn btn-primary" onclick="analyzeTable()"&gt;
+      &lt;i class="fa fa-play"&gt;&lt;/i&gt; Analyze Table
+    &lt;/button&gt;
+    
+    &lt;div id="loading" style="display:none;"&gt;
+      &lt;i class="fa fa-spinner fa-spin"&gt;&lt;/i&gt; Analyzing...
+    &lt;/div&gt;
+  &lt;/div&gt;
+  
+  &lt;div id="results" style="display:none;"&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;style&gt;
+.container { max-width: 800px; margin: 20px auto; }
+.card { background: #fff; border: 1px solid #ddd; padding: 20px; margin: 20px 0; }
+.btn { padding: 10px 20px; background: #0378b8; color: white; border: none; cursor: pointer; }
+.btn:hover { background: #035b8a; }
+.form-group { margin: 15px 0; }
+.form-control { width: 100%; padding: 8px; }
+&lt;/style&gt;
+
+&lt;script&gt;
+// Load available tables
+function loadTables() {
+  c.server.get({
+    action: 'getTables'
+  }).then(function(response) {
+    var select = document.getElementById('tableSelect');
+    select.innerHTML = '&lt;option value=""&gt;-- Select a table --&lt;/option&gt;';
+    
+    if (response.data &amp;&amp; response.data.tables) {
+      response.data.tables.forEach(function(table) {
+        var option = document.createElement('option');
+        option.value = table.name;
+        option.textContent = table.label + ' (' + table.name + ')';
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+// Analyze selected table
+function analyzeTable() {
+  var tableSelect = document.getElementById('tableSelect');
+  var tableName = tableSelect.value;
+  
+  if (!tableName) {
+    alert('Please select a table');
+    return;
+  }
+  
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('loading').style.display = 'block';
+  
+  c.server.get({
+    action: 'analyze',
+    table_name: tableName
+  }).then(function(response) {
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('loading').style.display = 'none';
+    
+    if (response.data.success) {
+      // Redirect to results widget
+      window.location = '?id=fha_results&amp;analysis_id=' + response.data.analysis_id;
+    } else {
+      alert('Error: ' + response.data.error);
+    }
+  });
+}
+
+// Initialize
+loadTables();
+&lt;/script&gt;
+]]&gt;&lt;/template&gt;&lt;/sp_widget&gt;&lt;/record_update&gt;</payload>
+        <payload_hash>969404166</payload_hash>
+        <record_name>FHA Dashb V2</record_name>
+        <reverted_from/>
+        <source>d852d94c8312321083e1b4a6feaad3bf</source>
+        <source_table>sys_update_set</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 21:48:37</sys_created_on>
+        <sys_id>03d335848396321083e1b4a6feaad369</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19b80af19f40000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-02 21:48:37</sys_updated_on>
+        <type>Widget</type>
+        <update_guid>03d33584a8963210f3f4d09571fdf468</update_guid>
+        <update_guid_history>03d33584a8963210f3f4d09571fdf468:969404166,34833944a39632107af0a3487736b7e5:-1512636812,246375444c963210c05d9ea0e315ed37:1307538360</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete display_value="">0550af4883d2721083e1b4a6feaad3d3</sys_audit_delete>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-03 05:42:31</sys_created_on>
+        <sys_db_object display_value="" name="sp_widget">sp_widget</sys_db_object>
+        <sys_id>026958f292ad48a283a8c59d49c3fe39</sys_id>
+        <sys_metadata>a06375448396321083e1b4a6feaad334</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHA Dashb V2</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy/>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sp_widget_a06375448396321083e1b4a6feaad334</sys_update_name>
+        <sys_update_version display_value="sp_widget_a06375448396321083e1b4a6feaad334">03d335848396321083e1b4a6feaad369</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-03 05:42:31</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

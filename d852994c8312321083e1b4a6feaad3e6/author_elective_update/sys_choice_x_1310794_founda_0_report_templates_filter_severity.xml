@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_choice action="INSERT_OR_UPDATE" field="filter_severity" table="x_1310794_founda_0_report_templates" version="3">
+        <sys_choice_set action="INSERT_OR_UPDATE">
+            <element>filter_severity</element>
+            <name>x_1310794_founda_0_report_templates</name>
+            <sys_class_name>sys_choice_set</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2026-01-17 23:56:08</sys_created_on>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>filter_severity</sys_name>
+            <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+            <sys_update_name>sys_choice_x_1310794_founda_0_report_templates_filter_severity</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2026-01-17 23:56:08</sys_updated_on>
+        </sys_choice_set>
+    </sys_choice>
+</record_update>

@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="DELETE">
+        <access>package_private</access>
+        <active>false</active>
+        <api_name>x_1310794_founda_0.FHAnalysisEngine</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>FHAnalysisEngine</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/**
+ * FHAnalysisEngine - Engine for running analysis checks
+ */
+var FHAnalysisEngine = Class.create();
+FHAnalysisEngine.prototype = {
+
+    initialize: function() {
+        //this.optionsHandler = new FHOptionsHandler();
+       // this.utils = new FHScanUtils();
+    },
+    /**
+     * Run analysis with the given configuration
+     * @param {Object} config - Analysis configuration
+     * @returns {Object} Analysis result
+     */
+    run: function(config) {
+        //var ctx = new FHAnalysisContext(config);
+        //var start = new Date().getTime();
+
+    // var config = this.getConfiguration(configSysId);
+    //     gs.info("Config active ?" + config.sys_id);
+    //     config.verification_items.forEach(item => {
+    //         gs.info("Item:" + item.name);
+    //     });
+
+        gs.info('Confixxxxxx : ' + config.table_name)
+        this._runVerificationItems(config);
+
+
+        var engineResult = new FHCheckAutomationV2().run(config);
+
+        //ctx.setDuration(new Date().getTime() - start);
+
+        // var out = ctx.toResult();
+        // if (ctx._verificationResults) {
+        //     out.verification_items = ctx._verificationResults;
+        // }
+        // return out;
+    },
+
+    /**
+     * Charge et exécute les verification_items définis sur la configuration.
+     * @param {FHAnalysisContext} ctx
+     * @param {Object} config
+     */
+    _runVerificationItems: function(config) {
+        // var items = this._loadVerificationItems(config.verification_items + '');
+        var items = config.verification_items;
+        var checker = new FHCheckAutomationV2();
+        var results = [];
+
+        for (var i = 0; i < items.length; i++) {
+            var itemGr = items[i];
+            var category = itemGr.getValue('category') || 'automation';
+            var name = itemGr.getValue('name') || itemGr.getDisplayValue('table') || category;
+            var metadata = this._safeParse(itemGr.getValue('metadata'), {});
+            var label = metadata.label || name;
+            var itemType = (metadata.itemType || name || 'item').toLowerCase();
+
+            //ctx.registerCategory(category, label, metadata.icon || 'fa-folder');
+
+            // var verificationResult = checker.runVerification(itemGr, ctx);
+            // var records = verificationResult.data || [];
+
+            // ctx.addCategoryItems(category, itemType, label, records, {
+            //     table: itemGr.getValue('table'),
+            //     icon: metadata.icon || 'fa-folder',
+            //     color: metadata.color || '#6c757d'
+            // });
+
+            // for (var r = 0; r < records.length; r++) {
+            //     var rec = records[r];
+            //     if (!rec || !rec.issues) continue;
+            //     for (var k = 0; k < rec.issues.length; k++) {
+            //         var issue = rec.issues[k] || {};
+            //         ctx.addIssue(issue.code || 'ISSUE', issue.message || 'Issue detected', issue.severity || 'low', {
+            //             record_table: rec.table,
+            //             record_sys_id: rec.sys_id,
+            //             category: category
+            //         });
+            //     }
+            // }
+
+            // if (verificationResult.errors && verificationResult.errors.length) {
+            //     for (var e = 0; e < verificationResult.errors.length; e++) {
+            //         ctx.addIssue('CHECK_ERROR', verificationResult.errors[e], 'high', {
+            //             category: category
+            //         });
+            //     }
+            // }
+
+            results.push({
+                item_sys_id: itemGr.getUniqueValue(),
+                name: name,
+                category: category,
+                //records: records,
+            });
+        }
+
+        //ctx._verificationResults = results;
+    },
+
+    /**
+     * Charge les GlideRecord des verification_items par sys_id.
+     * @param {Array} ids
+     * @returns {Array}
+     */
+    // _loadVerificationItems: function(ids) {
+    //     var out = [];
+    //     var gr = new GlideRecord('x_1310794_founda_0_verification_items');
+    //     gr.addQuery('sys_id', 'IN', ids);
+    //     gr.addQuery('active', true);
+    //     gr.query();
+    //     while (gr.next()) {
+    //         out.push(gr);
+    //     }
+    //     return out;
+    // },
+
+    /**
+     * Parse JSON avec repli sécurisé.
+     */
+    _safeParse: function(val, fallback) {
+        if (fallback === undefined) fallback = {};
+        try {
+            if (!val) return fallback;
+            return JSON.parse(val);
+        } catch (e) {
+            return fallback;
+        }
+    },
+
+    type: 'FHAnalysisEngine'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-02 23:07:46</sys_created_on>
+        <sys_id>62f58e88831a321083e1b4a6feaad34f</sys_id>
+        <sys_mod_count>46</sys_mod_count>
+        <sys_name>FHAnalysisEngine</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_update_name>sys_script_include_62f58e88831a321083e1b4a6feaad34f</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-09 20:50:30</sys_updated_on>
+    </sys_script_include>
+<sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</application>
+        <file_path/>
+        <instance_id>6f7583ffeb78a61456eafddacad0cd0a</instance_id>
+        <instance_name>dev329251</instance_name>
+        <name>sys_script_include_62f58e88831a321083e1b4a6feaad34f</name>
+        <payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;
+    &lt;sys_script_include action="INSERT_OR_UPDATE"&gt;
+        &lt;access&gt;package_private&lt;/access&gt;
+        &lt;active&gt;false&lt;/active&gt;
+        &lt;api_name&gt;x_1310794_founda_0.FHAnalysisEngine&lt;/api_name&gt;
+        &lt;caller_access/&gt;
+        &lt;client_callable&gt;false&lt;/client_callable&gt;
+        &lt;description/&gt;
+        &lt;mobile_callable&gt;false&lt;/mobile_callable&gt;
+        &lt;name&gt;FHAnalysisEngine&lt;/name&gt;
+        &lt;sandbox_callable&gt;false&lt;/sandbox_callable&gt;
+        &lt;script&gt;&lt;![CDATA[/**
+ * FHAnalysisEngine - Engine for running analysis checks
+ */
+var FHAnalysisEngine = Class.create();
+FHAnalysisEngine.prototype = {
+
+    initialize: function() {
+        //this.optionsHandler = new FHOptionsHandler();
+       // this.utils = new FHScanUtils();
+    },
+    /**
+     * Run analysis with the given configuration
+     * @param {Object} config - Analysis configuration
+     * @returns {Object} Analysis result
+     */
+    run: function(config) {
+        //var ctx = new FHAnalysisContext(config);
+        //var start = new Date().getTime();
+
+    // var config = this.getConfiguration(configSysId);
+    //     gs.info("Config active ?" + config.sys_id);
+    //     config.verification_items.forEach(item =&gt; {
+    //         gs.info("Item:" + item.name);
+    //     });
+
+        gs.info('Confixxxxxx : ' + config.table_name)
+        this._runVerificationItems(config);
+
+
+        var engineResult = new FHCheckAutomationV2().run(config);
+
+        //ctx.setDuration(new Date().getTime() - start);
+
+        // var out = ctx.toResult();
+        // if (ctx._verificationResults) {
+        //     out.verification_items = ctx._verificationResults;
+        // }
+        // return out;
+    },
+
+    /**
+     * Charge et exécute les verification_items définis sur la configuration.
+     * @param {FHAnalysisContext} ctx
+     * @param {Object} config
+     */
+    _runVerificationItems: function(config) {
+        // var items = this._loadVerificationItems(config.verification_items + '');
+        var items = config.verification_items;
+        var checker = new FHCheckAutomationV2();
+        var results = [];
+
+        for (var i = 0; i &lt; items.length; i++) {
+            var itemGr = items[i];
+            var category = itemGr.getValue('category') || 'automation';
+            var name = itemGr.getValue('name') || itemGr.getDisplayValue('table') || category;
+            var metadata = this._safeParse(itemGr.getValue('metadata'), {});
+            var label = metadata.label || name;
+            var itemType = (metadata.itemType || name || 'item').toLowerCase();
+
+            //ctx.registerCategory(category, label, metadata.icon || 'fa-folder');
+
+            // var verificationResult = checker.runVerification(itemGr, ctx);
+            // var records = verificationResult.data || [];
+
+            // ctx.addCategoryItems(category, itemType, label, records, {
+            //     table: itemGr.getValue('table'),
+            //     icon: metadata.icon || 'fa-folder',
+            //     color: metadata.color || '#6c757d'
+            // });
+
+            // for (var r = 0; r &lt; records.length; r++) {
+            //     var rec = records[r];
+            //     if (!rec || !rec.issues) continue;
+            //     for (var k = 0; k &lt; rec.issues.length; k++) {
+            //         var issue = rec.issues[k] || {};
+            //         ctx.addIssue(issue.code || 'ISSUE', issue.message || 'Issue detected', issue.severity || 'low', {
+            //             record_table: rec.table,
+            //             record_sys_id: rec.sys_id,
+            //             category: category
+            //         });
+            //     }
+            // }
+
+            // if (verificationResult.errors &amp;&amp; verificationResult.errors.length) {
+            //     for (var e = 0; e &lt; verificationResult.errors.length; e++) {
+            //         ctx.addIssue('CHECK_ERROR', verificationResult.errors[e], 'high', {
+            //             category: category
+            //         });
+            //     }
+            // }
+
+            results.push({
+                item_sys_id: itemGr.getUniqueValue(),
+                name: name,
+                category: category,
+                //records: records,
+            });
+        }
+
+        //ctx._verificationResults = results;
+    },
+
+    /**
+     * Charge les GlideRecord des verification_items par sys_id.
+     * @param {Array} ids
+     * @returns {Array}
+     */
+    // _loadVerificationItems: function(ids) {
+    //     var out = [];
+    //     var gr = new GlideRecord('x_1310794_founda_0_verification_items');
+    //     gr.addQuery('sys_id', 'IN', ids);
+    //     gr.addQuery('active', true);
+    //     gr.query();
+    //     while (gr.next()) {
+    //         out.push(gr);
+    //     }
+    //     return out;
+    // },
+
+    /**
+     * Parse JSON avec repli sécurisé.
+     */
+    _safeParse: function(val, fallback) {
+        if (fallback === undefined) fallback = {};
+        try {
+            if (!val) return fallback;
+            return JSON.parse(val);
+        } catch (e) {
+            return fallback;
+        }
+    },
+
+    type: 'FHAnalysisEngine'
+};]]&gt;&lt;/script&gt;
+        &lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;
+        &lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;
+        &lt;sys_created_on&gt;2026-01-02 23:07:46&lt;/sys_created_on&gt;
+        &lt;sys_id&gt;62f58e88831a321083e1b4a6feaad34f&lt;/sys_id&gt;
+        &lt;sys_mod_count&gt;46&lt;/sys_mod_count&gt;
+        &lt;sys_name&gt;FHAnalysisEngine&lt;/sys_name&gt;
+        &lt;sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_package&gt;
+        &lt;sys_policy&gt;read&lt;/sys_policy&gt;
+        &lt;sys_scope display_value="Foundation Health Analyzer"&gt;d852994c8312321083e1b4a6feaad3e6&lt;/sys_scope&gt;
+        &lt;sys_update_name&gt;sys_script_include_62f58e88831a321083e1b4a6feaad34f&lt;/sys_update_name&gt;
+        &lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;
+        &lt;sys_updated_on&gt;2026-01-09 20:50:30&lt;/sys_updated_on&gt;
+    &lt;/sys_script_include&gt;
+&lt;/record_update&gt;</payload>
+        <payload_hash>70779192</payload_hash>
+        <record_name>FHAnalysisEngine</record_name>
+        <reverted_from/>
+        <source>f5574bfc5322be10c7233ee0a0490e91</source>
+        <source_table>sys_upgrade_history</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 22:04:46</sys_created_on>
+        <sys_id>756787305362be10c7233ee0a0490ea6</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19bcdfd45160000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 22:04:46</sys_updated_on>
+        <type>Script Include</type>
+        <update_guid>bd6787302662be10ac3e8c71bb4cc6a5</update_guid>
+        <update_guid_history>bd6787302662be10ac3e8c71bb4cc6a5:0,f9548378fc22be10297cb194494686c0:1726642487,effc2638326e7e100dbd1c6bc0bd07eb:0,29832ef0262e7e10c03317ce58c6db96:1854878459,80b969da321afa1087589e05a1d9a249:-741398442,7c492d9a451afa10715f7b5aeb8d4e38:1854318957,ae19ba4697d2ba10eb139d8c214babe8:1237215598,ecf63ece5692ba107774cb89adc5a0eb:-80038482,6ee4320ef392ba108b827f508f08917e:580434168,c1923a86ef92ba10a9e6c298bc3935db:618297159,4f41bec2c892ba107157481d523b5615:1662850738,69c0fac25a92ba10414ea96ea794cb4e:-125720110,279f66427392ba10e9d9fffe7bda84a2:414986437,2e8f2642b592ba108e4bf9c2a71be1de:-1608718875,ed5fea02ef92ba102f6ff658186a423b:-135055767,113f6602e292ba1051bbf0b7b0559395:-1236840007,8e0f6602f092ba10d10d9c3c2e30c714:362272271,e5ee6202d892ba10ea5d3acddc1af900:755431748,b9ce6ece4e52ba101a41f7f22aef395a:-100502639,cfae6acef852ba10208a87e8d75802a0:906154398,0d9eaa8ead52ba10081605894f77ac88:2142305537,862e2e4efa52ba10ea00e48eb99d377a:115743890,493d24c6aa927a1073a09c9d4d058363:-312045772,b3fca4863c927a1080b6dbed566bf07f:-1983799354,98acec46ed927a103b21cf314f886e43:-2075189622,647c6846e9927a10320ac2def5876b94:-2144783788,20daa88229927a10d1f7a0316c2a8f64:-865892930,1424e44657527a10391146fb34620fef:-895871455,a928988e27de3a104943e55dda3c293b:1140704210,6ae7148eebde3a10b8449dd1c1e2dc7c:-1010530909,e9c384c6765e3a102af1eded49bb0b75:1140704210,bc3300862b5e3a10e42aa004f6e7237a:1451800747,28130846055e3a10707f6c86cf813ad7:-1852576518,6fe28846ff5e3a10aa385ccc8e085ec9:478063449,f5d20446575e3a109b56391050647f21:-556814580,d89280c2975e3a10728ffed29cbeda49:-130454650,fc714c82ce5e3a10334b84ca590ae8a0:1604142042,3d16b135a91ef6106e885508ba48fde7:-895871455,6a647531c01ef610adec9ff167c6c425:-1585832288,c676606915d27610a79d32234f62dec8:0,35580bddded636105c785cb9c26b8716:950601635,238ece70b792321015f00ed7d57a35c7:-1038038197</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-01-17 23:28:34</sys_created_on>
+        <sys_db_object display_value="" name="sys_script_include">sys_script_include</sys_db_object>
+        <sys_id>1c98db790080473a8472373adc259b24</sys_id>
+        <sys_metadata>62f58e88831a321083e1b4a6feaad34f</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FHAnalysisEngine</sys_name>
+        <sys_package display_value="Foundation Health Analyzer" source="x_1310794_founda_0">d852994c8312321083e1b4a6feaad3e6</sys_package>
+        <sys_parent/>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="Foundation Health Analyzer">d852994c8312321083e1b4a6feaad3e6</sys_scope>
+        <sys_scope_delete display_value="">459c20c5891043079673a2edc4dc74b1</sys_scope_delete>
+        <sys_update_name>sys_script_include_62f58e88831a321083e1b4a6feaad34f</sys_update_name>
+        <sys_update_version display_value="sys_script_include_62f58e88831a321083e1b4a6feaad34f">756787305362be10c7233ee0a0490ea6</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-01-17 23:28:34</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>
