@@ -829,11 +829,8 @@ s -->
                      ng-blur="$event.target.style.borderColor='var(--fha-border-color)'">
             </div>
           </div>
-          <button class="fha-btn-secondary" ng-click="c.clearFilters()" ng-if="c.hasActiveFilters()">
-            <i class="fa fa-times"></i> Clear Filters
-          </button>
         </div>
-        
+
         <!-- Filtres rapides -->
         <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
           <span style="font-size: 12px; font-weight: 600; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center;">
@@ -842,7 +839,7 @@ s -->
           
           <!-- Severity Filters -->
           <button ng-repeat="sev in ['critical', 'high', 'medium', 'low']"
-                  ng-click="c.filters.severity = sev"
+                  ng-click="c.filters.severity = (c.filters.severity == sev ? 'all' : sev)"
                   style="padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; border: 2px solid; cursor: pointer; transition: all 0.2s ease;"
                   ng-class="{
                     'issue-badge critical': sev == 'critical',
@@ -867,7 +864,7 @@ s -->
               <i class="fa fa-table"></i> Table
             </label>
             <select ng-model="c.filters.table" class="fha-select">
-              <option value="">All Tables</option>
+              <option value="all">All Tables</option>
               <option ng-repeat="tableItem in c.getTopTables()" value="{{tableItem.name}}">{{tableItem.name}} ({{tableItem.total}})</option>
             </select>
           </div>
@@ -879,8 +876,8 @@ s -->
             </label>
             <select ng-model="c.filters.category" class="fha-select">
               <option value="">All Categories</option>
-              <option ng-repeat="(category, issues) in c.getIssuesByCategory()" value="{{category}}">
-                {{category}} ({{issues.length}})
+              <option ng-repeat="cat in c.getCategoryStats()" value="{{cat.name}}">
+                {{cat.name}} ({{cat.count}})
               </option>
             </select>
           </div>
@@ -899,12 +896,15 @@ s -->
           </div>
         </div>
         
-        <!-- Active filters count -->
+        <!-- Active filters count + Clear button -->
         <div ng-if="c.hasActiveFilters()" style="margin-top: 16px; padding: 12px; background: var(--fha-info-bg); border-left: 3px solid var(--fha-info); border-radius: 6px; display: flex; align-items: center; gap: 12px;">
           <i class="fa fa-filter" style="color: var(--fha-info); font-size: 16px;"></i>
           <span style="flex: 1; font-size: 13px; color: var(--fha-text-primary);">
             <strong>{{c.getFilteredIssues().length}}</strong> issue(s) match your filters
           </span>
+          <button class="fha-btn-secondary fha-btn-sm" ng-click="c.clearFilters()">
+            <i class="fa fa-times"></i> Clear Filters
+          </button>
         </div>
       </div>
     </div>
@@ -959,8 +959,8 @@ s -->
             <code style="background: var(--fha-gray-100); padding: 6px 12px; border-radius: 6px; font-size: 12px; color: var(--fha-anthracite); border: 1px solid var(--fha-border-color); font-weight: 600;">
               {{issue.code}}
             </code>
-            <span ng-if="issue.category" style="padding: 4px 10px; background: var(--fha-bg-section); border-radius: 12px; font-size: 11px; color: var(--fha-text-secondary); border: 1px solid var(--fha-border-color);">
-              <i class="fa fa-tag"></i> {{issue.category}}
+            <span ng-if="issue.category" style="padding: 4px 10px; background: var(--fha-bg-section); border-radius: 12px; font-size: 11px; color: var(--fha-anthracite); border: 1px solid var(--fha-border-color); font-weight: 600;">
+              <i class="fa fa-tag" style="color: var(--fha-primary);"></i> {{issue.category}}
             </span>
           </div>
           
