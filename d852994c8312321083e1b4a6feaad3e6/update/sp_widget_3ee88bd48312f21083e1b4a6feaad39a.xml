@@ -419,10 +419,117 @@
       };
       return icons[sev] || 'question-circle';
     };
-   
-    if (c.data && c.data.result) 
+
+    // ---- Rules tab ----
+
+    // Count distinct rule codes (by severity) from the raw issues — used by summary tiles
+    c.countRulesBySev = function(sev) {
+      if (!c.result || !c.result.issues) return 0;
+      var codes = {};
+      c.result.issues.forEach(function(issue) {
+        if ((issue.severity || '').toLowerCase() === sev) {
+          codes[issue.code || 'UNKNOWN'] = true;
+        }
+      });
+      return Object.keys(codes).length;
+    };
+
+    c.rulesSort       = 'count';
+    c.rulesSortDir    = 'desc';
+    c.rulesSearch     = '';
+    c.rulesSevFilter  = '';
+
+    c.getRulesStats = function() {
+      if (!c.result || !c.result.issues) return [];
+
+      var map = {};
+      c.result.issues.forEach(function(issue) {
+        var code = issue.code || 'UNKNOWN';
+        if (!map[code]) {
+          map[code] = {
+            code:     code,
+            message:  issue.message || '',
+            severity: (issue.severity || '').toLowerCase(),
+            category: c.getIssueCategory(issue) || '',
+            count:    0,
+            tables:   {}
+          };
+        }
+        map[code].count++;
+        var tbl = issue.record_table || issue.table || '';
+        if (tbl) map[code].tables[tbl] = true;
+      });
+
+      var rules = [];
+      for (var k in map) {
+        var r = map[k];
+        r.table_count = Object.keys(r.tables).length;
+        r.tables_list = Object.keys(r.tables).join(', ');
+        rules.push(r);
+      }
+
+      // Apply search filter
+      if (c.rulesSearch) {
+        var sl = c.rulesSearch.toLowerCase();
+        rules = rules.filter(function(r) {
+          return r.code.toLowerCase().indexOf(sl) !== -1 ||
+                 r.message.toLowerCase().indexOf(sl) !== -1 ||
+                 r.category.toLowerCase().indexOf(sl) !== -1;
+        });
+      }
+
+      // Apply severity filter
+      if (c.rulesSevFilter) {
+        rules = rules.filter(function(r) {
+          return r.severity === c.rulesSevFilter;
+        });
+      }
+
+      // Sort
+      var field = c.rulesSort;
+      var dir   = c.rulesSortDir;
+      var sevOrd = { critical: 0, high: 1, medium: 2, low: 3 };
+      rules.sort(function(a, b) {
+        var va, vb;
+        if (field === 'severity') {
+          va = sevOrd[a.severity] !== undefined ? sevOrd[a.severity] : 99;
+          vb = sevOrd[b.severity] !== undefined ? sevOrd[b.severity] : 99;
+        } else if (field === 'code') {
+          va = a.code; vb = b.code;
+          return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        } else if (field === 'category') {
+          va = a.category; vb = b.category;
+          return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        } else {
+          va = a[field] || 0; vb = b[field] || 0;
+        }
+        return dir === 'asc' ? va - vb : vb - va;
+      });
+
+      return rules;
+    };
+
+    c.sortRules = function(field) {
+      if (c.rulesSort === field) {
+        c.rulesSortDir = c.rulesSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        c.rulesSort    = field;
+        c.rulesSortDir = field === 'code' || field === 'category' ? 'asc' : 'desc';
+      }
+    };
+
+    c.filterRulesBySev = function(sev) {
+      c.rulesSevFilter = (c.rulesSevFilter === sev) ? '' : sev;
+    };
+
+    c.viewRuleIssues = function(code) {
+      c.filters.search = code;
+      c.setActiveTab('issues');
+    };
+
+    if (c.data && c.data.result)
       c.result = c.data.result;
-    
+
 };
 ]]></client_script>
         <controller_as>c</controller_as>
@@ -603,6 +710,9 @@
     </button>
     <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'analytics'}" ng-click="c.setActiveTab('analytics')">
       <i class="fa fa-bar-chart"></i> Analytics
+    </button>
+    <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'rules'}" ng-click="c.setActiveTab('rules')">
+      <i class="fa fa-gavel"></i> Rules ({{c.getRulesStats().length}})
     </button>
     <button class="fha-tab-btn" ng-class="{'active': c.activeTab == 'data'}" ng-click="c.setActiveTab('data')">
       <i class="fa fa-database"></i> Raw Data
@@ -1374,6 +1484,195 @@
     </div>
   </div>
 
+
+
+  <!-- ============================================================
+       TAB: RULES
+       ============================================================ -->
+  <div ng-if="c.activeTab == 'rules'">
+
+    <!-- Summary tiles -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <div class="fha-card" style="padding: 16px; text-align: center; border-top: 4px solid var(--fha-primary);">
+        <div style="font-size: 32px; font-weight: 800; color: var(--fha-primary);">{{c.getRulesStats().length}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Rules Triggered</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center; border-top: 4px solid var(--fha-danger); cursor: pointer;"
+           ng-click="c.filterRulesBySev('critical')"
+           ng-style="{'opacity': c.rulesSevFilter && c.rulesSevFilter != 'critical' ? '0.4' : '1'}">
+        <div style="font-size: 32px; font-weight: 800; color: var(--fha-danger);">{{c.countRulesBySev('critical')}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-danger); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Critical Rules</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center; border-top: 4px solid #E74C3C; cursor: pointer;"
+           ng-click="c.filterRulesBySev('high')"
+           ng-style="{'opacity': c.rulesSevFilter && c.rulesSevFilter != 'high' ? '0.4' : '1'}">
+        <div style="font-size: 32px; font-weight: 800; color: #E74C3C;">{{c.countRulesBySev('high')}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: #E74C3C; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">High Rules</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center; border-top: 4px solid var(--fha-warning); cursor: pointer;"
+           ng-click="c.filterRulesBySev('medium')"
+           ng-style="{'opacity': c.rulesSevFilter && c.rulesSevFilter != 'medium' ? '0.4' : '1'}">
+        <div style="font-size: 32px; font-weight: 800; color: var(--fha-warning);">{{c.countRulesBySev('medium')}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-warning); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Medium Rules</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center; border-top: 4px solid #5DADE2; cursor: pointer;"
+           ng-click="c.filterRulesBySev('low')"
+           ng-style="{'opacity': c.rulesSevFilter && c.rulesSevFilter != 'low' ? '0.4' : '1'}">
+        <div style="font-size: 32px; font-weight: 800; color: #5DADE2;">{{c.countRulesBySev('low')}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: #5DADE2; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Low Rules</div>
+      </div>
+    </div>
+
+    <!-- Search + severity filter bar -->
+    <div class="fha-card" style="margin-bottom: 24px;">
+      <div class="fha-card-body" style="padding: 16px 20px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+        <!-- Search -->
+        <div style="flex: 1; min-width: 240px; position: relative;">
+          <i class="fa fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--fha-text-secondary);"></i>
+          <input type="text" ng-model="c.rulesSearch"
+                 placeholder="Search by code, message or category..."
+                 style="width: 100%; padding: 10px 14px 10px 36px; border: 2px solid var(--fha-border-color); border-radius: 8px; font-size: 13px;">
+        </div>
+        <!-- Severity toggle buttons -->
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <span style="font-size: 11px; font-weight: 600; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Severity:</span>
+          <button ng-repeat="sev in ['critical','high','medium','low']"
+                  ng-click="c.filterRulesBySev(sev)"
+                  class="issue-badge"
+                  ng-class="sev"
+                  style="padding: 5px 10px; border-radius: 14px; font-size: 11px; font-weight: 700; border: 2px solid; cursor: pointer;"
+                  ng-style="{'opacity': c.rulesSevFilter && c.rulesSevFilter != sev ? '0.3' : '1'}">
+            {{sev | uppercase}}
+          </button>
+          <button ng-if="c.rulesSevFilter || c.rulesSearch"
+                  ng-click="c.rulesSevFilter=''; c.rulesSearch=''"
+                  class="fha-btn-secondary fha-btn-sm" style="font-size: 11px;">
+            <i class="fa fa-times"></i> Clear
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rules table -->
+    <div class="fha-card">
+      <div class="fha-card-header">
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+          <i class="fa fa-gavel" style="color: var(--fha-primary);"></i>
+          {{c.getRulesStats().length}} rule(s) triggered
+        </h3>
+        <span style="font-size: 11px; color: var(--fha-text-secondary); font-style: italic;">Click a row to filter issues by rule</span>
+      </div>
+      <div class="fha-card-body" style="padding: 0;">
+
+        <!-- Empty state -->
+        <div ng-if="c.getRulesStats().length == 0" style="padding: 40px; text-align: center; color: var(--fha-text-secondary);">
+          <i class="fa fa-check-circle" style="font-size: 40px; color: var(--fha-success); display: block; margin-bottom: 12px;"></i>
+          <div style="font-size: 14px; font-weight: 600;">No rules triggered</div>
+        </div>
+
+        <table class="fha-data-table" ng-if="c.getRulesStats().length > 0" style="width: 100%;">
+          <thead>
+            <tr>
+              <th class="fha-th-sortable" ng-click="c.sortRules('severity')" style="width: 90px;">
+                Severity
+                <i class="fa" ng-class="{'fa-sort-up': c.rulesSort=='severity' && c.rulesSortDir=='asc', 'fa-sort-down': c.rulesSort=='severity' && c.rulesSortDir=='desc', 'fa-sort': c.rulesSort!='severity'}"></i>
+              </th>
+              <th class="fha-th-sortable" ng-click="c.sortRules('code')" style="width: 160px;">
+                Rule Code
+                <i class="fa" ng-class="{'fa-sort-up': c.rulesSort=='code' && c.rulesSortDir=='asc', 'fa-sort-down': c.rulesSort=='code' && c.rulesSortDir=='desc', 'fa-sort': c.rulesSort!='code'}"></i>
+              </th>
+              <th>Message / Description</th>
+              <th class="fha-th-sortable" ng-click="c.sortRules('category')" style="width: 130px;">
+                Category
+                <i class="fa" ng-class="{'fa-sort-up': c.rulesSort=='category' && c.rulesSortDir=='asc', 'fa-sort-down': c.rulesSort=='category' && c.rulesSortDir=='desc', 'fa-sort': c.rulesSort!='category'}"></i>
+              </th>
+              <th class="fha-th-sortable" ng-click="c.sortRules('count')" style="width: 80px; text-align: center;">
+                Hits
+                <i class="fa" ng-class="{'fa-sort-up': c.rulesSort=='count' && c.rulesSortDir=='asc', 'fa-sort-down': c.rulesSort=='count' && c.rulesSortDir=='desc', 'fa-sort': c.rulesSort!='count'}"></i>
+              </th>
+              <th class="fha-th-sortable" ng-click="c.sortRules('table_count')" style="width: 80px; text-align: center;">
+                Tables
+                <i class="fa" ng-class="{'fa-sort-up': c.rulesSort=='table_count' && c.rulesSortDir=='asc', 'fa-sort-down': c.rulesSort=='table_count' && c.rulesSortDir=='desc', 'fa-sort': c.rulesSort!='table_count'}"></i>
+              </th>
+              <th style="width: 50px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="rule in c.getRulesStats() track by rule.code"
+                style="cursor: pointer;"
+                ng-click="c.viewRuleIssues(rule.code)"
+                ng-mouseenter="$event.currentTarget.style.background='var(--fha-bg-section)'"
+                ng-mouseleave="$event.currentTarget.style.background=''">
+              <!-- Severity badge -->
+              <td style="padding: 12px 10px;">
+                <span class="issue-badge"
+                      ng-class="{
+                        'critical': rule.severity == 'critical',
+                        'high':     rule.severity == 'high',
+                        'medium':   rule.severity == 'medium',
+                        'low':      rule.severity == 'low'
+                      }"
+                      style="font-size: 10px; padding: 3px 8px;">
+                  <i class="fa" ng-class="{
+                    'fa-exclamation-circle': rule.severity == 'critical',
+                    'fa-exclamation-triangle': rule.severity == 'high',
+                    'fa-info-circle': rule.severity == 'medium',
+                    'fa-check-circle': rule.severity == 'low'
+                  }"></i>
+                  {{rule.severity | uppercase}}
+                </span>
+              </td>
+              <!-- Rule code -->
+              <td style="padding: 12px 10px;">
+                <code style="background: var(--fha-gray-100); padding: 4px 8px; border-radius: 4px; font-size: 11px; color: var(--fha-anthracite); font-weight: 700; word-break: break-all;">
+                  {{rule.code}}
+                </code>
+              </td>
+              <!-- Message -->
+              <td style="padding: 12px 10px; max-width: 320px;">
+                <div style="font-size: 13px; color: var(--fha-text-primary); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{rule.message}}">
+                  {{rule.message}}
+                </div>
+                <div ng-if="rule.tables_list" style="font-size: 10px; color: var(--fha-text-secondary); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{rule.tables_list}}">
+                  <i class="fa fa-table" style="color: var(--fha-primary);"></i> {{rule.tables_list}}
+                </div>
+              </td>
+              <!-- Category -->
+              <td style="padding: 12px 10px;">
+                <span ng-if="rule.category"
+                      style="padding: 3px 9px; background: var(--fha-bg-section); border-radius: 10px; font-size: 11px; color: var(--fha-anthracite); border: 1px solid var(--fha-border-color); font-weight: 600; white-space: nowrap;">
+                  <i class="fa fa-tag" style="color: var(--fha-primary);"></i> {{rule.category}}
+                </span>
+                <span ng-if="!rule.category" style="color: var(--fha-text-muted); font-size: 11px;">—</span>
+              </td>
+              <!-- Hits -->
+              <td style="padding: 12px 10px; text-align: center;">
+                <span style="font-size: 16px; font-weight: 800; padding: 4px 10px; border-radius: 12px;"
+                      ng-style="{
+                        'color':      rule.severity == 'critical' ? 'var(--fha-danger)' : rule.severity == 'high' ? '#E74C3C' : rule.severity == 'medium' ? 'var(--fha-warning)' : '#5DADE2',
+                        'background': rule.severity == 'critical' ? 'var(--fha-danger-bg)' : rule.severity == 'high' ? '#fdf2f2' : rule.severity == 'medium' ? 'var(--fha-warning-bg)' : 'var(--fha-info-bg)'
+                      }">
+                  {{rule.count}}
+                </span>
+              </td>
+              <!-- Table count -->
+              <td style="padding: 12px 10px; text-align: center;">
+                <span class="fha-badge fha-badge-primary" style="font-size: 12px;">{{rule.table_count}}</span>
+              </td>
+              <!-- Arrow -->
+              <td style="padding: 12px 8px; text-align: center;">
+                <i class="fa fa-arrow-right" style="color: var(--fha-text-muted); font-size: 12px;"></i>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div ng-if="c.getRulesStats().length > 0" style="padding: 10px 20px; border-top: 1px solid var(--fha-border-color); font-size: 11px; color: var(--fha-text-secondary); font-style: italic; text-align: right;">
+          Click a row to see all issues triggered by that rule
+        </div>
+      </div>
+    </div>
+  </div>
 
 
   <!-- ============================================================
