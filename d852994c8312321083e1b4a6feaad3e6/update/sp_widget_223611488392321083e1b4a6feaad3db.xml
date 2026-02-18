@@ -389,13 +389,14 @@
         var issues = [];
         var tableDisplayName = '';
         var healthScore = 0;
+        var resultData = {};
+        var configData = {};
         try {
             detailObj = JSON.parse(resultsGr.getValue('details') || '{}');
-            // Real structure: { configuration: {...}, result: { issues:[], health_score:N, ... } }
-            var resultData = detailObj.result || {};
+            resultData = detailObj.result || {};
             issues = resultData.issues || [];
             healthScore = resultData.health_score || 0;
-            var configData = detailObj.configuration || detailObj.config || {};
+            configData = detailObj.configuration || detailObj.config || {};
             tableDisplayName = configData.table_label
                 ? (configData.table_label + ' (' + configData.table_name + ')')
                 : (configData.table_name || configData.name || '');
@@ -403,16 +404,23 @@
             gs.warn('[FHA Dashboard] Failed to parse details for ' + resultsGr.getUniqueValue() + ': ' + e.message);
         }
 
+        // Count severities from issues array (fallback when stored counts are 0/missing)
+        var cntCritical = 0, cntHigh = 0, cntMedium = 0, cntLow = 0;
+        issues.forEach(function(issue) {
+            var sev = (issue.severity || '').toLowerCase();
+            if (sev === 'critical') cntCritical++;
+            else if (sev === 'high') cntHigh++;
+            else if (sev === 'medium') cntMedium++;
+            else if (sev === 'low') cntLow++;
+        });
+
         // Fall back to computed score if health_score not stored
         if (!healthScore && issues.length > 0) {
             healthScore = 100;
-            issues.forEach(function(issue) {
-                var sev = (issue.severity || '').toLowerCase();
-                if (sev === 'critical') healthScore -= 20;
-                else if (sev === 'high') healthScore -= 10;
-                else if (sev === 'medium') healthScore -= 5;
-                else healthScore -= 2;
-            });
+            healthScore -= cntCritical * 20;
+            healthScore -= cntHigh * 10;
+            healthScore -= cntMedium * 5;
+            healthScore -= cntLow * 2;
             healthScore = Math.max(0, healthScore);
         }
 
@@ -420,15 +428,16 @@
             sys_id: resultsGr.getUniqueValue(),
             number: resultsGr.getValue('number'),
             state: resultsGr.getValue('state'),
-            configuration_name: (detailObj.configuration || {}).name || '',
+            configuration_name: configData.name || '',
             table_name: tableDisplayName,
             health_score: healthScore,
-            issue_count: issues.length,
-            issues_critical: (detailObj.result || {}).issues_critical || 0,
-            issues_high: (detailObj.result || {}).issues_high || 0,
-            issues_medium: (detailObj.result || {}).issues_medium || 0,
-            issues_low: (detailObj.result || {}).issues_low || 0,
-            record_count: (detailObj.result || {}).record_count || 0,
+            issue_count: resultData.issue_count || issues.length,
+            // Use stored counts if populated, else use counted values from issues array
+            issues_critical: resultData.issues_critical || cntCritical,
+            issues_high:     resultData.issues_high     || cntHigh,
+            issues_medium:   resultData.issues_medium   || cntMedium,
+            issues_low:      resultData.issues_low      || cntLow,
+            record_count: resultData.record_count || 0,
             created_on: resultsGr.getValue('sys_created_on')
         });
     }
@@ -450,15 +459,28 @@
                         var resultData = details.result || {};
                         var configData = details.configuration || details.config || {};
 
+                        var runIssues = resultData.issues || [];
+                        var runC=0, runH=0, runM=0, runL=0;
+                        runIssues.forEach(function(i) {
+                            var sv = (i.severity||'').toLowerCase();
+                            if(sv==='critical') runC++;
+                            else if(sv==='high') runH++;
+                            else if(sv==='medium') runM++;
+                            else if(sv==='low') runL++;
+                        });
+                        var runScore = resultData.health_score || 0;
+                        if (!runScore && runIssues.length > 0) {
+                            runScore = Math.max(0, 100 - runC*20 - runH*10 - runM*5 - runL*2);
+                        }
                         data.runResult = {
-                            health_score: resultData.health_score || 0,
-                            issue_count:  resultData.issue_count  || (resultData.issues ? resultData.issues.length : 0),
-                            issues_critical: resultData.issues_critical || 0,
-                            issues_high:     resultData.issues_high     || 0,
-                            issues_medium:   resultData.issues_medium   || 0,
-                            issues_low:      resultData.issues_low      || 0,
-                            record_count: resultData.record_count || 0,
-                            duration_ms:  resultData.duration_ms  || resultData.duration || null,
+                            health_score:    runScore,
+                            issue_count:     resultData.issue_count  || runIssues.length,
+                            issues_critical: resultData.issues_critical || runC,
+                            issues_high:     resultData.issues_high     || runH,
+                            issues_medium:   resultData.issues_medium   || runM,
+                            issues_low:      resultData.issues_low      || runL,
+                            record_count:    resultData.record_count || 0,
+                            duration_ms:     resultData.duration_ms  || resultData.duration || null,
                             configuration_name: configData.name  || '',
                             table_name: configData.table_label
                                 ? (configData.table_label + ' (' + configData.table_name + ')')
@@ -535,18 +557,18 @@
                     try { det = JSON.parse(gr.getValue('details') || '{}'); } catch(ex) {}
                     var rr = det.result || {};
                     var cc = det.configuration || det.config || {};
-                    var sc = rr.health_score || 0;
                     var il = rr.issues || [];
+                    var rc = 0, rh = 0, rm = 0, rl = 0;
+                    il.forEach(function(i) {
+                        var sv = (i.severity || '').toLowerCase();
+                        if (sv === 'critical') rc++;
+                        else if (sv === 'high') rh++;
+                        else if (sv === 'medium') rm++;
+                        else if (sv === 'low') rl++;
+                    });
+                    var sc = rr.health_score || 0;
                     if (!sc && il.length > 0) {
-                        sc = 100;
-                        il.forEach(function(i) {
-                            var sv = (i.severity || '').toLowerCase();
-                            if (sv === 'critical') sc -= 20;
-                            else if (sv === 'high') sc -= 10;
-                            else if (sv === 'medium') sc -= 5;
-                            else sc -= 2;
-                        });
-                        sc = Math.max(0, sc);
+                        sc = Math.max(0, 100 - rc*20 - rh*10 - rm*5 - rl*2);
                     }
                     data.analyses.push({
                         sys_id: gr.getUniqueValue(),
@@ -557,12 +579,12 @@
                             ? (cc.table_label + ' (' + cc.table_name + ')')
                             : (cc.table_name || ''),
                         health_score: sc,
-                        issue_count: rr.issue_count || il.length,
-                        issues_critical: rr.issues_critical || 0,
-                        issues_high:     rr.issues_high     || 0,
-                        issues_medium:   rr.issues_medium   || 0,
-                        issues_low:      rr.issues_low      || 0,
-                        record_count: rr.record_count || 0,
+                        issue_count:     rr.issue_count     || il.length,
+                        issues_critical: rr.issues_critical || rc,
+                        issues_high:     rr.issues_high     || rh,
+                        issues_medium:   rr.issues_medium   || rm,
+                        issues_low:      rr.issues_low      || rl,
+                        record_count:    rr.record_count    || 0,
                         created_on: gr.getValue('sys_created_on')
                     });
                 }

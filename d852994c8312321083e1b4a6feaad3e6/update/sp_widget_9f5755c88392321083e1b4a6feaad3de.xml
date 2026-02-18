@@ -220,70 +220,113 @@
     gr.chooseWindow((page - 1) * pageSize, page * pageSize);
     gr.query();
     
+    // Shared helpers
+    function parseDetails(gr) {
+        var detailObj = {};
+        try { detailObj = JSON.parse(gr.getValue('details') || '{}'); } catch(e) {}
+        return detailObj;
+    }
+
+    function getConfigData(detailObj) {
+        return detailObj.configuration || detailObj.config || {};
+    }
+
+    function getResultData(detailObj) {
+        return detailObj.result || {};
+    }
+
+    function countSeverities(issues) {
+        var counts = { critical: 0, high: 0, medium: 0, low: 0 };
+        (issues || []).forEach(function(issue) {
+            var s = (issue.severity || '').toLowerCase();
+            if (counts.hasOwnProperty(s)) counts[s]++;
+        });
+        return counts;
+    }
+
+    function computeScore(resultData, issues) {
+        // Prefer stored health_score
+        if (resultData.health_score) return resultData.health_score;
+        // Fall back to computing from issues array
+        var score = 100;
+        (issues || []).forEach(function(issue) {
+            var s = (issue.severity || '').toLowerCase();
+            if (s === 'critical') score -= 20;
+            else if (s === 'high') score -= 10;
+            else if (s === 'medium') score -= 5;
+            else score -= 2;
+        });
+        return Math.max(0, score);
+    }
+
+    // scoreRange filter (applied in memory after query since stored as computed field)
+    var scoreRangeFilter = (input && input.scoreRange) || 'all';
+
     while (gr.next()) {
-        var issues = [];
-        var highCount = 0;
-        var mediumCount = 0;
-        var lowCount = 0;
-        var tableDisplayName = '';
-        var tableName = '';
-        
-        try {
-            var detailObj = JSON.parse(gr.getValue('details') || '{}');
-            issues = detailObj.issues || [];
-            issues.forEach(function(issue) {
-                if (issue.severity === 'high') highCount++;
-                else if (issue.severity === 'medium') mediumCount++;
-                else if (issue.severity === 'low') lowCount++;
-            });
-            tableDisplayName = (detailObj.config && (detailObj.config.table_label || detailObj.config.table_name)) || '';
-            tableName = (detailObj.config && detailObj.config.table_name) || '';
-        } catch(e) {
-            // ignore parse errors
-        }
-        
+        var detailObj = parseDetails(gr);
+        var resultData = getResultData(detailObj);
+        var configData = getConfigData(detailObj);
+
+        var issues = resultData.issues || [];
+        var severities = countSeverities(issues);
+
+        // Use stored counts if available, else use counted values
+        var criticalCount = resultData.issues_critical || severities.critical;
+        var highCount     = resultData.issues_high     || severities.high;
+        var mediumCount   = resultData.issues_medium   || severities.medium;
+        var lowCount      = resultData.issues_low      || severities.low;
+        var issueCount    = resultData.issue_count     || issues.length;
+        var recordCount   = resultData.record_count    || 0;
+
+        var tableName     = configData.table_name  || '';
+        var tableLabel    = configData.table_label || configData.table_name || '';
+        var configName    = configData.name        || '';
+        var tableDisplay  = tableLabel
+            ? (configName ? configName + ' — ' + tableLabel : tableLabel)
+            : (configName || 'N/A');
+
+        var healthScore = computeScore(resultData, issues);
+
+        // Apply scoreRange filter
+        if (scoreRangeFilter === 'good'   && healthScore < 70)  continue;
+        if (scoreRangeFilter === 'medium' && (healthScore < 40 || healthScore >= 70)) continue;
+        if (scoreRangeFilter === 'poor'   && healthScore >= 40) continue;
+
         data.analyses.push({
-            sys_id: gr.getUniqueValue(),
-            number: gr.getValue('number') || '',
-            table_name: tableName,
-            table_label: tableDisplayName || 'N/A',
-            health_score: calculateScore(issues),
-            issue_count: issues.length,
-            high_count: highCount,
-            medium_count: mediumCount,
-            low_count: lowCount,
-            status: gr.getValue('state') || '',
-            created_on: gr.getValue('sys_created_on') || '',
-            created_by: gr.getDisplayValue('sys_created_by') || ''
+            sys_id:           gr.getUniqueValue(),
+            number:           gr.getValue('number')              || '',
+            table_name:       tableName,
+            table_label:      tableDisplay,
+            configuration_name: configName,
+            health_score:     healthScore,
+            issue_count:      issueCount,
+            record_count:     recordCount,
+            critical_count:   criticalCount,
+            high_count:       highCount,
+            medium_count:     mediumCount,
+            low_count:        lowCount,
+            status:           gr.getValue('state')               || '',
+            created_on:       gr.getValue('sys_created_on')      || '',
+            created_by:       gr.getDisplayValue('sys_created_by') || ''
         });
     }
-    
-    // Calculate stats for header
+
+    // Calculate stats for header (across full page)
     data.stats = {
-        total: data.totalCount,
-        avgScore: 0,
-        goodCount: 0,
+        total:         data.totalCount,
+        avgScore:      0,
+        goodCount:     0,
         criticalCount: 0
     };
-    
+
     if (data.analyses.length > 0) {
         var totalScore = 0;
         data.analyses.forEach(function(a) {
             totalScore += a.health_score;
             if (a.health_score >= 70) data.stats.goodCount++;
-            if (a.health_score < 40) data.stats.criticalCount++;
+            if (a.health_score < 40)  data.stats.criticalCount++;
         });
         data.stats.avgScore = Math.round(totalScore / data.analyses.length);
-    }
-
-    function calculateScore(issues) {
-        var score = 100;
-        (issues || []).forEach(function(issue) {
-            if (issue.severity === 'high') score -= 15;
-            else if (issue.severity === 'medium') score -= 5;
-            else score -= 2;
-        });
-        return Math.max(0, score);
     }
     
     data.success = true;
@@ -434,22 +477,31 @@
         </div>
         
         <!-- Issue Stats (Compact) -->
-        <div style="display: flex; justify-content: center; gap: var(--fha-spacing-sm); margin-bottom: var(--fha-spacing-sm);">
-          <div class="fha-issue-stat-compact">
-            <div class="fha-severity-badge fha-severity-high" style="width: 24px; height: 24px; font-size: 11px;">
-              {{analysis.high_count}}
-            </div>
-          </div>
-          <div class="fha-issue-stat-compact">
-            <div class="fha-severity-badge fha-severity-medium" style="width: 24px; height: 24px; font-size: 11px;">
-              {{analysis.medium_count}}
-            </div>
-          </div>
-          <div class="fha-issue-stat-compact">
-            <div class="fha-severity-badge fha-severity-low" style="width: 24px; height: 24px; font-size: 11px;">
-              {{analysis.low_count}}
-            </div>
-          </div>
+        <div style="display: flex; justify-content: center; gap: 4px; margin-bottom: var(--fha-spacing-sm); flex-wrap: wrap;">
+          <span ng-if="analysis.critical_count > 0"
+                style="background: var(--fha-danger); color: white; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px;" title="Critical">
+            {{analysis.critical_count}}C
+          </span>
+          <span ng-if="analysis.high_count > 0"
+                style="background: #E74C3C; color: white; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px;" title="High">
+            {{analysis.high_count}}H
+          </span>
+          <span ng-if="analysis.medium_count > 0"
+                style="background: var(--fha-warning); color: white; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px;" title="Medium">
+            {{analysis.medium_count}}M
+          </span>
+          <span ng-if="analysis.low_count > 0"
+                style="background: #5DADE2; color: white; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px;" title="Low">
+            {{analysis.low_count}}L
+          </span>
+          <span ng-if="!analysis.critical_count && !analysis.high_count && !analysis.medium_count && !analysis.low_count"
+                style="font-size: 11px; color: var(--fha-success); font-weight: 600;">
+            <i class="fa fa-check"></i> Clean
+          </span>
+        </div>
+        <!-- Record count -->
+        <div ng-if="analysis.record_count" style="font-size: 10px; color: var(--fha-text-secondary); margin-bottom: var(--fha-spacing-sm);">
+          <i class="fa fa-database"></i> {{analysis.record_count}} records scanned
         </div>
         
         <!-- Metadata (Compact) -->

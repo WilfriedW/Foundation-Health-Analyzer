@@ -470,14 +470,19 @@
         if (parsedDetails) {
           // Extract configuration data (from root level)
           if (parsedDetails.configuration) {
-            data.result.configuration_name = parsedDetails.configuration.name;
-            data.result.configuration_description = parsedDetails.configuration.description;
-            data.result.table_name = parsedDetails.configuration.table_name;
-            data.result.table_label = parsedDetails.configuration.table_label;
-            data.result.scope = parsedDetails.configuration.scope;
-            data.result.template_name = parsedDetails.configuration.template_name ||
-                                        parsedDetails.configuration.template ||
-                                        null;
+            var cfg = parsedDetails.configuration;
+            // Force toString() — values may be GlideElement objects serialized as {value,displayValue}
+            var _str = function(v) {
+              if (!v) return '';
+              if (typeof v === 'object') return v.displayValue || v.value || v.label || JSON.stringify(v);
+              return String(v);
+            };
+            data.result.configuration_name        = _str(cfg.name);
+            data.result.configuration_description = _str(cfg.description);
+            data.result.table_name                = _str(cfg.table_name);
+            data.result.table_label               = _str(cfg.table_label);
+            data.result.scope                     = _str(cfg.scope);
+            data.result.template_name             = _str(cfg.template_name || cfg.template || '');
 
             // Extract options
             if (parsedDetails.configuration.options) {
@@ -1183,18 +1188,50 @@
        ============================================================ -->
   <div ng-if="c.activeTab == 'analytics'">
 
-    <!-- ── ROW 1 : Health Score + Key Metrics ──────────────────── -->
-    <div style="display: grid; grid-template-columns: 240px 1fr; gap: 24px; margin-bottom: 24px;">
+    <!-- ── ROW 1 : Key Metrics tiles ──────────────────────────── -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <div class="fha-card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 800; color: var(--fha-primary);">{{c.result.record_count || 0}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Records Scanned</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.result.issues.length}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Total Issues</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.getTotalTables()}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Tables Affected</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 800; color: var(--fha-danger);">{{c.getIssuesBySeverity('critical').length}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Critical</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 800; color: #E74C3C;">{{c.getIssuesBySeverity('high').length}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">High</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 800; color: var(--fha-warning);">{{c.getIssuesBySeverity('medium').length}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Medium</div>
+      </div>
+      <div class="fha-card" style="padding: 16px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 800; color: #5DADE2;">{{c.getIssuesBySeverity('low').length}}</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Low</div>
+      </div>
+    </div>
+
+    <!-- ── ROW 2 : Health Score | Severity Breakdown | Category ─── -->
+    <div style="display: grid; grid-template-columns: 220px 1fr; gap: 24px; margin-bottom: 24px;">
 
       <!-- Health Score -->
-      <div class="fha-card" style="text-align: center;" ng-if="c.result.health_score !== undefined">
+      <div class="fha-card">
         <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite); width: 100%; text-align: left;">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
             <i class="fa fa-heartbeat" style="color: var(--fha-primary);"></i> Health Score
           </h3>
         </div>
-        <div class="fha-card-body" style="padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
-          <div style="width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; border: 8px solid; box-shadow: 0 4px 20px rgba(0,0,0,0.1);"
+        <div class="fha-card-body" style="padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+          <div style="width: 110px; height: 110px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; border: 8px solid; box-shadow: 0 4px 20px rgba(0,0,0,0.1);"
                ng-style="{
                  'color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)',
                  'border-color': c.result.health_score >= 70 ? 'var(--fha-success)' : c.result.health_score >= 40 ? 'var(--fha-warning)' : 'var(--fha-danger)',
@@ -1202,109 +1239,64 @@
                }">
             {{c.result.health_score}}%
           </div>
-          <div>
-            <div style="font-size: 18px; font-weight: 700; color: var(--fha-anthracite);">{{c.getHealthLabel()}}</div>
-            <div style="font-size: 12px; color: var(--fha-text-secondary); margin-top: 4px; line-height: 1.5;">{{c.getHealthDescription()}}</div>
+          <div style="text-align: center;">
+            <div style="font-size: 16px; font-weight: 700; color: var(--fha-anthracite);">{{c.getHealthLabel()}}</div>
+            <div style="font-size: 11px; color: var(--fha-text-secondary); margin-top: 4px; line-height: 1.5;">{{c.getHealthDescription()}}</div>
           </div>
         </div>
       </div>
 
-      <!-- Key Metrics grid -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; align-content: start;">
-        <div class="fha-card" style="padding: 16px; text-align: center;">
-          <div style="font-size: 28px; font-weight: 800; color: var(--fha-primary);">{{c.result.record_count || 0}}</div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Records Scanned</div>
-        </div>
-        <div class="fha-card" style="padding: 16px; text-align: center;">
-          <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.result.issues.length}}</div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Total Issues</div>
-        </div>
-        <div class="fha-card" style="padding: 16px; text-align: center;">
-          <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.getTotalTables()}}</div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Tables Affected</div>
-        </div>
-        <div class="fha-card" style="padding: 16px; text-align: center;">
-          <div style="font-size: 28px; font-weight: 800; color: var(--fha-anthracite);">{{c.getAvgIssuesPerTable() | number:1}}</div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Avg / Table</div>
-        </div>
-        <div class="fha-card" style="padding: 16px; text-align: center;">
-          <div style="font-size: 28px; font-weight: 800; color: var(--fha-danger);">{{c.getIssuesBySeverity('critical').length}}</div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">Critical</div>
-        </div>
-        <div class="fha-card" style="padding: 16px; text-align: center;">
-          <div style="font-size: 28px; font-weight: 800; color: #E74C3C;">{{c.getIssuesBySeverity('high').length}}</div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--fha-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;">High</div>
-        </div>
-      </div>
-    </div>
+      <!-- Severity Breakdown + Category side by side -->
+      <div style="display: grid; grid-template-columns: 1fr auto; gap: 24px;">
 
-    <!-- ── ROW 2 : Severity Breakdown + Category Breakdown ──────── -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 24px;">
-
-      <!-- Severity Breakdown -->
-      <div class="fha-card">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
-            <i class="fa fa-pie-chart" style="color: var(--fha-primary);"></i> Severity Breakdown
-          </h3>
-        </div>
-        <div class="fha-card-body" style="padding: 16px 20px;">
-          <!-- Stacked bar -->
-          <div style="display: flex; height: 24px; border-radius: 6px; overflow: hidden; margin-bottom: 20px; gap: 2px;">
-            <div ng-if="c.getIssuesBySeverity('critical').length > 0"
-                 ng-style="{'flex': c.getIssuesBySeverity('critical').length}"
-                 style="background: var(--fha-danger);"></div>
-            <div ng-if="c.getIssuesBySeverity('high').length > 0"
-                 ng-style="{'flex': c.getIssuesBySeverity('high').length}"
-                 style="background: #E74C3C;"></div>
-            <div ng-if="c.getIssuesBySeverity('medium').length > 0"
-                 ng-style="{'flex': c.getIssuesBySeverity('medium').length}"
-                 style="background: var(--fha-warning);"></div>
-            <div ng-if="c.getIssuesBySeverity('low').length > 0"
-                 ng-style="{'flex': c.getIssuesBySeverity('low').length}"
-                 style="background: #5DADE2;"></div>
+        <!-- Severity Breakdown -->
+        <div class="fha-card">
+          <div class="fha-card-header">
+            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+              <i class="fa fa-pie-chart" style="color: var(--fha-primary);"></i> Severity Breakdown
+            </h3>
           </div>
-          <div ng-repeat="sev in [{label:'Critical',key:'critical',color:'var(--fha-danger)'},{label:'High',key:'high',color:'#E74C3C'},{label:'Medium',key:'medium',color:'var(--fha-warning)'},{label:'Low',key:'low',color:'#5DADE2'}]"
-               style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer;"
-               ng-click="c.setActiveTab('issues'); c.filters.severity = sev.key">
-            <div style="flex: 0 0 70px; font-size: 11px; font-weight: 700; text-transform: uppercase;"
-                 ng-style="{'color': sev.color}">{{sev.label}}</div>
-            <div style="flex: 1; height: 20px; background: var(--fha-gray-100); border-radius: 10px; overflow: hidden;">
-              <div style="height: 100%; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px;"
-                   ng-style="{'width': (c.getIssuesBySeverity(sev.key).length / c.result.issues.length * 100) + '%', 'background': sev.color, 'min-width': c.getIssuesBySeverity(sev.key).length > 0 ? '20px' : '0'}">
-                <span ng-if="c.getIssuesBySeverity(sev.key).length > 0" style="font-size: 10px; font-weight: 700; color: white;">{{c.getIssuesBySeverity(sev.key).length}}</span>
+          <div class="fha-card-body" style="padding: 16px 20px;">
+            <div style="display: flex; height: 20px; border-radius: 6px; overflow: hidden; margin-bottom: 16px; gap: 2px;">
+              <div ng-if="c.getIssuesBySeverity('critical').length > 0" ng-style="{'flex': c.getIssuesBySeverity('critical').length}" style="background: var(--fha-danger);"></div>
+              <div ng-if="c.getIssuesBySeverity('high').length > 0" ng-style="{'flex': c.getIssuesBySeverity('high').length}" style="background: #E74C3C;"></div>
+              <div ng-if="c.getIssuesBySeverity('medium').length > 0" ng-style="{'flex': c.getIssuesBySeverity('medium').length}" style="background: var(--fha-warning);"></div>
+              <div ng-if="c.getIssuesBySeverity('low').length > 0" ng-style="{'flex': c.getIssuesBySeverity('low').length}" style="background: #5DADE2;"></div>
+            </div>
+            <div ng-repeat="sev in [{label:'Critical',key:'critical',color:'var(--fha-danger)'},{label:'High',key:'high',color:'#E74C3C'},{label:'Medium',key:'medium',color:'var(--fha-warning)'},{label:'Low',key:'low',color:'#5DADE2'}]"
+                 style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer;"
+                 ng-click="c.setActiveTab('issues'); c.filters.severity = sev.key">
+              <div style="flex: 0 0 62px; font-size: 11px; font-weight: 700; text-transform: uppercase;" ng-style="{'color': sev.color}">{{sev.label}}</div>
+              <div style="flex: 1; height: 18px; background: var(--fha-gray-100); border-radius: 9px; overflow: hidden;">
+                <div style="height: 100%; border-radius: 9px; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px;"
+                     ng-style="{'width': (c.getIssuesBySeverity(sev.key).length / c.result.issues.length * 100) + '%', 'background': sev.color, 'min-width': c.getIssuesBySeverity(sev.key).length > 0 ? '18px' : '0'}">
+                  <span ng-if="c.getIssuesBySeverity(sev.key).length > 0" style="font-size: 10px; font-weight: 700; color: white;">{{c.getIssuesBySeverity(sev.key).length}}</span>
+                </div>
               </div>
+              <div style="flex: 0 0 34px; text-align: right; font-size: 11px; color: var(--fha-text-secondary);">{{c.getPercentageBySeverity(sev.key)}}%</div>
             </div>
-            <div style="flex: 0 0 36px; text-align: right; font-size: 12px; color: var(--fha-text-secondary);">
-              {{c.getPercentageBySeverity(sev.key)}}%
-            </div>
+            <div style="text-align: right; font-size: 10px; color: var(--fha-text-secondary); font-style: italic;">Click to filter</div>
           </div>
-          <div style="text-align: right; margin-top: 4px; font-size: 11px; color: var(--fha-text-secondary); font-style: italic;">Click a row to filter issues</div>
         </div>
-      </div>
 
-      <!-- Category Breakdown -->
-      <div class="fha-card" ng-if="c.getCategoryStats().length > 0">
-        <div class="fha-card-header">
-          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
-            <i class="fa fa-tags" style="color: var(--fha-primary);"></i> Category Breakdown
-          </h3>
-        </div>
-        <div class="fha-card-body" style="padding: 16px 20px;">
-          <div ng-repeat="cat in c.getCategoryStats()"
-               style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer;"
-               ng-click="c.setActiveTab('issues'); c.filters.category = cat.name">
-            <i class="fa fa-tag" style="color: var(--fha-primary); flex-shrink: 0; font-size: 12px;"></i>
-            <div style="flex: 0 0 90px; font-size: 12px; font-weight: 700; color: var(--fha-anthracite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{cat.name}}">{{cat.name}}</div>
-            <div style="flex: 1; height: 20px; background: var(--fha-gray-100); border-radius: 10px; overflow: hidden;">
-              <div style="height: 100%; background: var(--fha-primary); border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px;"
-                   ng-style="{'width': cat.percentage + '%', 'min-width': cat.count > 0 ? '20px' : '0'}">
-                <span style="font-size: 10px; font-weight: 700; color: white;">{{cat.count}}</span>
-              </div>
-            </div>
-            <div style="flex: 0 0 36px; text-align: right; font-size: 12px; color: var(--fha-text-secondary);">{{cat.percentage}}%</div>
+        <!-- Category Breakdown -->
+        <div class="fha-card" ng-if="c.getCategoryStats().length > 0" style="min-width: 220px;">
+          <div class="fha-card-header">
+            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--fha-anthracite);">
+              <i class="fa fa-tags" style="color: var(--fha-primary);"></i> Categories
+            </h3>
           </div>
-          <div style="text-align: right; margin-top: 4px; font-size: 11px; color: var(--fha-text-secondary); font-style: italic;">Click a row to filter issues</div>
+          <div class="fha-card-body" style="padding: 16px 20px;">
+            <div ng-repeat="cat in c.getCategoryStats()"
+                 style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;"
+                 ng-click="c.setActiveTab('issues'); c.filters.category = cat.name">
+              <i class="fa fa-tag" style="color: var(--fha-primary); flex-shrink: 0; font-size: 11px;"></i>
+              <div style="flex: 1; font-size: 12px; font-weight: 700; color: var(--fha-anthracite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{cat.name}}">{{cat.name}}</div>
+              <span class="fha-badge fha-badge-primary" style="flex-shrink: 0; font-size: 11px;">{{cat.count}}</span>
+              <span style="flex-shrink: 0; font-size: 10px; color: var(--fha-text-secondary); min-width: 28px; text-align: right;">{{cat.percentage}}%</span>
+            </div>
+            <div style="text-align: right; font-size: 10px; color: var(--fha-text-secondary); font-style: italic;">Click to filter</div>
+          </div>
         </div>
       </div>
     </div>
